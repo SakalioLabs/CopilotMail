@@ -1,4 +1,6 @@
 mod config;
+mod events;
+mod outbound;
 mod smtp;
 mod store;
 
@@ -20,13 +22,15 @@ async fn main() -> Result<()> {
         .init();
     let config = Config::from_env()?;
     let store = Store::open(&config.database)?;
+    let events = events::Events::new();
     let smtp_task = tokio::spawn(smtp::serve(
         config.smtp_addr,
         store.clone(),
         config.domain.clone(),
+        events.clone(),
     ));
     tracing::info!(http=%config.http_addr,smtp=%config.smtp_addr,"CopilotMail starting");
-    let api_task = tokio::spawn(api::serve(config.clone(), store));
+    let api_task = tokio::spawn(api::serve(config.clone(), store, events));
     tokio::select! { result=smtp_task => result??, result=api_task => result?? }
     Ok(())
 }

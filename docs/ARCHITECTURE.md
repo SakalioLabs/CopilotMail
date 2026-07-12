@@ -1,10 +1,29 @@
 # Architecture
 
-- `SMTP listener`：Rust/Tokio 实现 SMTP 会话和信封校验，不依赖 Inbucket、Mailpit 等服务。
-- `API`：Axum JSON API，管理员密钥创建邮箱，邮箱密码换取 JWT。
-- `Store`：SQLite WAL，保留原始 RFC 5322 邮件和解析后的正文。
-- `Events`：下一里程碑通过 WebSocket 按邮箱推送新邮件事件。
-- `Web`：独立静态前端，只依赖版本化 API。
-- `Skill`：机器可读的 Agent 使用说明和调用示例。
+CopilotMail is a modular monolith: one deployable Rust binary contains independently testable protocol, API, persistence, event, and web modules. This keeps operations simple without coupling the browser UI to internal code.
 
-生产环境应将 API 放在 HTTPS 反向代理之后，并把公网 TCP/25 转发到容器 SMTP 端口。
+```text
+Internet SMTP :25 ---> smtp.rs ----> store.rs (SQLite WAL)
+                                  +-> events.rs (broadcast)
+Browser/Agent :8080 -> api.rs -----+-> outbound.rs -> DNS MX -> remote SMTP :25
+                  |-> WebSocket
+                  `-> web/ static frontend
+```
+
+## Components
+
+- `smtp.rs`: Tokio SMTP state machine, envelope validation, dot unescaping, RFC 5322 parsing, and local mailbox delivery. No mail-catcher service is used.
+- `outbound.rs`: MX lookup and direct SMTP delivery with multiline response handling and dot stuffing. No SMTP relay is required.
+- `api.rs`: Axum JSON API, Argon2 mailbox login, JWT authorization, mailbox/message operations, sends, WebSocket upgrade, and static frontend delivery.
+- `store.rs`: SQLite WAL database. Mailbox passwords are Argon2 hashes; messages retain parsed text/HTML and raw RFC 5322 data.
+- `events.rs`: bounded Tokio broadcast channel. API WebSockets filter events by authenticated mailbox ID.
+- `web/`: browser client that calls only the public HTTP and WebSocket APIs.
+- `skills/copilotmail/`: distributable Agent Skill, API reference, and deterministic standard-library client.
+
+## Trust boundaries
+
+The administrator key may create mailboxes. Mailbox JWTs can only access their own mailbox ID and messages. SMTP recipients must exist locally and match the configured domain. The browser is untrusted and never receives the administrator key.
+
+## Known production hardening work
+
+The first release intentionally keeps deployment self-contained. Internet-scale operation should add SMTP STARTTLS, DKIM signing, SPF/DMARC guidance, durable outbound queues with retries and bounce state, quotas, per-origin CORS, and reverse-proxy rate limits.

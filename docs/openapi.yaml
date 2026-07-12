@@ -1,0 +1,91 @@
+openapi: 3.1.0
+info:
+  title: CopilotMail API
+  version: 0.1.0
+servers:
+  - url: http://127.0.0.1:8080
+paths:
+  /healthz:
+    get:
+      responses:
+        '200': {description: Healthy}
+  /v1/mailboxes:
+    post:
+      security: [{adminKey: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Credentials'}
+      responses:
+        '201': {description: Created, content: {application/json: {schema: {$ref: '#/components/schemas/Mailbox'}}}}
+        '409': {description: Already exists}
+  /v1/mailboxes/{id}:
+    parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+    get:
+      security: [{bearerAuth: []}]
+      responses: {'200': {description: Current mailbox}}
+    delete:
+      security: [{bearerAuth: []}]
+      responses: {'204': {description: Deleted}}
+  /v1/auth/token:
+    post:
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/Credentials'}}}
+      responses: {'200': {description: JWT and mailbox}}
+  /v1/messages:
+    get:
+      security: [{bearerAuth: []}]
+      responses: {'200': {description: Inbox}}
+  /v1/messages/send:
+    post:
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, subject, text]
+              properties:
+                to: {type: string, format: email}
+                subject: {type: string}
+                text: {type: string}
+                html: {type: string}
+      responses: {'202': {description: Accepted}, '502': {description: External SMTP delivery failed}}
+  /v1/messages/{id}:
+    parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+    get:
+      security: [{bearerAuth: []}]
+      responses: {'200': {description: Message}, '404': {description: Not found}}
+    patch:
+      security: [{bearerAuth: []}]
+      requestBody:
+        content: {application/json: {schema: {type: object, required: [seen], properties: {seen: {type: boolean}}}}}
+      responses: {'204': {description: Updated}}
+    delete:
+      security: [{bearerAuth: []}]
+      responses: {'204': {description: Deleted}}
+  /v1/events:
+    get:
+      description: Upgrade to WebSocket. Supply JWT in the token query parameter.
+      parameters: [{name: token, in: query, required: true, schema: {type: string}}]
+      responses: {'101': {description: WebSocket upgrade}}
+components:
+  securitySchemes:
+    adminKey: {type: apiKey, in: header, name: X-Admin-Key}
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  schemas:
+    Credentials:
+      type: object
+      required: [address, password]
+      properties:
+        address: {type: string, format: email}
+        password: {type: string, minLength: 8}
+    Mailbox:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        address: {type: string, format: email}
+        created_at: {type: string, format: date-time}

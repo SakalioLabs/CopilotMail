@@ -1,4 +1,7 @@
-use crate::store::{NewMessage, Store};
+use crate::{
+    events::Events,
+    store::{NewMessage, Store},
+};
 use anyhow::Result;
 use mail_parser::MessageParser;
 use std::net::SocketAddr;
@@ -7,21 +10,22 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
-pub async fn serve(addr: SocketAddr, store: Store, domain: String) -> Result<()> {
+pub async fn serve(addr: SocketAddr, store: Store, domain: String, events: Events) -> Result<()> {
     let listener = TcpListener::bind(addr).await?;
     loop {
         let (stream, peer) = listener.accept().await?;
         let store = store.clone();
         let domain = domain.clone();
+        let events = events.clone();
         tokio::spawn(async move {
-            if let Err(e) = session(stream, store, &domain).await {
+            if let Err(e) = session(stream, store, &domain, events).await {
                 tracing::warn!(%peer,error=%e,"SMTP session failed");
             }
         });
     }
 }
 
-async fn session(stream: TcpStream, store: Store, domain: &str) -> Result<()> {
+async fn session(stream: TcpStream, store: Store, domain: &str, events: Events) -> Result<()> {
     let (read, mut write) = stream.into_split();
     let mut lines = BufReader::new(read).lines();
     write
@@ -62,18 +66,28 @@ async fn session(stream: TcpStream, store: Store, domain: &str) -> Result<()> {
                 .write_all(b"354 End data with <CR><LF>.<CR><LF>\r\n")
                 .await?;
             let mut raw = Vec::new();
+            let mut too_large = false;
             while let Some(data) = lines.next_line().await? {
                 if data == "." {
                     break;
+                }
+                if too_large {
+                    continue;
                 }
                 let data = data.strip_prefix("..").unwrap_or(&data);
                 raw.extend_from_slice(data.as_bytes());
                 raw.extend_from_slice(b"\r\n");
                 if raw.len() > 26_214_400 {
-                    break;
+                    too_large = true;
                 }
             }
-            persist(&store, &sender, &recipients, &raw)?;
+            if too_large {
+                write.write_all(b"552 5.3.4 Message too large\r\n").await?;
+                sender.clear();
+                recipients.clear();
+                continue;
+            }
+            persist(&store, &events, &sender, &recipients, &raw)?;
             write.write_all(b"250 2.0.0 Queued\r\n").await?;
             sender.clear();
             recipients.clear();
@@ -95,7 +109,13 @@ async fn session(stream: TcpStream, store: Store, domain: &str) -> Result<()> {
     Ok(())
 }
 
-fn persist(store: &Store, envelope_sender: &str, recipients: &[String], raw: &[u8]) -> Result<()> {
+pub(crate) fn persist(
+    store: &Store,
+    events: &Events,
+    envelope_sender: &str,
+    recipients: &[String],
+    raw: &[u8],
+) -> Result<()> {
     let parsed = MessageParser::default()
         .parse(raw)
         .ok_or_else(|| anyhow::anyhow!("invalid RFC 5322 message"))?;
@@ -115,7 +135,7 @@ fn persist(store: &Store, envelope_sender: &str, recipients: &[String], raw: &[u
         .unwrap_or_default();
     for recipient in recipients {
         if let Some(mailbox) = store.mailbox_by_address(recipient)? {
-            store.insert_message(NewMessage {
+            let message = store.insert_message(NewMessage {
                 mailbox_id: &mailbox.id,
                 sender,
                 recipient,
@@ -124,6 +144,7 @@ fn persist(store: &Store, envelope_sender: &str, recipients: &[String], raw: &[u
                 html: &html,
                 raw,
             })?;
+            events.received(mailbox.id, message.id);
         }
     }
     Ok(())

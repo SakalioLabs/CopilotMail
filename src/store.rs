@@ -136,6 +136,29 @@ impl Store {
         ).optional().map_err(Into::into)
     }
 
+    pub fn set_seen(&self, mailbox_id: &str, id: &str, seen: bool) -> Result<bool> {
+        Ok(self.0.lock().unwrap().execute(
+            "UPDATE messages SET seen=?3 WHERE mailbox_id=?1 AND id=?2",
+            params![mailbox_id, id, seen],
+        )? == 1)
+    }
+
+    pub fn delete_message(&self, mailbox_id: &str, id: &str) -> Result<bool> {
+        Ok(self.0.lock().unwrap().execute(
+            "DELETE FROM messages WHERE mailbox_id=?1 AND id=?2",
+            params![mailbox_id, id],
+        )? == 1)
+    }
+
+    pub fn delete_mailbox(&self, mailbox_id: &str) -> Result<bool> {
+        Ok(self
+            .0
+            .lock()
+            .unwrap()
+            .execute("DELETE FROM mailboxes WHERE id=?1", [mailbox_id])?
+            == 1)
+    }
+
     pub fn messages(&self, mailbox_id: &str) -> Result<Vec<MessageSummary>> {
         let db = self.0.lock().unwrap();
         let mut q=db.prepare("SELECT id,mailbox_id,sender,recipient,subject,received_at,seen FROM messages WHERE mailbox_id=?1 ORDER BY received_at DESC")?;

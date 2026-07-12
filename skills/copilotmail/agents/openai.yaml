@@ -1,0 +1,4 @@
+interface:
+  display_name: "CopilotMail Agent"
+  short_description: "Create, monitor, and send agent email"
+  default_prompt: "Use $copilotmail to create an inbox, monitor new messages, and send a reply."

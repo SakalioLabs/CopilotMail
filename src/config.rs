@@ -9,6 +9,7 @@ pub struct Config {
     pub domain: String,
     pub jwt_secret: String,
     pub admin_key: String,
+    pub web_dir: PathBuf,
 }
 
 impl Config {
@@ -24,6 +25,7 @@ impl Config {
             domain: value("COPILOTMAIL_DOMAIN", "mail.local").to_ascii_lowercase(),
             jwt_secret: required("COPILOTMAIL_JWT_SECRET")?,
             admin_key: required("COPILOTMAIL_ADMIN_KEY")?,
+            web_dir: value("COPILOTMAIL_WEB_DIR", "./web").into(),
         })
     }
 }
