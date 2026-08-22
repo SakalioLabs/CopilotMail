@@ -5,6 +5,7 @@ import {
   listDrafts,
   listInbox,
   listMailboxes,
+  listSentSubmissions,
   requestSubmission,
   restoreDraft,
   saveDraft,
@@ -1063,6 +1064,114 @@ describe("human draft recovery API", () => {
     );
     await expect(restoreDraft(config, { ...expectedDraft, version: 0 })).rejects.toThrow(
       "draft_version_invalid",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(malformed.length);
+  });
+});
+
+describe("human sent submission directory API", () => {
+  const newestSubmissionId = "018f0000-0000-7000-8000-000000000010";
+  const olderSubmissionId = "018f0000-0000-7000-8000-000000000009";
+  const sentItem = (submission_id = newestSubmissionId) => ({
+    submission_id,
+    accepted_at: "2026-07-27T12:00:00.000Z",
+    recipient_count: 2,
+    delivery: {
+      observed_at: "2026-07-27T12:01:00.000Z",
+      terminal: false,
+      recipient_count: 2,
+      delivered_count: 1,
+      failed_count: 0,
+      queued_count: 1,
+      unknown_count: 0,
+    },
+  });
+
+  it("lists only accepted-send metadata with a bounded opaque cursor and abort signal", async () => {
+    const cursor = "v1.018f0000-0000-7000-8000-000000000011";
+    const controller = new AbortController();
+    const newerAcceptanceWithOlderId = {
+      ...sentItem(olderSubmissionId),
+      accepted_at: "2026-07-27T12:00:00.000000001+00:00",
+    };
+    const olderAcceptanceWithNewerId = sentItem(newestSubmissionId);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({
+        items: [newerAcceptanceWithOlderId, olderAcceptanceWithNewerId],
+        next_cursor: `v1.${newestSubmissionId}`,
+        has_more: true,
+      }), { status: 200, headers: { "Content-Type": "application/json" } }),
+    );
+
+    await expect(listSentSubmissions(config, cursor, controller.signal)).resolves.toMatchObject({
+      items: [{ submission_id: olderSubmissionId }, { submission_id: newestSubmissionId }],
+      has_more: true,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v2/mailboxes/${config.mailboxId}/submissions?limit=50&cursor=${cursor}`,
+      expect.objectContaining({
+        credentials: "same-origin",
+        cache: "no-store",
+        signal: controller.signal,
+      }),
+    );
+    const request = fetchMock.mock.calls[0]?.[1];
+    expect(request?.headers).not.toHaveProperty("Authorization");
+    expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain("recipient_ref");
+  });
+
+  it("fails closed on extra or private fields, invalid aggregate evidence, and cursors", async () => {
+    const validPage = {
+      items: [sentItem(newestSubmissionId), sentItem(olderSubmissionId)],
+      next_cursor: null,
+      has_more: false,
+    };
+    const malformed = [
+      { ...validPage, unexpected: true },
+      { ...validPage, items: [{ ...sentItem(), submission_id: newestSubmissionId.toUpperCase() }] },
+      { ...validPage, items: [{ ...sentItem(), recipient_count: 0 }] },
+      { ...validPage, items: [{ ...sentItem(), accepted_at: "July 27, 2026" }] },
+      { ...validPage, items: [{ ...sentItem(), delivery: null }] },
+      {
+        ...validPage,
+        items: [{ ...sentItem(), draft_id: "018f0000-0000-7000-8000-000000000001" }],
+      },
+      {
+        ...validPage,
+        items: [{
+          ...sentItem(),
+          delivery: { ...sentItem().delivery, recipient_count: 1 },
+        }],
+      },
+      {
+        ...validPage,
+        items: [{
+          ...sentItem(),
+          delivery: { ...sentItem().delivery, observed_at: "2026-07-27T11:59:59Z" },
+        }],
+      },
+      {
+        ...validPage,
+        items: [{
+          ...sentItem(),
+          delivery: { ...sentItem().delivery, terminal: true },
+        }],
+      },
+      { ...validPage, items: [...validPage.items].reverse() },
+      { ...validPage, next_cursor: `v1.${olderSubmissionId}`, has_more: false },
+      { ...validPage, next_cursor: `v1.${newestSubmissionId}`, has_more: true },
+    ];
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    for (const response of malformed) {
+      fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(response), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }));
+      await expect(listSentSubmissions(config)).rejects.toThrow("sent_list_response_invalid");
+    }
+
+    await expect(listSentSubmissions(config, "opaque-but-not-canonical")).rejects.toThrow(
+      "sent_list_cursor_invalid",
     );
     expect(fetchMock).toHaveBeenCalledTimes(malformed.length);
   });

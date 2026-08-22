@@ -8,6 +8,7 @@ import type {
   DraftResult,
   HumanDraftPage,
   HumanDraftRestore,
+  HumanSentSubmissionPage,
   InboxPage,
   MailboxDirectoryPage,
   MailSubmission,
@@ -16,12 +17,14 @@ import type {
   MessageSummary,
 } from "./types";
 
-vi.mock("./api", () => ({
+vi.mock("./api", async (importOriginal) => ({
+  ...await importOriginal<typeof import("./api")>(),
   getMessage: vi.fn(),
   getSubmission: vi.fn(),
   listDrafts: vi.fn(),
   listInbox: vi.fn(),
   listMailboxes: vi.fn(),
+  listSentSubmissions: vi.fn(),
   requestSubmission: vi.fn(),
   restoreDraft: vi.fn(),
   saveDraft: vi.fn(),
@@ -124,6 +127,27 @@ const restoredDraft: HumanDraftRestore = {
   text_body: "Restored private body",
 };
 
+const sentSubmissionId = "019b0000-0000-7000-8000-000000000080";
+const olderSentSubmissionId = "019b0000-0000-7000-8000-000000000079";
+const sentPage: HumanSentSubmissionPage = {
+  items: [{
+    submission_id: sentSubmissionId,
+    accepted_at: "2026-07-27T12:00:00.000Z",
+    recipient_count: 2,
+    delivery: {
+      observed_at: "2026-07-27T12:01:00.000Z",
+      terminal: false,
+      recipient_count: 2,
+      delivered_count: 1,
+      failed_count: 0,
+      queued_count: 1,
+      unknown_count: 0,
+    },
+  }],
+  next_cursor: null,
+  has_more: false,
+};
+
 const deliveredSubmission: MailSubmission = {
   submission_id: "019b0000-0000-7000-8000-000000000040",
   mailbox_id: "019b0000-0000-7000-8000-000000000020",
@@ -195,6 +219,7 @@ beforeEach(() => {
   vi.mocked(api.listMailboxes).mockResolvedValue(mailboxDirectory);
   vi.mocked(api.listInbox).mockResolvedValue(page);
   vi.mocked(api.listDrafts).mockResolvedValue(draftPage);
+  vi.mocked(api.listSentSubmissions).mockResolvedValue(sentPage);
   vi.mocked(api.restoreDraft).mockResolvedValue(restoredDraft);
   vi.mocked(api.getMessage).mockResolvedValue(detail);
   vi.mocked(api.updateMessageState).mockResolvedValue({
@@ -238,6 +263,96 @@ describe("human mail application shell", () => {
     );
     expect(screen.queryByText(restoredDraft.subject)).not.toBeInTheDocument();
     expect(screen.queryByText(restoredDraft.text_body)).not.toBeInTheDocument();
+  });
+
+  it("exposes Sent navigation and reads only accepted delivery metadata", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    setNarrowViewport(true);
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Inbox" });
+    const desktopSent = within(container.querySelector<HTMLElement>(".sidebar")!)
+      .getByRole("button", { name: "Sent" });
+    const mobileSent = within(container.querySelector<HTMLElement>(".mobile-view-tabs")!)
+      .getByRole("button", { name: "Sent" });
+    expect(desktopSent).toBeEnabled();
+    expect(mobileSent).toBeEnabled();
+
+    fireEvent.click(mobileSent);
+
+    const heading = await screen.findByRole("heading", { name: "Sent" });
+    await waitFor(() => expect(heading).toHaveFocus());
+    expect(await screen.findByText(
+      "Delivery update: 1/2 delivered, 0 failed, 1 queued, 0 unknown",
+    )).toBeInTheDocument();
+    expect(api.listSentSubmissions).toHaveBeenCalledWith(
+      expect.objectContaining({ mailboxId: mailboxDirectory.items[0].mailbox_id }),
+      undefined,
+      expect.any(AbortSignal),
+    );
+    expect(screen.queryByText("Restored private subject")).not.toBeInTheDocument();
+    expect(screen.queryByText("250 delivered")).not.toBeInTheDocument();
+  });
+
+  it("refreshes and appends only a progressing sent page", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const firstPage: HumanSentSubmissionPage = {
+      ...sentPage,
+      next_cursor: `v1.${sentSubmissionId}`,
+      has_more: true,
+    };
+    const nextPage: HumanSentSubmissionPage = {
+      items: [{
+        ...sentPage.items[0],
+        submission_id: olderSentSubmissionId,
+        recipient_count: 1,
+        delivery: undefined,
+      }],
+      next_cursor: null,
+      has_more: false,
+    };
+    vi.mocked(api.listSentSubmissions)
+      .mockReset()
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce(nextPage);
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Inbox" });
+    fireEvent.click(within(container.querySelector<HTMLElement>(".sidebar")!)
+      .getByRole("button", { name: "Sent" }));
+
+    const refresh = await screen.findByRole("button", { name: "Refresh sent mail" });
+    fireEvent.click(refresh);
+    await waitFor(() => expect(api.listSentSubmissions).toHaveBeenCalledTimes(2));
+    const loadMore = await screen.findByRole("button", { name: "Load more sent mail" });
+    fireEvent.click(loadMore);
+
+    await waitFor(() => expect(screen.getAllByText("Accepted for delivery")).toHaveLength(2));
+    expect(api.listSentSubmissions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ mailboxId: mailboxDirectory.items[0].mailbox_id }),
+      `v1.${sentSubmissionId}`,
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("aborts and ignores sent directory responses after leaving the view", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const latePage = deferred<HumanSentSubmissionPage>();
+    vi.mocked(api.listSentSubmissions).mockReset().mockReturnValueOnce(latePage.promise);
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Inbox" });
+    const sidebar = container.querySelector<HTMLElement>(".sidebar")!;
+    fireEvent.click(within(sidebar).getByRole("button", { name: "Sent" }));
+    await waitFor(() => expect(api.listSentSubmissions).toHaveBeenCalledTimes(1));
+    const signal = vi.mocked(api.listSentSubmissions).mock.calls[0]?.[2];
+    fireEvent.click(within(sidebar).getByRole("button", { name: "Inbox" }));
+    expect(signal?.aborted).toBe(true);
+
+    await act(async () => {
+      latePage.resolve(sentPage);
+      await flushMicrotasks();
+    });
+    expect(await screen.findByRole("heading", { name: "Inbox" })).toBeInTheDocument();
+    expect(screen.queryByText("Delivery update: 1/2 delivered")).not.toBeInTheDocument();
   });
 
   it("renders an empty draft state and can refresh it without retaining content", async () => {
@@ -1512,7 +1627,11 @@ describe("human mail application shell", () => {
     const draftEntries = screen.getAllByRole("button", { name: "Drafts" });
     expect(draftEntries).toHaveLength(2);
     draftEntries.forEach((entry) => expect(entry).toBeDisabled());
+    const sentEntries = screen.getAllByRole("button", { name: "Sent" });
+    expect(sentEntries).toHaveLength(2);
+    sentEntries.forEach((entry) => expect(entry).toBeDisabled());
     expect(api.listDrafts).not.toHaveBeenCalled();
+    expect(api.listSentSubmissions).not.toHaveBeenCalled();
     expect(screen.getAllByText("This mailbox is read-only")).toHaveLength(2);
     fireEvent.click(await screen.findByRole("button", { name: /Alice/ }));
     await screen.findByText("The safe plain-text message body.");

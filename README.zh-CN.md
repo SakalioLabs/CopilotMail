@@ -15,8 +15,10 @@ V2 已建立 Rust Cargo Workspace、统一 `Principal` 领域模型、人与 Age
 > 单独运行新版本 `migrate` 并核对数据平面 Origin 绑定，再只启动新版本进程。完整顺序见
 > [Ubuntu / WSL Pilot 部署手册](docs/UBUNTU_WSL_PILOT.zh-CN.md)。
 
-> 当前仓库最新迁移为 `0054_human_mail_draft_reads.sql`。0053 的停写规则仍只适用于
-> 跨越 0053 的升级；0054 及完整动态迁移链必须在干净、隔离的 PostgreSQL 环境重新验收。
+> 当前仓库最新迁移为 `0056_human_mail_sent_directory_index.sql`。0053 的停写规则仍只适用于
+> 跨越 0053 的升级；0054、0055、0056 及完整动态迁移链必须在干净、隔离的 PostgreSQL 环境重新验收。
+> 0056 使用 `CREATE INDEX CONCURRENTLY`，必须由单一迁移进程完成后再通过只读 `check`；
+> 不得在生产提交表上手工改用阻塞式建索引。
 > NixOS 目前仅可作为受限开发/隔离测试节点，不能将源码同步视作已获部署授权；详见
 > [NixOS 开发与隔离测试节点边界](docs/NIXOS_DEVELOPMENT_NODE.zh-CN.md)。
 
@@ -75,7 +77,7 @@ Token 不进入前端 JavaScript。配置、CSRF、会话撤销和剩余 Pilot �
 
 Human 邮件端已具备授权邮箱目录与 Shared Mailbox 切换、真实 `role=inbox` 收件箱、
 隐私优先的有界搜索、纯文本安全详情、已读/星标、自动保存草稿、本人私有草稿目录、
-完整性校验后的恢复编辑及可恢复正式发送。
+完整性校验后的恢复编辑、本人已发送／投递状态目录及可恢复正式发送。
 Mail Session-only 的 `GET /api/v2/mailboxes` 要求 Active Human 与 `mailbox.use`，且只列出
 具有 current data-plane binding 和资源级 Read 的邮箱；最小响应只含邮箱 UUID、kind、
 主地址和由 `Send(None)` 推导的 `can_send`，canonical Cursor 不能跨授权或绑定漂移复用。
@@ -86,6 +88,11 @@ Shared Mailbox 的成员关系不会授予其他人的草稿：目录只列出�
 才披露。恢复只按 PostgreSQL 已证明的单个 Draft 执行 JMAP
 `Email/get`，精确核对 Drafts Mailbox、`$draft`、From、Thread 和内容摘要，并在最终
 权限/版本复核与 `mail.draft.read` Audit/Outbox 原子提交成功后才向浏览器返回正文。
+已发送目录只列出调用人自己的 durable `accepted` Submission，且必须证明对应冻结 Draft
+已经成为 `sent`；它只显示接受时间、收件人数与可选的聚合投递计数，绝不显示主题、正文、
+地址、收件人摘要、SMTP reply、Draft/Provider/data-plane 引用或远端错误。目录不执行 JMAP
+调用，合法 data-plane 重绑后仍保留本地历史；Active Human、`mailbox.use`、Read/Send、本人
+所有权和当页最新快照会在 `mail.submissions.queried` Audit/Outbox 原子提交前再次复核。
 列表和搜索只返回既有入站投影形成的安全
 Message UUID；原始 JMAP Account/Email/Thread/Query State 不进入浏览器、Cursor 或
 持久证据。信封和正文分别只有在最小化 Audit/Outbox 原子提交后才披露，所有 Human
@@ -211,7 +218,7 @@ Migration 0001→0053 与针对数据平面身份、Origin、Domain、Outbox 的
 套件、目标 Pilot 升级或真实 Stalwart 互操作已经完成。真实域名邮件收发仍需完成公网
 PoC、域名认证、反垃圾、队列持久性、真实退信与故障恢复测试。
 
-当前仓库已新增 0054；上述 0001→0053 动态证据不覆盖 0054，故不能作为最新迁移链或
+当前仓库已新增 0054、0055、0056；上述 0001→0053 动态证据不覆盖它们，故不能作为最新迁移链或
 NixOS 目标机的运行态验收结论。
 
 ## V1 原型

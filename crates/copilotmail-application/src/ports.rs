@@ -937,6 +937,81 @@ pub struct HumanDraftListRecheck {
     pub expected_drafts: Vec<HumanDraftListItemRecheck>,
 }
 
+/// Immutable-key pagination request for an active Human's own accepted
+/// submissions. This is a content-free delivery-status directory: persistence
+/// must not load recipient evidence, SMTP replies, or provider references.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HumanSentListQuery {
+    pub organization_id: OrganizationId,
+    pub principal_id: PrincipalId,
+    pub mailbox_id: MailboxId,
+    pub after_submission_id: Option<MailSubmissionId>,
+    pub limit: u16,
+    pub now: chrono::DateTime<chrono::Utc>,
+}
+
+/// Latest immutable delivery snapshot reduced to browser-safe counters. The
+/// snapshot identifier is retained only for the final database recheck and
+/// must never cross the Human HTTP contract.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HumanSentDeliveryEvidence {
+    pub snapshot_id: uuid::Uuid,
+    pub observed_at: chrono::DateTime<chrono::Utc>,
+    pub terminal: bool,
+    pub recipient_count: u16,
+    pub delivered_count: u16,
+    pub failed_count: u16,
+    pub queued_count: u16,
+    pub unknown_count: u16,
+}
+
+/// Internal, content-free accepted-submission candidate. It deliberately
+/// omits Draft, recipient, provider, and SMTP details.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HumanSentListCandidate {
+    pub submission_id: MailSubmissionId,
+    pub organization_id: OrganizationId,
+    pub mailbox_id: MailboxId,
+    pub requested_by: PrincipalId,
+    pub accepted_at: chrono::DateTime<chrono::Utc>,
+    pub recipient_count: u16,
+    pub delivery: Option<HumanSentDeliveryEvidence>,
+}
+
+/// One database-authoritative Human accepted-submission page and its current
+/// authorization proof. Historical summary visibility intentionally does not
+/// depend on the mailbox's current data-plane binding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HumanSentListBatch {
+    pub active_human: bool,
+    pub cursor_valid: bool,
+    pub authorization: Option<MailboxAccessSnapshot>,
+    pub candidates: Vec<HumanSentListCandidate>,
+    pub has_more: bool,
+}
+
+/// Exact non-content evidence repeated in the transaction that records a
+/// successful Human accepted-submission disclosure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HumanSentListItemRecheck {
+    pub submission_id: MailSubmissionId,
+    pub expected_accepted_at: chrono::DateTime<chrono::Utc>,
+    pub expected_recipient_count: u16,
+    pub expected_delivery_snapshot_id: Option<uuid::Uuid>,
+}
+
+/// Exact authorization and result-set proof for the Human sent directory.
+/// Entries are ordered exactly as disclosed and bounded by the page-size
+/// limit. The persistence adapter must use its transaction-time clock when it
+/// validates expiring grants.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HumanSentListRecheck {
+    pub organization_id: OrganizationId,
+    pub principal_id: PrincipalId,
+    pub mailbox_id: MailboxId,
+    pub expected_submissions: Vec<HumanSentListItemRecheck>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HumanDraftRestoreQuery {
     pub organization_id: OrganizationId,
@@ -1656,6 +1731,17 @@ pub trait ControlPlaneTransaction: Send {
     async fn human_draft_list_still_authorized(
         &mut self,
         _proof: &HumanDraftListRecheck,
+    ) -> Result<bool, StoreError> {
+        Ok(false)
+    }
+
+    /// Final authorization guard for the content-free Human accepted-
+    /// submission directory. Default deny prevents adapters which have not
+    /// implemented the exact ownership and snapshot recheck from disclosing
+    /// historical delivery metadata.
+    async fn human_sent_list_still_authorized(
+        &mut self,
+        _proof: &HumanSentListRecheck,
     ) -> Result<bool, StoreError> {
         Ok(false)
     }
@@ -2485,6 +2571,19 @@ pub trait HumanDraftQueryStore: Send + Sync {
         &self,
         query: &HumanDraftRestoreQuery,
     ) -> Result<HumanDraftRestoreResolution, StoreError>;
+}
+
+/// Database-authoritative queries for an active Human's private accepted-
+/// submission directory. Shared mailbox membership is never permission to
+/// browse another sender's history; rows must be scoped to
+/// `requested_by == principal_id` and must not load message content or
+/// recipient evidence.
+#[async_trait]
+pub trait HumanSentQueryStore: Send + Sync {
+    async fn list_human_sent_submissions(
+        &self,
+        query: &HumanSentListQuery,
+    ) -> Result<HumanSentListBatch, StoreError>;
 }
 
 #[async_trait]

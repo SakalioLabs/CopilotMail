@@ -23,6 +23,7 @@ mod draft;
 mod events;
 mod human_draft;
 mod human_mailbox_directory;
+mod human_sent;
 mod human_session;
 mod inbox;
 mod mail_delivery;
@@ -119,6 +120,10 @@ pub use human_mailbox_directory::{
     HumanMailboxDirectoryError, HumanMailboxDirectoryItem, HumanMailboxDirectoryPage,
     HumanMailboxDirectoryService, ListHumanMailboxDirectoryCommand,
 };
+pub use human_sent::{
+    HumanSentDeliverySummary, HumanSentError, HumanSentListItem, HumanSentPage, HumanSentService,
+    ListHumanSentSubmissionsCommand,
+};
 pub use human_session::{
     BeginHumanLoginCommand, ConsumeHumanLoginCommand, ConsumedHumanLogin,
     CreateHumanSessionCommand, HumanSessionError, HumanSessionService, ResolveHumanSessionCommand,
@@ -182,7 +187,9 @@ pub use ports::{
     HumanLoginTransactionRecord, HumanLoginTransactionStore, HumanLoginTransactionWrite,
     HumanMailContentQueryStore, HumanMailContentTarget, HumanMailMessageProjection,
     HumanMailboxDirectoryBatch, HumanMailboxDirectoryCandidate, HumanMailboxDirectoryQuery,
-    HumanMailboxDirectoryStore, HumanSessionClient, HumanSessionQueryStore, HumanSessionRecord,
+    HumanMailboxDirectoryStore, HumanSentDeliveryEvidence, HumanSentListBatch,
+    HumanSentListCandidate, HumanSentListItemRecheck, HumanSentListQuery, HumanSentListRecheck,
+    HumanSentQueryStore, HumanSessionClient, HumanSessionQueryStore, HumanSessionRecord,
     HumanSessionRevocationCause, HumanSessionRevocationResult, HumanSessionWrite,
     InboundMailEventInsert, InboundMailEventRecord, LegalHoldObjectEvidence,
     MailDeliveryQueryStore, MailDeliveryRecipientState, MailDeliveryRecipientWrite,

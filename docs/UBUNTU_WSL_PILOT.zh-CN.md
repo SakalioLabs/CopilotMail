@@ -481,8 +481,8 @@ docker compose --env-file deploy/.env.v2 \
 ## 10. 无企业输入时可以验收什么
 
 Migration 0001→0053 与针对数据平面身份、Origin、Domain、Outbox 的直接 SQL 不变量
-验证已在 disposable PostgreSQL 17 实际执行。当前仓库最新迁移为 0054，因此该历史
-证据不覆盖 0054；完整 ignored PostgreSQL 套件和当前目标 Pilot 的 0053 停写升级仍需
+验证已在 disposable PostgreSQL 17 实际执行。当前仓库最新迁移为 0056，因此该历史
+证据不覆盖 0054、0055、0056；完整 ignored PostgreSQL 套件和当前目标 Pilot 的 0053 停写升级仍需
 各自验收。以下“可以完成”描述的是具备健康 disposable
 PostgreSQL/Docker 后的可执行范围，不是当前目标主机已经完成的结论。
 

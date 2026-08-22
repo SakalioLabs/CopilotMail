@@ -179,3 +179,19 @@ private schema.
   and Outbox records. Restored content has the stronger exact recheck in that
   transaction: remote identifiers and persisted content/recipient evidence must
   also still match before disclosure.
+- `0055_human_mail_sent_directory.sql` registers the governed
+  `mail.submissions.queried` action used by a Human's own sent directory. It
+  creates no mutable projection: the
+  application selects only accepted Intents whose frozen Draft is durably
+  `sent`, optionally reads the newest immutable delivery **aggregate**, and
+  rechecks Active Human, `mailbox.use`, Read/Send access, requester ownership,
+  accepted/sent provenance, and every disclosed snapshot identity in the
+  Audit/Outbox transaction. Recipient evidence, SMTP replies, message content,
+  Draft/provider references, and current data-plane binding remain outside the
+  directory contract.
+- `0056_human_mail_sent_directory_index.sql` is intentionally marked
+  `-- no-transaction` and uses `CREATE INDEX CONCURRENTLY` to add the
+  acceptance-time partial index without blocking submission writes. SQLx's
+  migration advisory lock remains in effect. A retry after a process failure
+  uses `IF NOT EXISTS`; runtime readiness independently requires the resulting
+  index to be valid and ready before serving this binary.

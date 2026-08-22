@@ -1,7 +1,7 @@
 # Human 邮件端安全边界
 
 > 状态：授权邮箱目录、Shared Mailbox 切换、收件箱、纯文本安全详情、显式回复、
-> 自动保存草稿、本人私有草稿列表、完整性校验后的恢复编辑与可恢复正式发送纵向切片已实现；
+> 自动保存草稿、本人私有草稿列表、完整性校验后的恢复编辑、已发送／投递状态目录与可恢复正式发送纵向切片已实现；
 > 简体中文/英语、响应式移动端列表—详情与可访问写信对话框已完成组件级实现和 jsdom 回归。
 
 浏览器登录统一经过 Rust OIDC BFF：Mail App 只调用
@@ -162,9 +162,40 @@ JMAP Email ID 或 Thread ID。回复 UUID 通过复合外键绑定同租户/同�
 摘要，并在替换、冻结、发送生命周期中不可换绑。完整边界见
 [显式邮件回复语义](EXPLICIT_REPLY_SEMANTICS.zh-CN.md)。
 
+`GET /api/v2/mailboxes/{mailbox_id}/submissions` 提供本人已接受发送的最小投递状态目录：
+
+- 只接受 Human Mail Session，并在查询前后都复核 Active Human、`mailbox.use`、
+  `Read(None)` + `Send(None)`；Admin Cookie、Bearer、仅 `SendAs` 的委托与失效主体均
+  不能进入目录；
+- Shared Mailbox 的成员或受托人只会看到 `requested_by` 等于自己的记录，绝不会因拥有
+  邮箱读写能力而看到其他 Human 或 Agent 的发送历史；
+- 条目必须同时证明 Submission 已为 `accepted`、有 `accepted_at`，且其冻结 Draft 已
+  单调进入 `sent`（版本为 Submission 冻结版本加一）。因此 pending、reconciling、
+  rejected 与 manual_review 请求不被称作“已发送”；`accepted` 也仍不等于所有收件方
+  最终投递成功；
+- 目录只从 PostgreSQL Durable Intent 与最新不可变投递快照读取 `submission_id`、
+  接受时间、收件人数及可选聚合计数。绝不读取 JMAP Sent、不执行远端调用，也不返回
+  主题、正文、地址、收件人摘要、SMTP reply、Draft ID/版本、Provider 或 data-plane
+  引用、错误码；合法 data-plane 重绑不会让这份无内容的本地历史消失；
+- 结果按 `accepted_at DESC, submission_id DESC` 稳定分页。Cursor 保持
+  canonical `v1.<lowercase UUID>` 外形，但服务端在同一可见性范围内解析锚点接受时间；
+  跨租户、跨邮箱、非本人、非已接受、非 sent 或失效锚点均拒绝整页；
+- 返回前会在一个新事务以数据库当前时间复核主体、RBAC、Read/Send、发送人、
+  accepted/sent 关系与当页最新快照身份。只有 `mail.submissions.queried` Audit 与
+  `mail.submissions.queried.v1` Outbox 原子提交后才披露；两份证据只记录页大小、结果数和
+  是否还有下一页，不保存 Cursor、Submission/Draft UUID、地址、内容或投递明细。
+- 路径与 query 只在 Mail Session 认证后才解析；`HEAD` 同样先经过 Mail Session 分区，
+  之后明确返回 `405`（`Allow: GET, POST`），不会借由框架的 GET→HEAD 回退生成任何
+  `mail.submissions.queried` Audit 或 Outbox 证据。
+- 该目录不会调用或改变单项 `GET /api/v2/mail-submissions/{submission_id}` 的既有语义：
+  后者仍是独立、按原请求人和 Send 权限授权的状态接口，前端目录不调用它。目录的最小
+  DTO 不能被理解为收紧该独立接口的既有本人状态可见性。
+
 `POST /api/v2/mailboxes/{mailbox_id}/submissions` 使用 `Idempotency-Key`
 冻结一个精确 Draft 版本并返回 `202 Accepted` 与稳定 Submission Intent UUID：
 
+- 同一路径的 `GET`、`HEAD` 与 `POST` 都先完成各自客户端边界的认证；`POST` 的邮箱 UUID
+  也只在 API 身份、Scope 与入口限流验证后才解析，畸形路径不能成为未认证路由预言机；
 - 请求仍重新校验 Active Human/Agent、RBAC、Agent Token Scope（如适用）与邮箱 Send ABAC；
 - Idempotency Key 只存 SHA-256，相同 Key/相同请求返回同一 Intent，相同 Key/不同
   请求永久冲突；
@@ -206,6 +237,10 @@ JMAP Email ID 或 Thread ID。回复 UUID 通过复合外键绑定同租户/同�
   恢复快照首次灌入不触发自动保存，后续编辑继续用原 Draft UUID/版本做 CAS，409 不会
   派生副本。Submission 已出网且仍在途或结果未知时，新建、回复、恢复和邮箱切换均不能
   清除冻结快照或幂等上下文，只能重开该窗口并继续精确对账；
+- 已发送目录同样绑定邮箱与视图代次；仅在可发送邮箱中启用，支持显式刷新与“加载更多”，
+  不自动轮询、不提供正文/收件人展开或搜索。切换邮箱、切换视图或迟到响应都会中止或
+  丢弃旧目录请求；列表仅显示“服务器已接受”与聚合投递进度，避免把 `accepted` 误写成
+  最终投递成功；
 - 上述能力由 Vitest/jsdom 组件测试覆盖。它们不能替代真实浏览器、触屏、屏幕阅读器、
   axe 或 WCAG 2.2 AA 验收。
 
@@ -285,7 +320,7 @@ Email Header 派生。
 ## 尚未完成
 
 - 会话视图；
-- 附件上传与已发送列表；
+- 附件上传、已发送邮件正文/详情和已发送目录搜索；
 - 真实公网延迟、临时失败、永久退信与 DSN 演练（队列级 WebHook 追加式证据代码
   已完成，外部 Stalwart/公网验收尚未执行）；
 - 快捷键；

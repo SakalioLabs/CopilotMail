@@ -92,6 +92,31 @@ export interface HumanDraftRestore {
   subject: string;
   text_body: string;
 }
+/**
+ * Metadata-only sent-mail directory item. It deliberately excludes draft,
+ * recipient addresses/identifiers, message, provider, and SMTP evidence.
+ */
+export interface HumanSentSubmissionListItem {
+  submission_id: string;
+  accepted_at: string;
+  recipient_count: number;
+  delivery?: HumanSentDeliverySummary;
+}
+/** Aggregate delivery evidence; individual recipient evidence is never listed. */
+export interface HumanSentDeliverySummary {
+  observed_at: string;
+  terminal: boolean;
+  recipient_count: number;
+  delivered_count: number;
+  failed_count: number;
+  queued_count: number;
+  unknown_count: number;
+}
+export interface HumanSentSubmissionPage {
+  items: HumanSentSubmissionListItem[];
+  next_cursor: string | null;
+  has_more: boolean;
+}
 export interface MailSubmission {
   submission_id: string;
   mailbox_id: string;

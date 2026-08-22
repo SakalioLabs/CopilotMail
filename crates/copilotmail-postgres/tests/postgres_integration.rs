@@ -33,42 +33,43 @@ use copilotmail_application::{
     GrantMailboxDelegationCommand, GrantRoleAssignmentCommand, HumanDraftError,
     HumanDraftListItemRecheck, HumanDraftListQuery, HumanDraftListRecheck, HumanDraftQueryStore,
     HumanDraftRestoreQuery, HumanDraftService, HumanMailContentQueryStore,
-    HumanMailboxDirectoryError, HumanMailboxDirectoryService, HumanSessionClient,
-    HumanSessionError, HumanSessionRevocationCause, HumanSessionService,
-    InboundMailEventIngestionService, IngestInboundMailEventsCommand,
+    HumanMailboxDirectoryError, HumanMailboxDirectoryService, HumanSentError,
+    HumanSentListItemRecheck, HumanSentListQuery, HumanSentListRecheck, HumanSentQueryStore,
+    HumanSentService, HumanSessionClient, HumanSessionError, HumanSessionRevocationCause,
+    HumanSessionService, InboundMailEventIngestionService, IngestInboundMailEventsCommand,
     IngestMailEngineEventsCommand, IssueScimTokenCommand, IssueScimTokenService,
     ListAgentProcessingDeadLettersCommand, ListApprovalRequestsCommand, ListHumanDraftsCommand,
-    ListHumanMailboxDirectoryCommand, ListRoleAssignmentsCommand, MailDataPlaneFingerprintScheme,
-    MailDeliveryQueryStore, MailDeliveryReconciliationResult, MailDeliveryReconciliationService,
-    MailDomainGovernanceError, MailDomainGovernanceService, MailDomainQueryStore,
-    MailDraftMetadataStore, MailDraftRecipientEvidence, MailDraftWrite,
+    ListHumanMailboxDirectoryCommand, ListHumanSentSubmissionsCommand, ListRoleAssignmentsCommand,
+    MailDataPlaneFingerprintScheme, MailDeliveryQueryStore, MailDeliveryReconciliationResult,
+    MailDeliveryReconciliationService, MailDomainGovernanceError, MailDomainGovernanceService,
+    MailDomainQueryStore, MailDraftMetadataStore, MailDraftRecipientEvidence, MailDraftWrite,
     MailEngineEventIngestionService, MailEngineMailboxBindingService, MailEventFingerprintScheme,
-    MailSubmissionExecutionResult, MailSubmissionExecutor, MailSubmissionService,
-    MailboxAuthorizationStore, MailboxDelegationService, MailboxManagementService,
-    NackAgentMessageCommand, OpenAgentEventStreamCommand, PendingEvent, ProvisionScimGroupCommand,
-    ProvisionScimUserCommand, PullAgentEventsCommand, ReconcileMailDeliveryCommand,
-    RecordAuditArchiveCommand, RecordAuditArchiveService, RecordAuditExportDownloadCommand,
-    RecordMailDomainDnsCommand, RegisterAgentCommand, RegisterAgentService,
-    RegisterMailDomainCommand, ReplaceScimGroupCommand, ReplaceScimUserCommand,
-    ReplayWebhookDeadLetterCommand, RequestApprovalCommand, RequestMailSubmissionCommand,
-    ResolveAuditExportObjectCommand, ResolveHumanSessionCommand, RestoreHumanDraftCommand,
-    RetentionPolicyQueryStore, RetentionPolicyService, RevokeAgentCredentialCommand,
-    RevokeAgentCredentialService, RevokeHumanSessionCommand, RevokeMailboxDelegationCommand,
-    RevokeRoleAssignmentCommand, RevokeScimTokenCommand, RevokeScimTokenService,
-    RoleGovernanceError, RoleGovernanceQueryStore, RoleGovernanceService,
-    RotateMailDomainChallengeCommand, SaveTextDraftCommand, ScimDirectoryQueryStore,
-    ScimGroupService, ScimUserService, SearchAuditEventsCommand, SuspendMailDomainCommand,
-    UpdateMailDomainRouteCommand, WebhookDeadLetterQueryStore, WebhookDeadLetterService,
-    WebhookSubscriptionService, role_assignment_approval_resource_id,
+    MailSubmissionExecutionResult, MailSubmissionExecutor, MailSubmissionIntentRecord,
+    MailSubmissionService, MailboxAuthorizationStore, MailboxDelegationService,
+    MailboxManagementService, NackAgentMessageCommand, OpenAgentEventStreamCommand, PendingEvent,
+    ProvisionScimGroupCommand, ProvisionScimUserCommand, PullAgentEventsCommand,
+    ReconcileMailDeliveryCommand, RecordAuditArchiveCommand, RecordAuditArchiveService,
+    RecordAuditExportDownloadCommand, RecordMailDomainDnsCommand, RegisterAgentCommand,
+    RegisterAgentService, RegisterMailDomainCommand, ReplaceScimGroupCommand,
+    ReplaceScimUserCommand, ReplayWebhookDeadLetterCommand, RequestApprovalCommand,
+    RequestMailSubmissionCommand, ResolveAuditExportObjectCommand, ResolveHumanSessionCommand,
+    RestoreHumanDraftCommand, RetentionPolicyQueryStore, RetentionPolicyService,
+    RevokeAgentCredentialCommand, RevokeAgentCredentialService, RevokeHumanSessionCommand,
+    RevokeMailboxDelegationCommand, RevokeRoleAssignmentCommand, RevokeScimTokenCommand,
+    RevokeScimTokenService, RoleGovernanceError, RoleGovernanceQueryStore, RoleGovernanceService,
+    RotateMailDomainChallengeCommand, SaveTextDraftCommand, SavedTextDraft,
+    ScimDirectoryQueryStore, ScimGroupService, ScimUserService, SearchAuditEventsCommand,
+    SuspendMailDomainCommand, UpdateMailDomainRouteCommand, WebhookDeadLetterQueryStore,
+    WebhookDeadLetterService, WebhookSubscriptionService, role_assignment_approval_resource_id,
 };
 use copilotmail_audit::RsaAuditCheckpointSigner;
 use copilotmail_domain::{
     AUDIT_EVENT_CATALOG, AgentEnvironment, AgentRiskLevel, ApprovalAction, ApprovalDecision,
-    ApprovalStatus, AuditArchiveId, AuditCheckpointId, AuditRisk, ComplianceCaseId,
-    ComplianceCaseStatus, DnsVerificationChecks, DnsVerificationEvidence, DraftId, LeaseId,
-    MailDataPlaneId, MailDomainRouteMode, MailDomainStatus, MailEngineProjectionStatus,
-    MailboxAddress, MailboxCapability, MailboxKind, OrganizationId, Permission, PrincipalId,
-    RetentionResourceKind, ScimTokenId, SystemRole,
+    ApprovalStatus, AuditArchiveId, AuditCheckpointId, AuditRisk, AuthorizationContext,
+    ComplianceCaseId, ComplianceCaseStatus, DnsVerificationChecks, DnsVerificationEvidence,
+    DraftId, LeaseId, MailDataPlaneId, MailDomainRouteMode, MailDomainStatus,
+    MailEngineProjectionStatus, MailboxAddress, MailboxCapability, MailboxKind, OrganizationId,
+    Permission, PrincipalId, RetentionResourceKind, ScimTokenId, SystemRole,
 };
 use copilotmail_postgres::{PgControlPlaneStore, WebhookDeliveryOutcome};
 use rand_core_06::OsRng;
@@ -3674,6 +3675,647 @@ impl MailDraftContentReader for IntegrationHumanDraftReader {
         }
         Ok(Some(self.content.clone()))
     }
+}
+
+/// A deterministic local data-plane fixture for the sent-directory tests.
+/// Its first delivery observation leaves one recipient queued; the second
+/// observation changes that recipient to delivered so the integration test can
+/// prove the final recheck binds the exact latest snapshot identity.
+#[derive(Default)]
+struct IntegrationHumanSentSubmissionAdapter {
+    delivery_reads: AtomicU64,
+}
+
+impl MailDataPlanePort for IntegrationHumanSentSubmissionAdapter {
+    fn data_plane_id(&self) -> MailDataPlaneId {
+        legacy_mail_data_plane_id()
+    }
+}
+
+#[async_trait]
+impl MailSubmissionAdapter for IntegrationHumanSentSubmissionAdapter {
+    async fn probe_submissions(&self) -> Result<(), MailEngineError> {
+        Ok(())
+    }
+
+    async fn reconcile_submission(
+        &self,
+        account_ref: &str,
+        engine_email_ref: &str,
+        expected_from: &str,
+    ) -> Result<MailSubmissionReconciliation, MailEngineError> {
+        assert!(!account_ref.is_empty());
+        assert!(engine_email_ref.starts_with("human-draft-"));
+        assert!(expected_from.ends_with("@example.test"));
+        Ok(MailSubmissionReconciliation::Accepted {
+            identity_ref: format!("human-sent-identity-{engine_email_ref}"),
+            submission_ref: format!("human-sent-submission-{engine_email_ref}"),
+        })
+    }
+
+    async fn create_submission(
+        &self,
+        _account_ref: &str,
+        _engine_email_ref: &str,
+        _identity_ref: &str,
+    ) -> Result<CreatedMailSubmission, MailEngineError> {
+        panic!("the integration fixture always reconciles an existing submission")
+    }
+
+    async fn get_delivery_snapshot(
+        &self,
+        account_ref: &str,
+        engine_email_ref: &str,
+        identity_ref: &str,
+        submission_ref: &str,
+    ) -> Result<MailDeliverySnapshot, MailEngineError> {
+        assert!(!account_ref.is_empty());
+        assert!(engine_email_ref.starts_with("human-draft-"));
+        assert!(identity_ref.starts_with("human-sent-identity-human-draft-"));
+        assert!(submission_ref.starts_with("human-sent-submission-human-draft-"));
+        let observation = self.delivery_reads.fetch_add(1, Ordering::SeqCst);
+        let second_state = if observation == 0 {
+            RecipientDeliveryState::Queued
+        } else {
+            RecipientDeliveryState::Delivered
+        };
+        Ok(MailDeliverySnapshot {
+            submission_ref: submission_ref.into(),
+            source_state: format!("human-sent-delivery-state-{observation}"),
+            recipients: vec![
+                RecipientDeliveryEvidence {
+                    recipient: MailboxAddress::parse("first@example.test")
+                        .expect("static first recipient is valid"),
+                    state: RecipientDeliveryState::Delivered,
+                    smtp_reply: "250 2.0.0 Accepted".into(),
+                },
+                RecipientDeliveryEvidence {
+                    recipient: MailboxAddress::parse("second@example.test")
+                        .expect("static second recipient is valid"),
+                    state: second_state,
+                    smtp_reply: if observation == 0 {
+                        "250 2.1.5 Queued"
+                    } else {
+                        "250 2.0.0 Accepted"
+                    }
+                    .into(),
+                },
+            ],
+        })
+    }
+}
+
+async fn create_human_sent_directory_submission(
+    store: &PgControlPlaneStore,
+    drafts: &DraftService<PgControlPlaneStore>,
+    context: &AuthorizationContext,
+    mailbox_id: copilotmail_domain::MailboxId,
+    marker: &str,
+    now: chrono::DateTime<Utc>,
+) -> (SavedTextDraft, MailSubmissionIntentRecord) {
+    let draft = drafts
+        .save(
+            context,
+            SaveTextDraftCommand {
+                mailbox_id,
+                draft_id: None,
+                expected_version: None,
+                reply_to_message_id: None,
+                to: vec![
+                    format!("first-{marker}@example.test"),
+                    format!("second-{marker}@example.test"),
+                ],
+                cc: Vec::new(),
+                bcc: Vec::new(),
+                subject: format!("Human sent directory {marker}"),
+                text_body: format!("Human sent directory fixture {marker}"),
+                now,
+            },
+        )
+        .await
+        .expect("save Human sent-directory fixture draft");
+    let intent = MailSubmissionService::new(store.clone())
+        .request(
+            context,
+            RequestMailSubmissionCommand {
+                mailbox_id,
+                draft_id: draft.draft_id,
+                expected_draft_version: draft.version,
+                idempotency_key: format!(
+                    "human-sent-directory-{marker}-{}",
+                    Uuid::new_v4().simple()
+                ),
+                first_contact_approval_request_id: None,
+                trace_id: Uuid::now_v7().to_string(),
+                now,
+            },
+        )
+        .await
+        .expect("freeze Human sent-directory fixture draft");
+    (draft, intent)
+}
+
+async fn count_human_sent_directory_evidence(
+    store: &PgControlPlaneStore,
+    organization_id: OrganizationId,
+    mailbox_id: copilotmail_domain::MailboxId,
+) -> (i64, i64) {
+    sqlx::query_as::<_, (i64, i64)>(
+        r#"
+        SELECT
+          (SELECT count(*) FROM audit_events
+            WHERE organization_id = $1
+              AND action = 'mail.submissions.queried'
+              AND resource_id = $2),
+          (SELECT count(*) FROM outbox_events
+            WHERE organization_id = $1
+              AND event_type = 'mail.submissions.queried.v1'
+              AND aggregate_id = $2)
+        "#,
+    )
+    .bind(organization_id.as_uuid())
+    .bind(mailbox_id.to_string())
+    .fetch_one(store.pool())
+    .await
+    .expect("count sent-directory disclosure evidence")
+}
+
+#[tokio::test]
+#[ignore = "requires a disposable PostgreSQL database"]
+async fn human_sent_directory_is_private_cursor_safe_audited_and_finally_rechecked() {
+    let store = migrated_store().await;
+    // Keep grant validity safely before the database-clock final rechecks.
+    let now = Utc::now() - chrono::Duration::seconds(1);
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "human-sent-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .expect("bootstrap Human sent-directory tenant");
+    let owner_context = store
+        .resolve_authorization(bootstrap.root_principal_id, now)
+        .await
+        .expect("resolve sent-directory owner")
+        .expect("sent-directory owner is active");
+    let other_human_id = insert_approval_test_owner(
+        &store,
+        bootstrap.organization_id,
+        bootstrap.root_principal_id,
+        now,
+    )
+    .await;
+    let other_context = store
+        .resolve_authorization(other_human_id, now)
+        .await
+        .expect("resolve second sent-directory Human")
+        .expect("second sent-directory Human is active");
+    let mailbox = MailboxManagementService::new(store.clone())
+        .create_authorized(
+            &owner_context,
+            CreateMailboxCommand {
+                organization_id: bootstrap.organization_id,
+                kind: MailboxKind::Shared,
+                primary_address: format!("human-sent-{}@example.test", Uuid::new_v4().simple()),
+                trace_id: Uuid::now_v7().to_string(),
+                now,
+            },
+        )
+        .await
+        .expect("create shared sent-directory mailbox");
+    let account_ref = random_numeric_engine_ref();
+    MailEngineMailboxBindingService::try_new(
+        store.clone(),
+        legacy_mail_data_plane_id(),
+        "stalwart",
+    )
+    .expect("construct sent-directory binding service")
+    .bind_authorized(
+        &owner_context,
+        BindMailEngineMailboxCommand {
+            organization_id: bootstrap.organization_id,
+            mailbox_id: mailbox.mailbox_id,
+            account_ref,
+            expected_version: 0,
+            trace_id: Uuid::now_v7().to_string(),
+            now,
+        },
+    )
+    .await
+    .expect("bind sent-directory mailbox");
+    MailboxDelegationService::new(store.clone())
+        .grant_authorized(
+            &owner_context,
+            GrantMailboxDelegationCommand {
+                organization_id: bootstrap.organization_id,
+                mailbox_id: mailbox.mailbox_id,
+                grantee_principal_id: other_human_id,
+                capabilities: [MailboxCapability::Read, MailboxCapability::Send]
+                    .into_iter()
+                    .collect(),
+                reason: "Sent directory private-history fixture".into(),
+                valid_from: now,
+                valid_until: now + chrono::Duration::hours(1),
+                trace_id: Uuid::now_v7().to_string(),
+                now,
+            },
+        )
+        .await
+        .expect("grant second Human ordinary shared-mailbox access");
+
+    let drafts = DraftService::new(
+        store.clone(),
+        Arc::new(IntegrationHumanDraftAdapter::default()),
+    );
+    let (_, older) = create_human_sent_directory_submission(
+        &store,
+        &drafts,
+        &owner_context,
+        mailbox.mailbox_id,
+        "older",
+        now + chrono::Duration::seconds(1),
+    )
+    .await;
+    let (pending_draft, pending) = create_human_sent_directory_submission(
+        &store,
+        &drafts,
+        &owner_context,
+        mailbox.mailbox_id,
+        "pending",
+        now + chrono::Duration::seconds(2),
+    )
+    .await;
+    let (_, newer) = create_human_sent_directory_submission(
+        &store,
+        &drafts,
+        &owner_context,
+        mailbox.mailbox_id,
+        "newer",
+        now + chrono::Duration::seconds(3),
+    )
+    .await;
+    let (_, other) = create_human_sent_directory_submission(
+        &store,
+        &drafts,
+        &other_context,
+        mailbox.mailbox_id,
+        "other",
+        now + chrono::Duration::seconds(4),
+    )
+    .await;
+
+    let adapter: Arc<dyn MailSubmissionAdapter> =
+        Arc::new(IntegrationHumanSentSubmissionAdapter::default());
+    let executor = MailSubmissionExecutor::new(store.clone(), Arc::clone(&adapter));
+    // The finalization SQL uses GREATEST(command.now, clock_timestamp()). Keep
+    // this well ahead of the database clock so the two accepts retain an
+    // exact, deterministic shared timestamp even on a slow CI runner.
+    let accepted_at = now + chrono::Duration::minutes(5);
+    for (intent, executed_at) in [
+        (&older, accepted_at),
+        // The cursor must remain stable when multiple durable accepts share
+        // exactly the same timestamp, so the UUID tie-breaker is exercised.
+        (&newer, accepted_at),
+        (&other, accepted_at + chrono::Duration::seconds(1)),
+    ] {
+        assert_eq!(
+            executor
+                .execute(ExecuteMailSubmissionCommand {
+                    submission_id: intent.submission_id,
+                    trace_id: Uuid::now_v7().to_string(),
+                    now: executed_at,
+                })
+                .await
+                .expect("accept sent-directory fixture submission"),
+            MailSubmissionExecutionResult::Accepted
+        );
+    }
+    let pending_lifecycle: (String, String) = sqlx::query_as(
+        r#"
+        SELECT
+          (SELECT status FROM mail_submission_intents WHERE id = $1),
+          (SELECT status FROM mail_drafts WHERE id = $2)
+        "#,
+    )
+    .bind(pending.submission_id.as_uuid())
+    .bind(pending_draft.draft_id.as_uuid())
+    .fetch_one(store.pool())
+    .await
+    .expect("read pending non-sent fixture lifecycle");
+    assert_eq!(pending_lifecycle, ("pending".into(), "frozen".into()));
+
+    let delivery_service = MailDeliveryReconciliationService::new(
+        store.clone(),
+        Arc::clone(&adapter),
+        MailDataPlaneFingerprintScheme::LegacyV1,
+    );
+    assert_eq!(
+        delivery_service
+            .reconcile(ReconcileMailDeliveryCommand {
+                submission_id: newer.submission_id,
+                now: accepted_at + chrono::Duration::seconds(2),
+            })
+            .await
+            .expect("record initial sent-directory delivery summary"),
+        MailDeliveryReconciliationResult::Pending { inserted: true }
+    );
+
+    let initial_batch = store
+        .list_human_sent_submissions(&HumanSentListQuery {
+            organization_id: bootstrap.organization_id,
+            principal_id: bootstrap.root_principal_id,
+            mailbox_id: mailbox.mailbox_id,
+            after_submission_id: None,
+            limit: 50,
+            now: accepted_at + chrono::Duration::seconds(3),
+        })
+        .await
+        .expect("load owner sent-directory page directly");
+    assert!(initial_batch.active_human);
+    assert!(initial_batch.cursor_valid);
+    assert!(initial_batch.authorization.is_some());
+    assert!(!initial_batch.has_more);
+    assert!(
+        newer.submission_id > older.submission_id,
+        "the later durable submission is the UUID tie-breaker"
+    );
+    assert_eq!(
+        initial_batch
+            .candidates
+            .iter()
+            .map(|candidate| candidate.submission_id)
+            .collect::<Vec<_>>(),
+        vec![newer.submission_id, older.submission_id],
+        "only this Human's accepted, sent submissions are visible in acceptance order"
+    );
+    assert!(
+        !initial_batch
+            .candidates
+            .iter()
+            .any(|candidate| candidate.submission_id == pending.submission_id),
+        "a pending intent and frozen non-sent Draft must not appear"
+    );
+    assert!(
+        !initial_batch
+            .candidates
+            .iter()
+            .any(|candidate| candidate.submission_id == other.submission_id),
+        "shared mailbox access must not disclose another Human's history"
+    );
+    let initial_newer = initial_batch
+        .candidates
+        .iter()
+        .find(|candidate| candidate.submission_id == newer.submission_id)
+        .cloned()
+        .expect("newer accepted submission is visible");
+    let initial_older = initial_batch
+        .candidates
+        .iter()
+        .find(|candidate| candidate.submission_id == older.submission_id)
+        .expect("older accepted submission is visible");
+    assert_eq!(
+        initial_newer.accepted_at, initial_older.accepted_at,
+        "the fixture intentionally shares one acceptance timestamp"
+    );
+    let initial_summary = initial_newer
+        .delivery
+        .as_ref()
+        .expect("initial delivery counters are available");
+    assert_eq!(initial_summary.recipient_count, 2);
+    assert_eq!(initial_summary.delivered_count, 1);
+    assert_eq!(initial_summary.failed_count, 0);
+    assert_eq!(initial_summary.queued_count, 1);
+    assert_eq!(initial_summary.unknown_count, 0);
+    assert!(!initial_summary.terminal);
+
+    let sent_directory = HumanSentService::new(store.clone());
+    let evidence_before_first =
+        count_human_sent_directory_evidence(&store, bootstrap.organization_id, mailbox.mailbox_id)
+            .await;
+    let first_page = sent_directory
+        .list(ListHumanSentSubmissionsCommand {
+            context: owner_context.clone(),
+            mailbox_id: mailbox.mailbox_id,
+            limit: 1,
+            cursor: None,
+            trace_id: Uuid::now_v7().to_string(),
+            now: accepted_at + chrono::Duration::seconds(4),
+        })
+        .await
+        .expect("disclose first owner sent-directory page after final recheck");
+    assert_eq!(first_page.items.len(), 1);
+    assert_eq!(first_page.items[0].submission_id, newer.submission_id);
+    assert_eq!(first_page.items[0].recipient_count, 2);
+    assert_eq!(
+        first_page
+            .items
+            .first()
+            .and_then(|item| item.delivery.as_ref())
+            .map(|summary| (
+                summary.delivered_count,
+                summary.queued_count,
+                summary.terminal
+            )),
+        Some((1, 1, false))
+    );
+    let newest_cursor = first_page
+        .next_cursor
+        .clone()
+        .expect("a one-item owner page has a cursor for the older item");
+    let evidence_after_first =
+        count_human_sent_directory_evidence(&store, bootstrap.organization_id, mailbox.mailbox_id)
+            .await;
+    assert_eq!(
+        evidence_after_first,
+        (evidence_before_first.0 + 1, evidence_before_first.1 + 1),
+        "the final recheck, audit, and Outbox write commit atomically before disclosure"
+    );
+
+    let invalid_cursor_evidence =
+        count_human_sent_directory_evidence(&store, bootstrap.organization_id, mailbox.mailbox_id)
+            .await;
+    assert!(matches!(
+        sent_directory
+            .list(ListHumanSentSubmissionsCommand {
+                context: other_context.clone(),
+                mailbox_id: mailbox.mailbox_id,
+                limit: 1,
+                cursor: Some(newest_cursor.clone()),
+                trace_id: Uuid::now_v7().to_string(),
+                now: accepted_at + chrono::Duration::seconds(4),
+            })
+            .await,
+        Err(HumanSentError::InvalidCursor)
+    ));
+    assert_eq!(
+        count_human_sent_directory_evidence(&store, bootstrap.organization_id, mailbox.mailbox_id,)
+            .await,
+        invalid_cursor_evidence,
+        "a cursor for another Human's history must not write disclosure evidence"
+    );
+
+    let second_page = sent_directory
+        .list(ListHumanSentSubmissionsCommand {
+            context: owner_context.clone(),
+            mailbox_id: mailbox.mailbox_id,
+            limit: 1,
+            cursor: Some(newest_cursor),
+            trace_id: Uuid::now_v7().to_string(),
+            now: accepted_at + chrono::Duration::seconds(4),
+        })
+        .await
+        .expect("disclose second owner sent-directory page");
+    assert_eq!(
+        second_page
+            .items
+            .iter()
+            .map(|item| item.submission_id)
+            .collect::<Vec<_>>(),
+        vec![older.submission_id]
+    );
+    assert!(second_page.next_cursor.is_none());
+    assert!(second_page.items[0].delivery.is_none());
+    let other_page = sent_directory
+        .list(ListHumanSentSubmissionsCommand {
+            context: other_context.clone(),
+            mailbox_id: mailbox.mailbox_id,
+            limit: 50,
+            cursor: None,
+            trace_id: Uuid::now_v7().to_string(),
+            now: accepted_at + chrono::Duration::seconds(4),
+        })
+        .await
+        .expect("list second Human's own sent history");
+    assert_eq!(
+        other_page
+            .items
+            .iter()
+            .map(|item| item.submission_id)
+            .collect::<Vec<_>>(),
+        vec![other.submission_id]
+    );
+
+    assert_eq!(
+        delivery_service
+            .reconcile(ReconcileMailDeliveryCommand {
+                submission_id: newer.submission_id,
+                now: accepted_at + chrono::Duration::seconds(5),
+            })
+            .await
+            .expect("record changed latest delivery snapshot"),
+        MailDeliveryReconciliationResult::Terminal { inserted: true }
+    );
+    let mut snapshot_drift_transaction = store
+        .begin()
+        .await
+        .expect("begin stale sent-directory snapshot recheck");
+    assert!(
+        !snapshot_drift_transaction
+            .human_sent_list_still_authorized(&HumanSentListRecheck {
+                organization_id: bootstrap.organization_id,
+                principal_id: bootstrap.root_principal_id,
+                mailbox_id: mailbox.mailbox_id,
+                expected_submissions: vec![HumanSentListItemRecheck {
+                    submission_id: newer.submission_id,
+                    expected_accepted_at: initial_newer.accepted_at,
+                    expected_recipient_count: initial_newer.recipient_count,
+                    expected_delivery_snapshot_id: Some(initial_summary.snapshot_id),
+                }],
+            })
+            .await
+            .expect("evaluate stale sent-directory snapshot recheck"),
+        "a changed latest delivery snapshot must invalidate a pre-disclosure proof"
+    );
+    drop(snapshot_drift_transaction);
+
+    let refreshed_page = sent_directory
+        .list(ListHumanSentSubmissionsCommand {
+            context: owner_context.clone(),
+            mailbox_id: mailbox.mailbox_id,
+            limit: 1,
+            cursor: None,
+            trace_id: Uuid::now_v7().to_string(),
+            now: accepted_at + chrono::Duration::seconds(6),
+        })
+        .await
+        .expect("disclose page after refreshing the delivery snapshot proof");
+    assert_eq!(refreshed_page.items[0].submission_id, newer.submission_id);
+    assert_eq!(
+        refreshed_page.items[0].delivery.as_ref().map(|summary| {
+            (
+                summary.delivered_count,
+                summary.failed_count,
+                summary.queued_count,
+                summary.unknown_count,
+                summary.terminal,
+            )
+        }),
+        Some((2, 0, 0, 0, true))
+    );
+
+    let replacement_account_ref = random_numeric_engine_ref();
+    MailEngineMailboxBindingService::try_new(
+        store.clone(),
+        legacy_mail_data_plane_id(),
+        "stalwart",
+    )
+    .expect("construct sent-directory replacement binding service")
+    .bind_authorized(
+        &owner_context,
+        BindMailEngineMailboxCommand {
+            organization_id: bootstrap.organization_id,
+            mailbox_id: mailbox.mailbox_id,
+            account_ref: replacement_account_ref,
+            expected_version: 1,
+            trace_id: Uuid::now_v7().to_string(),
+            now: accepted_at + chrono::Duration::seconds(7),
+        },
+    )
+    .await
+    .expect("replace current data-plane account binding");
+    let rebound_page = sent_directory
+        .list(ListHumanSentSubmissionsCommand {
+            context: owner_context.clone(),
+            mailbox_id: mailbox.mailbox_id,
+            limit: 50,
+            cursor: None,
+            trace_id: Uuid::now_v7().to_string(),
+            now: accepted_at + chrono::Duration::seconds(8),
+        })
+        .await
+        .expect("retain local sent history after a valid current-binding replacement");
+    assert_eq!(
+        rebound_page
+            .items
+            .iter()
+            .map(|item| item.submission_id)
+            .collect::<Vec<_>>(),
+        vec![newer.submission_id, older.submission_id],
+        "the content-free history must not depend on the current data-plane binding"
+    );
+
+    let empty_evidence_before =
+        count_human_sent_directory_evidence(&store, bootstrap.organization_id, mailbox.mailbox_id)
+            .await;
+    let empty_page = sent_directory
+        .list(ListHumanSentSubmissionsCommand {
+            context: owner_context,
+            mailbox_id: mailbox.mailbox_id,
+            limit: 50,
+            cursor: Some(format!("v1.{}", older.submission_id)),
+            trace_id: Uuid::now_v7().to_string(),
+            now: accepted_at + chrono::Duration::seconds(8),
+        })
+        .await
+        .expect("authorize and audit an exact empty terminal sent-directory page");
+    assert!(empty_page.items.is_empty());
+    assert!(empty_page.next_cursor.is_none());
+    assert_eq!(
+        count_human_sent_directory_evidence(&store, bootstrap.organization_id, mailbox.mailbox_id,)
+            .await,
+        (empty_evidence_before.0 + 1, empty_evidence_before.1 + 1),
+        "an empty page still receives the same final authorization proof and atomic evidence"
+    );
 }
 
 #[tokio::test]

@@ -400,6 +400,42 @@ pub struct HumanDraftListResponse {
     pub has_more: bool,
 }
 
+/// Latest immutable delivery evidence reduced to counters that are safe for a
+/// Human's own sent-directory. Recipient identities, provider references, and
+/// SMTP replies are intentionally absent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HumanSentDeliverySummaryResponse {
+    pub observed_at: String,
+    pub terminal: bool,
+    pub recipient_count: u16,
+    pub delivered_count: u16,
+    pub failed_count: u16,
+    pub queued_count: u16,
+    pub unknown_count: u16,
+}
+
+/// Content-free accepted-submission metadata for the authenticated Human.
+/// This is deliberately not interchangeable with `MailSubmissionResponse`,
+/// which is an internal-status DTO containing recipient evidence.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HumanSentListItemResponse {
+    pub submission_id: String,
+    pub accepted_at: String,
+    pub recipient_count: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delivery: Option<HumanSentDeliverySummaryResponse>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HumanSentListResponse {
+    pub items: Vec<HumanSentListItemResponse>,
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
+}
+
 /// Restores only the caller's exact active draft version. The server resolves
 /// all provider references from its control-plane provenance.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1190,11 +1226,11 @@ mod tests {
         AgentMessageClaimRequest, AgentMessageLeaseExtensionRequest, AgentMessageNackRequest,
         AgentProcessingSubscriptionChangeRequest, ApprovalCancellationRequest, AuditEventResponse,
         AuditExportGrantCreateRequest, HumanDraftListResponse, HumanDraftRestoreRequest,
-        HumanDraftRestoreResponse, HumanMailboxDirectoryResponse, InboxMessageSummaryResponse,
-        InboxSearchRequest, MailEngineMailboxBindingUpdateRequest, MailSubmissionCreateRequest,
-        MessageDetailResponse, MessageStateResponse, RetentionPolicyActivationRequest,
-        RetentionPolicyCreateRequest, RoleAssignmentGrantRequest, RoleAssignmentRevocationRequest,
-        TextDraftSaveRequest,
+        HumanDraftRestoreResponse, HumanMailboxDirectoryResponse, HumanSentListResponse,
+        InboxMessageSummaryResponse, InboxSearchRequest, MailEngineMailboxBindingUpdateRequest,
+        MailSubmissionCreateRequest, MessageDetailResponse, MessageStateResponse,
+        RetentionPolicyActivationRequest, RetentionPolicyCreateRequest, RoleAssignmentGrantRequest,
+        RoleAssignmentRevocationRequest, TextDraftSaveRequest,
     };
     use serde_json::json;
 
@@ -1445,6 +1481,46 @@ mod tests {
                 "{leaked_field} must not cross the Human draft restore contract"
             );
             restored.as_object_mut().unwrap().remove(leaked_field);
+        }
+    }
+
+    #[test]
+    fn human_sent_directory_contract_excludes_content_and_delivery_evidence() {
+        let directory = json!({
+            "items": [{
+                "submission_id": "018f13b9-1111-7bc8-965d-48a28866f073",
+                "accepted_at": "2026-08-22T00:00:00Z",
+                "recipient_count": 2,
+                "delivery": {
+                    "observed_at": "2026-08-22T00:01:00Z",
+                    "terminal": false,
+                    "recipient_count": 2,
+                    "delivered_count": 1,
+                    "failed_count": 0,
+                    "queued_count": 1,
+                    "unknown_count": 0
+                }
+            }],
+            "next_cursor": null,
+            "has_more": false
+        });
+        assert!(serde_json::from_value::<HumanSentListResponse>(directory.clone()).is_ok());
+
+        for leaked_field in [
+            "draft_id",
+            "draft_version",
+            "subject",
+            "recipient_ref",
+            "smtp_reply",
+            "engine_account_ref",
+            "mail_data_plane_id",
+        ] {
+            let mut leaked = directory.clone();
+            leaked["items"][0][leaked_field] = json!("must-not-cross-contract");
+            assert!(
+                serde_json::from_value::<HumanSentListResponse>(leaked).is_err(),
+                "{leaked_field} must not cross the Human sent-directory contract"
+            );
         }
     }
 

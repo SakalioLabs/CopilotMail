@@ -193,6 +193,7 @@ audit_events!(
     ("mail.message.read", "mail.message", High, true),
     ("mail.drafts.queried", "mailbox", Medium, true),
     ("mail.draft.read", "mail.draft", High, true),
+    ("mail.submissions.queried", "mailbox", Medium, true),
     ("agent.mail_content.read", "mail.message", High, true),
     (
         "agent.mail_policy.activated",

@@ -1920,6 +1920,61 @@ paths:
               schema: { $ref: "#/components/schemas/Error" }
         "503": { $ref: "#/components/responses/Unavailable" }
   /api/v2/mailboxes/{mailbox_id}/submissions:
+    get:
+      operationId: listHumanSentSubmissions
+      summary: List the current Human's own accepted submissions and delivery summaries.
+      description: >
+        Human Mail browser-session only. Requires an active Human, mailbox.use,
+        and simultaneous resource-level Read and Send access. Shared-mailbox
+        membership never reveals another principal's submission history. The
+        directory is local durable evidence only: it performs no JMAP call and
+        remains readable after a valid data-plane rebinding. It returns only
+        accepted submissions whose frozen Draft is durably sent, ordered by
+        accepted_at then submission UUID descending. Optional delivery data is
+        aggregate-only; no subject, body, address, recipient digest, SMTP
+        reply, Draft reference, provider reference, or error detail crosses
+        this contract. Authorization and every disclosed result are rechecked
+        in the Audit/Outbox transaction before any response is returned. HEAD
+        is intentionally rejected after Mail-session authentication so it
+        cannot generate disclosure evidence through an implicit GET fallback.
+      security:
+        - mailBrowserSession: []
+      parameters:
+        - name: mailbox_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 25
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            minLength: 39
+            maxLength: 39
+            pattern: "^v1\\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      responses:
+        "200":
+          description: Stable accepted-submission page ordered by acceptance time then UUID.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+            Referrer-Policy:
+              schema: { type: string, const: no-referrer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HumanSentList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/MailSessionUnauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
     post:
       operationId: requestMailSubmission
       summary: Freeze one exact draft version and create a recoverable submission Intent.
@@ -3954,6 +4009,50 @@ components:
           type: array
           maxItems: 50
           items: { $ref: "#/components/schemas/HumanDraftListItem" }
+        next_cursor:
+          type: ["string", "null"]
+          minLength: 39
+          maxLength: 39
+          pattern: "^v1\\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        has_more: { type: boolean }
+    HumanSentDeliverySummary:
+      type: object
+      additionalProperties: false
+      required:
+        - observed_at
+        - terminal
+        - recipient_count
+        - delivered_count
+        - failed_count
+        - queued_count
+        - unknown_count
+      properties:
+        observed_at: { type: string, format: date-time }
+        terminal: { type: boolean }
+        recipient_count: { type: integer, minimum: 1, maximum: 100 }
+        delivered_count: { type: integer, minimum: 0, maximum: 100 }
+        failed_count: { type: integer, minimum: 0, maximum: 100 }
+        queued_count: { type: integer, minimum: 0, maximum: 100 }
+        unknown_count: { type: integer, minimum: 0, maximum: 100 }
+    HumanSentListItem:
+      type: object
+      additionalProperties: false
+      required: [submission_id, accepted_at, recipient_count]
+      properties:
+        submission_id: { type: string, format: uuid }
+        accepted_at: { type: string, format: date-time }
+        recipient_count: { type: integer, minimum: 1, maximum: 100 }
+        delivery:
+          $ref: "#/components/schemas/HumanSentDeliverySummary"
+    HumanSentList:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor, has_more]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/HumanSentListItem" }
         next_cursor:
           type: ["string", "null"]
           minLength: 39

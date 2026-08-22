@@ -4,6 +4,9 @@ import type {
   DraftResult,
   HumanDraftPage,
   HumanDraftRestore,
+  HumanSentDeliverySummary,
+  HumanSentSubmissionListItem,
+  HumanSentSubmissionPage,
   InboxPage,
   MailboxDirectoryPage,
   MailboxKind,
@@ -32,7 +35,9 @@ const canonicalUuidPattern =
 const mailboxDirectoryCursorPattern =
   /^v1\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const humanDraftCursorPattern = mailboxDirectoryCursorPattern;
+const humanSentSubmissionCursorPattern = mailboxDirectoryCursorPattern;
 const rfc3339Pattern = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(?:Z|[+-](\d{2}):(\d{2}))$/;
+const rfc3339FractionPattern = /\.(\d{1,9})(?:Z|[+-]\d{2}:\d{2})$/;
 const utf8 = new TextEncoder();
 
 const inboxPageKeys = ["items", "next_cursor", "has_more"] as const;
@@ -83,6 +88,25 @@ const humanDraftRestoreKeys = [
   "bcc",
   "subject",
   "text_body",
+] as const;
+const humanSentSubmissionPageKeys = ["items", "next_cursor", "has_more"] as const;
+const humanSentSubmissionListItemRequiredKeys = [
+  "submission_id",
+  "accepted_at",
+  "recipient_count",
+] as const;
+const humanSentSubmissionListItemAllowedKeys = [
+  ...humanSentSubmissionListItemRequiredKeys,
+  "delivery",
+] as const;
+const humanSentDeliverySummaryKeys = [
+  "observed_at",
+  "terminal",
+  "recipient_count",
+  "delivered_count",
+  "failed_count",
+  "queued_count",
+  "unknown_count",
 ] as const;
 const draftInputKeys = [
   "draft_id",
@@ -142,6 +166,24 @@ function exactRecord(
     !valueRecord
     || Object.keys(valueRecord).length !== allowedKeys.length
     || Object.keys(valueRecord).some((key) => !allowed.has(key))
+  ) {
+    throw new Error(errorCode);
+  }
+  return valueRecord;
+}
+
+function recordWithRequiredKeys(
+  value: unknown,
+  requiredKeys: readonly string[],
+  allowedKeys: readonly string[],
+  errorCode: string,
+): Record<string, unknown> {
+  const valueRecord = record(value);
+  const allowed = new Set(allowedKeys);
+  if (
+    !valueRecord
+    || Object.keys(valueRecord).some((key) => !allowed.has(key))
+    || requiredKeys.some((key) => !Object.prototype.hasOwnProperty.call(valueRecord, key))
   ) {
     throw new Error(errorCode);
   }
@@ -458,6 +500,38 @@ function draftDateTime(value: unknown, errorCode: string): string {
   return result;
 }
 
+function dateTimeNanoseconds(value: string): bigint {
+  const milliseconds = Date.parse(value);
+  if (!Number.isSafeInteger(milliseconds)) {
+    throw new Error("sent_list_response_invalid");
+  }
+  const fraction = rfc3339FractionPattern.exec(value)?.[1] ?? "";
+  const fractionalNanoseconds = Number.parseInt(
+    fraction.padEnd(9, "0"),
+    10,
+  );
+  return BigInt(milliseconds) * 1_000_000n
+    + BigInt(fractionalNanoseconds % 1_000_000);
+}
+
+/**
+ * The service orders accepted submissions by accepted_at DESC then UUID DESC.
+ * Retaining RFC3339 precision avoids treating two distinct micro/nanosecond
+ * acceptance timestamps as a UUID-only ordering problem.
+ */
+export function compareHumanSentSubmissionItems(
+  left: Pick<HumanSentSubmissionListItem, "submission_id" | "accepted_at">,
+  right: Pick<HumanSentSubmissionListItem, "submission_id" | "accepted_at">,
+): number {
+  const leftTimestamp = dateTimeNanoseconds(left.accepted_at);
+  const rightTimestamp = dateTimeNanoseconds(right.accepted_at);
+  if (leftTimestamp !== rightTimestamp) {
+    return leftTimestamp > rightTimestamp ? -1 : 1;
+  }
+  if (left.submission_id === right.submission_id) return 0;
+  return left.submission_id > right.submission_id ? -1 : 1;
+}
+
 function parseHumanDraftPage(
   value: unknown,
   requestCursor?: string,
@@ -498,6 +572,88 @@ function parseHumanDraftPage(
     && (items.length === 0 || nextCursor !== `v1.${items.at(-1)?.draft_id}`)
   ) throw new Error(errorCode);
   if (requestCursor && nextCursor !== null && nextCursor >= requestCursor) {
+    throw new Error(errorCode);
+  }
+  return { items, next_cursor: nextCursor, has_more: hasMore };
+}
+
+function parseHumanSentDeliverySummary(
+  value: unknown,
+  acceptedAt: string,
+): HumanSentDeliverySummary {
+  const errorCode = "sent_list_response_invalid";
+  const delivery = exactRecord(value, humanSentDeliverySummaryKeys, errorCode);
+  const observedAt = draftDateTime(delivery.observed_at, errorCode);
+  if (Date.parse(observedAt) < Date.parse(acceptedAt)) throw new Error(errorCode);
+  const recipientCount = positiveSafeInteger(delivery.recipient_count, 100, errorCode);
+  const deliveredCount = nonNegativeSafeInteger(delivery.delivered_count, 100, errorCode);
+  const failedCount = nonNegativeSafeInteger(delivery.failed_count, 100, errorCode);
+  const queuedCount = nonNegativeSafeInteger(delivery.queued_count, 100, errorCode);
+  const unknownCount = nonNegativeSafeInteger(delivery.unknown_count, 100, errorCode);
+  const terminal = booleanValue(delivery.terminal, errorCode);
+  if (
+    deliveredCount + failedCount + queuedCount + unknownCount !== recipientCount
+    || terminal !== (queuedCount === 0 && unknownCount === 0)
+  ) throw new Error(errorCode);
+  return {
+    observed_at: observedAt,
+    terminal,
+    recipient_count: recipientCount,
+    delivered_count: deliveredCount,
+    failed_count: failedCount,
+    queued_count: queuedCount,
+    unknown_count: unknownCount,
+  };
+}
+
+function parseHumanSentSubmissionPage(
+  value: unknown,
+  requestCursor?: string,
+): HumanSentSubmissionPage {
+  const errorCode = "sent_list_response_invalid";
+  const page = exactRecord(value, humanSentSubmissionPageKeys, errorCode);
+  const items = boundedArray(page.items, 50, errorCode).map((value) => {
+    const item = recordWithRequiredKeys(
+      value,
+      humanSentSubmissionListItemRequiredKeys,
+      humanSentSubmissionListItemAllowedKeys,
+      errorCode,
+    );
+    const acceptedAt = draftDateTime(item.accepted_at, errorCode);
+    const recipientCount = positiveSafeInteger(item.recipient_count, 100, errorCode);
+    const delivery = item.delivery === undefined
+      ? undefined
+      : parseHumanSentDeliverySummary(item.delivery, acceptedAt);
+    if (delivery && delivery.recipient_count !== recipientCount) throw new Error(errorCode);
+    return {
+      submission_id: canonicalUuid(item.submission_id, errorCode),
+      accepted_at: acceptedAt,
+      recipient_count: recipientCount,
+      ...(delivery === undefined ? {} : { delivery }),
+    };
+  });
+  for (let index = 1; index < items.length; index += 1) {
+    if (compareHumanSentSubmissionItems(items[index - 1], items[index]) !== -1) {
+      throw new Error(errorCode);
+    }
+  }
+  const requestAnchor = requestCursor?.slice(3);
+  if (requestAnchor && items.some((item) => item.submission_id === requestAnchor)) {
+    throw new Error(errorCode);
+  }
+  const nextCursor = page.next_cursor === null
+    ? null
+    : boundedString(page.next_cursor, 39, 39, errorCode);
+  if (nextCursor !== null && !humanSentSubmissionCursorPattern.test(nextCursor)) {
+    throw new Error(errorCode);
+  }
+  const hasMore = booleanValue(page.has_more, errorCode);
+  if (hasMore !== (nextCursor !== null)) throw new Error(errorCode);
+  if (
+    hasMore
+    && (items.length === 0 || nextCursor !== `v1.${items.at(-1)?.submission_id}`)
+  ) throw new Error(errorCode);
+  if (requestCursor && nextCursor === requestCursor) {
     throw new Error(errorCode);
   }
   return { items, next_cursor: nextCursor, has_more: hasMore };
@@ -837,6 +993,33 @@ export async function listDrafts(
   );
   if (!response.ok) throw new Error(`draft_list_${response.status}`);
   return parseHumanDraftPage(await response.json(), cursor);
+}
+
+/**
+ * Lists only metadata for accepted submissions created by the current human.
+ * This directory intentionally never requests a single submission or its
+ * recipient/provider evidence.
+ */
+export async function listSentSubmissions(
+  config: MailboxScopedConfig,
+  cursor?: string,
+  signal?: AbortSignal,
+): Promise<HumanSentSubmissionPage> {
+  const mailboxId = canonicalUuid(config.mailboxId, "mailbox_id_invalid");
+  if (cursor !== undefined && !humanSentSubmissionCursorPattern.test(cursor)) {
+    throw new Error("sent_list_cursor_invalid");
+  }
+  const query = new URLSearchParams({ limit: "50" });
+  if (cursor) query.set("cursor", cursor);
+  const response = await fetch(
+    endpoint(
+      config,
+      `/api/v2/mailboxes/${encodeURIComponent(mailboxId)}/submissions?${query}`,
+    ),
+    { ...cookieRequest, signal },
+  );
+  if (!response.ok) throw new Error(`sent_list_${response.status}`);
+  return parseHumanSentSubmissionPage(await response.json(), cursor);
 }
 
 export async function restoreDraft(

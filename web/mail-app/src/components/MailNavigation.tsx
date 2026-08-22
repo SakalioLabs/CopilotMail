@@ -3,7 +3,7 @@ import type { MailboxDirectoryItem } from "../types";
 import { LanguagePicker } from "./LanguagePicker";
 import { MailboxPicker } from "./MailboxPicker";
 
-export type MailView = "inbox" | "drafts";
+export type MailView = "inbox" | "sent" | "drafts";
 
 interface MailNavigationProps {
   locale: Locale;
@@ -81,7 +81,15 @@ export function DesktopNavigation({
         >
           {t("nav.inbox")}
         </button>
-        <button disabled>{t("nav.sent")}</button>
+        <button
+          className={activeView === "sent" ? "active" : undefined}
+          aria-current={activeView === "sent" ? "page" : undefined}
+          disabled={!canCompose}
+          title={!canCompose ? t("mailbox.composeUnavailable") : undefined}
+          onClick={() => onViewChange("sent")}
+        >
+          {t("nav.sent")}
+        </button>
         <button
           className={activeView === "drafts" ? "active" : undefined}
           aria-current={activeView === "drafts" ? "page" : undefined}
@@ -176,6 +184,15 @@ export function MobileToolbar({
           onClick={() => onViewChange("inbox")}
         >
           {t("nav.inbox")}
+        </button>
+        <button
+          className={activeView === "sent" ? "active" : undefined}
+          aria-current={activeView === "sent" ? "page" : undefined}
+          disabled={!canCompose}
+          title={!canCompose ? t("mailbox.composeUnavailable") : undefined}
+          onClick={() => onViewChange("sent")}
+        >
+          {t("nav.sent")}
         </button>
         <button
           className={activeView === "drafts" ? "active" : undefined}

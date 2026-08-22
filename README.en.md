@@ -24,12 +24,16 @@ Chinese-first and is being translated incrementally.
 > and then start only the new binaries. Follow the
 > [Ubuntu / WSL Pilot runbook](docs/UBUNTU_WSL_PILOT.zh-CN.md).
 
-> The latest repository migration is `0054_human_mail_draft_reads.sql`. The
+> The latest repository migration is `0056_human_mail_sent_directory_index.sql`. The
 > 0053 stop-the-world rule still applies only to upgrades that cross 0053;
-> Migration 0054 and the full dynamic chain require a clean, isolated
+> Migrations 0054, 0055, 0056, and the full dynamic chain require a clean, isolated
 > PostgreSQL acceptance run. NixOS is currently a constrained development or
 > isolated-test node only, not an approved deployment target; see the
 > [NixOS development-node boundary](docs/NIXOS_DEVELOPMENT_NODE.zh-CN.md).
+> Migration 0056 uses `CREATE INDEX CONCURRENTLY`: let exactly one normal
+> migrator complete it, then require read-only `check` before starting this
+> binary; never replace it with a blocking manual index build on production
+> submission data.
 
 ## Current V2 capabilities
 
@@ -94,8 +98,9 @@ Chinese-first and is being translated incrementally.
 - A Human-only mail slice with an authorized mailbox directory, Shared Mailbox
   switching, an exact readable `role=inbox`, privacy-preserving bounded search,
   safe plain-text detail, read/flag state, serial auto-saved drafts, a private
-  own-draft directory, integrity-checked restore editing, and recoverable formal
-  submission. Mail-session-only `GET /api/v2/mailboxes`
+  own-draft directory, integrity-checked restore editing, a private accepted-
+  submission/delivery-status directory, and recoverable formal submission.
+  Mail-session-only `GET /api/v2/mailboxes`
   requires an active Human with `mailbox.use` and lists only mailboxes with a
   current data-plane binding and effective resource Read. Its minimized items
   expose only mailbox UUID, kind, primary address, and `can_send` derived from
@@ -110,6 +115,14 @@ Chinese-first and is being translated incrementally.
   PostgreSQL-proven JMAP `Email/get`, verifies the Drafts mailbox, `$draft`,
   From, Thread, and content evidence, then returns content only after the final
   authorization/version recheck and atomic `mail.draft.read` audit/Outbox commit.
+  The sent directory lists only the caller's durable accepted submissions whose
+  frozen Draft is sent. It exposes acceptance time, recipient count, and an
+  optional aggregate delivery summary—never subject, body, address, recipient
+  digest, SMTP reply, Draft/provider/data-plane reference, or remote error.
+  It performs no JMAP call, survives a valid data-plane rebind, and rechecks
+  Active Human, `mailbox.use`, Read/Send, ownership, accepted/sent provenance,
+  and the current delivery-snapshot identity before its
+  `mail.submissions.queried` audit/Outbox commit.
   Lists and searches expose only
   pre-existing safe inbound Message UUID projections; raw JMAP Account, Email,
   Thread, and Query State values never enter the browser, cursor, or durable
@@ -229,8 +242,9 @@ disposable PostgreSQL 17. That evidence does not claim the complete ignored
 PostgreSQL suite, a target Pilot upgrade, or the S3-compatible Object Lock
 scenarios; those external-runtime acceptance criteria remain separate CI or
 Pilot gates.
-The repository now contains Migration 0054; the existing 0001→0053 evidence
-does not cover it or constitute a NixOS target-host runtime acceptance result.
+The repository now contains Migrations 0054, 0055, and 0056; the existing 0001→0053
+evidence does not cover them or constitute a NixOS target-host runtime
+acceptance result.
 
 ## Production mail boundary
 

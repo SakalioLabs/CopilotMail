@@ -69,7 +69,13 @@ It uses native PostgreSQL clients, keeps all source sessions read-only, restores
 only to a script-generated database, and fails unless migration, immutable-audit
 trigger/catalog, and seeded-row evidence match.
 
-The latest repository migration is currently `0054_human_mail_draft_reads.sql`.
+The latest repository migration is currently
+`0056_human_mail_sent_directory_index.sql`. Migration 0055 commits the
+sent-directory audit catalog entry; 0056 is deliberately an online
+`CREATE INDEX CONCURRENTLY` migration. Run the normal single migrator only,
+wait for it to finish, and require the read-only `check` command to report the
+schema ready before starting this binary. Do not substitute a manual
+non-concurrent index build on a live submission table.
 Migration 0053 still has an additional stop-the-world requirement: an
 installation at 0052 or earlier must stop every old API, Outbox Worker, and
 audit-maintenance binary before migration; old and new binaries cannot overlap. Run the new

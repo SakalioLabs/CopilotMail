@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  compareHumanSentSubmissionItems,
   getMessage,
   getSubmission,
   listDrafts,
   listInbox,
   listMailboxes,
+  listSentSubmissions,
   requestSubmission,
   restoreDraft,
   saveDraft,
@@ -22,6 +24,7 @@ import {
 } from "./components/MailNavigation";
 import { MessageDetail as MessageDetailView } from "./components/MessageDetail";
 import { MessageList } from "./components/MessageList";
+import { SentList } from "./components/SentList";
 import { readRuntimeConfig } from "./config";
 import {
   MessageDetailRequestGate,
@@ -40,6 +43,8 @@ import type {
   DraftInput,
   HumanDraftListItem,
   HumanDraftPage,
+  HumanSentSubmissionListItem,
+  HumanSentSubmissionPage,
   HumanSessionResponse,
   InboxPage,
   MailboxDirectoryItem,
@@ -82,7 +87,9 @@ type UiErrorKey =
   | "error.draftsPageUnavailable"
   | "error.draftRestoreUnavailable"
   | "error.draftRestoreConflict"
-  | "error.draftSubmissionLocked";
+  | "error.draftSubmissionLocked"
+  | "error.sentUnavailable"
+  | "error.sentPageUnavailable";
 
 interface ComposerStatus {
   key: MessageKey;
@@ -164,6 +171,30 @@ function mergeDraftPages(
   return [...current, ...next];
 }
 
+function mergeSentSubmissionPages(
+  current: readonly HumanSentSubmissionListItem[],
+  next: readonly HumanSentSubmissionListItem[],
+): HumanSentSubmissionListItem[] {
+  const currentTail = current.at(-1)?.submission_id;
+  const currentTailItem = current.at(-1);
+  if (
+    currentTail
+    && currentTailItem
+    && next[0]
+    && compareHumanSentSubmissionItems(currentTailItem, next[0]) !== -1
+  ) {
+    throw new Error("sent_list_order_conflict");
+  }
+  const ids = new Set(current.map((submission) => submission.submission_id));
+  for (const submission of next) {
+    if (ids.has(submission.submission_id)) {
+      throw new Error("sent_list_identity_conflict");
+    }
+    ids.add(submission.submission_id);
+  }
+  return [...current, ...next];
+}
+
 const recipients = (value: string) =>
   value.split(/[;,]/).map((item) => item.trim()).filter(Boolean);
 
@@ -214,6 +245,10 @@ export default function App() {
   const [draftRestoreError, setDraftRestoreError] = useState<UiErrorKey>();
   const [draftRefreshGeneration, setDraftRefreshGeneration] = useState(0);
   const [pendingDraftRestore, setPendingDraftRestore] = useState<HumanDraftListItem>();
+  const [sentPage, setSentPage] = useState<HumanSentSubmissionPage>();
+  const [sentListBusy, setSentListBusy] = useState(false);
+  const [sentListError, setSentListError] = useState<UiErrorKey>();
+  const [sentRefreshGeneration, setSentRefreshGeneration] = useState(0);
   const draftId = useRef<string | undefined>(undefined);
   const draftVersion = useRef<number | undefined>(undefined);
   const saveChain = useRef<Promise<void>>(Promise.resolve());
@@ -236,6 +271,10 @@ export default function App() {
   const draftRestoreAbort = useRef<AbortController | undefined>(undefined);
   const draftRestoreInFlight = useRef<string | undefined>(undefined);
   const draftFocusAfterRefresh = useRef<string | undefined>(undefined);
+  const sentListGeneration = useRef(0);
+  const sentListAbort = useRef<AbortController | undefined>(undefined);
+  const sentPageRequest = useRef<string | undefined>(undefined);
+  const sentFocusAfterRefresh = useRef(false);
   const mailboxDirectoryGeneration = useRef(0);
   const mailboxPageRequest = useRef<string | undefined>(undefined);
   const activeMailboxIdRef = useRef<string | undefined>(undefined);
@@ -243,6 +282,7 @@ export default function App() {
   const detailHeading = useRef<HTMLHeadingElement>(null);
   const inboxHeading = useRef<HTMLHeadingElement>(null);
   const draftHeading = useRef<HTMLHeadingElement>(null);
+  const sentHeading = useRef<HTMLHeadingElement>(null);
   const messageButtons = useRef(new Map<string, HTMLButtonElement>());
   const draftButtons = useRef(new Map<string, HTMLButtonElement>());
   const [sendBusy, setSendBusy] = useState(false);
@@ -532,6 +572,65 @@ export default function App() {
     mailView,
   ]);
   useEffect(() => {
+    sentListAbort.current?.abort();
+    const generation = ++sentListGeneration.current;
+    sentPageRequest.current = undefined;
+    setSentPage(undefined);
+    setSentListError(undefined);
+    setSentListBusy(false);
+    if (
+      !authenticated
+      || !mailboxSettings
+      || !activeMailbox?.can_send
+      || mailView !== "sent"
+    ) {
+      if (mailView !== "sent") sentFocusAfterRefresh.current = false;
+      return;
+    }
+
+    const requestMailboxId = mailboxSettings.mailboxId;
+    const controller = new AbortController();
+    sentListAbort.current = controller;
+    setSentListBusy(true);
+    listSentSubmissions(mailboxSettings, undefined, controller.signal)
+      .then((nextPage) => {
+        if (
+          generation !== sentListGeneration.current
+          || controller.signal.aborted
+          || mailViewRef.current !== "sent"
+          || activeMailboxIdRef.current !== requestMailboxId
+        ) return;
+        setSentPage(nextPage);
+        if (sentFocusAfterRefresh.current) {
+          sentFocusAfterRefresh.current = false;
+          window.requestAnimationFrame(() => sentHeading.current?.focus());
+        }
+      })
+      .catch(() => {
+        if (
+          generation === sentListGeneration.current
+          && !controller.signal.aborted
+          && mailViewRef.current === "sent"
+          && activeMailboxIdRef.current === requestMailboxId
+        ) {
+          sentFocusAfterRefresh.current = false;
+          setSentListError("error.sentUnavailable");
+        }
+      })
+      .finally(() => {
+        if (generation === sentListGeneration.current && !controller.signal.aborted) {
+          setSentListBusy(false);
+        }
+      });
+    return () => controller.abort();
+  }, [
+    activeMailbox?.can_send,
+    authenticated,
+    mailboxSettings,
+    mailView,
+    sentRefreshGeneration,
+  ]);
+  useEffect(() => {
     setDetail(undefined);
     setDetailLoadError(undefined);
     if (!authenticated || !mailboxSettings || !selectedMessageId) {
@@ -679,13 +778,17 @@ export default function App() {
   };
   const switchView = (nextView: MailView) => {
     if (nextView === mailViewRef.current) return;
-    if (nextView === "drafts" && !activeMailbox?.can_send) return;
+    if ((nextView === "drafts" || nextView === "sent") && !activeMailbox?.can_send) {
+      return;
+    }
     mailViewRef.current = nextView;
     setMailView(nextView);
     clearMessageSelection();
     setPendingDraftRestore(undefined);
-    if (nextView === "drafts") {
+    if (nextView === "drafts" || nextView === "sent") {
       inboxRequestGeneration.current += 1;
+    }
+    if (nextView === "drafts") {
       setDraftRestoreError(undefined);
     } else {
       draftListGeneration.current += 1;
@@ -696,9 +799,21 @@ export default function App() {
       draftFocusAfterRefresh.current = undefined;
       setDraftRestoreBusyId(undefined);
     }
+    if (nextView !== "sent") {
+      sentListGeneration.current += 1;
+      sentListAbort.current?.abort();
+      sentPageRequest.current = undefined;
+      sentFocusAfterRefresh.current = false;
+      setSentListBusy(false);
+    }
     if (narrowViewport()) {
       window.requestAnimationFrame(() => {
-        (nextView === "drafts" ? draftHeading.current : inboxHeading.current)?.focus();
+        (nextView === "drafts"
+          ? draftHeading.current
+          : nextView === "sent"
+            ? sentHeading.current
+            : inboxHeading.current
+        )?.focus();
       });
     }
   };
@@ -715,6 +830,10 @@ export default function App() {
     draftRestoreInFlight.current = undefined;
     draftFocusAfterRefresh.current = undefined;
     draftPageRequest.current = undefined;
+    sentListGeneration.current += 1;
+    sentListAbort.current?.abort();
+    sentPageRequest.current = undefined;
+    sentFocusAfterRefresh.current = false;
     detailRequests.current.invalidate();
     setPage(undefined);
     setDraftPage(undefined);
@@ -723,6 +842,9 @@ export default function App() {
     setDraftRestoreBusyId(undefined);
     setDraftRestoreError(undefined);
     setPendingDraftRestore(undefined);
+    setSentPage(undefined);
+    setSentListBusy(false);
+    setSentListError(undefined);
     setSearchText("");
     setActiveSearch(undefined);
     setSearchBusy(false);
@@ -792,6 +914,57 @@ export default function App() {
       if (draftPageRequest.current === cursor) draftPageRequest.current = undefined;
       if (generation === draftListGeneration.current && !controller.signal.aborted) {
         setDraftListBusy(false);
+      }
+    }
+  };
+  const refreshSentSubmissions = () => {
+    if (mailViewRef.current !== "sent" || !activeMailbox?.can_send) return;
+    sentFocusAfterRefresh.current = true;
+    setSentRefreshGeneration((generation) => generation + 1);
+  };
+  const loadMoreSentSubmissions = async () => {
+    if (
+      !authenticated
+      || !mailboxSettings
+      || mailViewRef.current !== "sent"
+      || !activeMailbox?.can_send
+      || !sentPage?.has_more
+      || !sentPage.next_cursor
+      || sentListBusy
+      || sentPageRequest.current !== undefined
+    ) return;
+    const generation = sentListGeneration.current;
+    const requestMailboxId = mailboxSettings.mailboxId;
+    const cursor = sentPage.next_cursor;
+    const controller = new AbortController();
+    sentListAbort.current?.abort();
+    sentListAbort.current = controller;
+    sentPageRequest.current = cursor;
+    setSentListBusy(true);
+    setSentListError(undefined);
+    try {
+      const nextPage = await listSentSubmissions(mailboxSettings, cursor, controller.signal);
+      if (
+        generation !== sentListGeneration.current
+        || controller.signal.aborted
+        || mailViewRef.current !== "sent"
+        || activeMailboxIdRef.current !== requestMailboxId
+      ) return;
+      setSentPage((current) => current && ({
+        ...nextPage,
+        items: mergeSentSubmissionPages(current.items, nextPage.items),
+      }));
+    } catch {
+      if (
+        generation === sentListGeneration.current
+        && !controller.signal.aborted
+        && mailViewRef.current === "sent"
+        && activeMailboxIdRef.current === requestMailboxId
+      ) setSentListError("error.sentPageUnavailable");
+    } finally {
+      if (sentPageRequest.current === cursor) sentPageRequest.current = undefined;
+      if (generation === sentListGeneration.current && !controller.signal.aborted) {
+        setSentListBusy(false);
       }
     }
   };
@@ -1421,7 +1594,7 @@ export default function App() {
             onToggleFlag={toggleFlag}
           />
         </>
-      ) : (
+      ) : mailView === "drafts" ? (
         <>
           <DraftList
             draftButtonRef={registerDraftButton}
@@ -1441,6 +1614,25 @@ export default function App() {
             <div className="empty-detail">
               <span aria-hidden="true">{t("icon.emptyDetail")}</span>
               <p>{t("drafts.detailHint")}</p>
+            </div>
+          </section>
+        </>
+      ) : (
+        <>
+          <SentList
+            error={sentListError ? t(sentListError) : undefined}
+            headingRef={sentHeading}
+            listBusy={sentListBusy}
+            locale={locale}
+            page={sentPage}
+            t={t}
+            onLoadMore={() => void loadMoreSentSubmissions()}
+            onRefresh={refreshSentSubmissions}
+          />
+          <section className="detail sent-detail" data-dialog-background>
+            <div className="empty-detail">
+              <span aria-hidden="true">{t("icon.emptyDetail")}</span>
+              <p>{t("sent.detailHint")}</p>
             </div>
           </section>
         </>

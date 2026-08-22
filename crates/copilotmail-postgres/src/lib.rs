@@ -31,17 +31,19 @@ use copilotmail_application::{
     HumanLoginTransactionRecord, HumanLoginTransactionStore, HumanLoginTransactionWrite,
     HumanMailContentQueryStore, HumanMailContentTarget, HumanMailMessageProjection,
     HumanMailboxDirectoryBatch, HumanMailboxDirectoryCandidate, HumanMailboxDirectoryQuery,
-    HumanMailboxDirectoryStore, HumanSessionClient, HumanSessionQueryStore, HumanSessionRecord,
-    HumanSessionRevocationCause, HumanSessionRevocationResult, HumanSessionWrite,
-    InboundMailEventInsert, InboundMailEventRecord, LegalHoldObjectEvidence,
-    MailDeliveryQueryStore, MailDeliveryRecipientState, MailDeliveryRecipientWrite,
-    MailDeliveryReconciliationTarget, MailDeliverySnapshotInsert, MailDeliverySnapshotRecord,
-    MailDeliverySnapshotWrite, MailDomainDnsObservation, MailDomainQueryStore, MailDomainSummary,
-    MailDraftMetadataStore, MailDraftRecipientEvidence, MailDraftRecord, MailDraftStatus,
-    MailDraftWrite, MailEngineMailboxBinding, MailEngineMailboxBindingWrite,
-    MailEventIngestionStore, MailEventIngestionTransaction, MailReplyTarget,
-    MailReplyTargetQueryStore, MailSubmissionIntentCreation, MailSubmissionIntentRecord,
-    MailSubmissionIntentWrite, MailSubmissionLease, MailSubmissionQueryStore, MailSubmissionStatus,
+    HumanMailboxDirectoryStore, HumanSentDeliveryEvidence, HumanSentListBatch,
+    HumanSentListCandidate, HumanSentListQuery, HumanSentListRecheck, HumanSentQueryStore,
+    HumanSessionClient, HumanSessionQueryStore, HumanSessionRecord, HumanSessionRevocationCause,
+    HumanSessionRevocationResult, HumanSessionWrite, InboundMailEventInsert,
+    InboundMailEventRecord, LegalHoldObjectEvidence, MailDeliveryQueryStore,
+    MailDeliveryRecipientState, MailDeliveryRecipientWrite, MailDeliveryReconciliationTarget,
+    MailDeliverySnapshotInsert, MailDeliverySnapshotRecord, MailDeliverySnapshotWrite,
+    MailDomainDnsObservation, MailDomainQueryStore, MailDomainSummary, MailDraftMetadataStore,
+    MailDraftRecipientEvidence, MailDraftRecord, MailDraftStatus, MailDraftWrite,
+    MailEngineMailboxBinding, MailEngineMailboxBindingWrite, MailEventIngestionStore,
+    MailEventIngestionTransaction, MailReplyTarget, MailReplyTargetQueryStore,
+    MailSubmissionIntentCreation, MailSubmissionIntentRecord, MailSubmissionIntentWrite,
+    MailSubmissionLease, MailSubmissionQueryStore, MailSubmissionStatus,
     MailSubmissionTerminalWrite, MailboxAuthorizationStore, MailboxQueryStore, MailboxSummary,
     OrganizationQueryStore, OrganizationSummary, OutboundMailEventInsert, OutboundMailEventKind,
     OutboundMailEventRecord, PendingEvent, RetentionPolicyActivationRecord, RetentionPolicyDetail,
@@ -1499,6 +1501,27 @@ impl PgControlPlaneStore {
                       AND resource_type = 'audit.query'
                       AND risk = 'high'
                       AND privileged
+               )
+               AND EXISTS (
+                   SELECT 1
+                     FROM audit_event_catalog
+                    WHERE action = 'mail.submissions.queried'
+                      AND resource_type = 'mailbox'
+                      AND risk = 'medium'
+                      AND privileged
+               )
+               AND EXISTS (
+                   SELECT 1
+                     FROM pg_index AS sent_directory_index
+                     JOIN pg_class AS sent_directory_relation
+                       ON sent_directory_relation.oid = sent_directory_index.indexrelid
+                     JOIN pg_namespace AS sent_directory_schema
+                       ON sent_directory_schema.oid = sent_directory_relation.relnamespace
+                    WHERE sent_directory_schema.nspname = 'public'
+                      AND sent_directory_relation.relname =
+                          'mail_submission_intents_human_sent_directory_idx'
+                      AND sent_directory_index.indisvalid
+                      AND sent_directory_index.indisready
                )
                AND EXISTS (
                    SELECT 1
@@ -4097,6 +4120,272 @@ impl HumanDraftQueryStore for PgControlPlaneStore {
                 binding,
                 draft,
             }),
+        })
+    }
+}
+
+#[async_trait]
+impl HumanSentQueryStore for PgControlPlaneStore {
+    async fn list_human_sent_submissions(
+        &self,
+        query: &HumanSentListQuery,
+    ) -> Result<HumanSentListBatch, StoreError> {
+        if !(1..=50).contains(&query.limit) {
+            return Err(StoreError::Conflict);
+        }
+
+        let mut transaction = self.pool.begin().await.map_err(map_store_error)?;
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_store_error)?;
+
+        let active_human = sqlx::query_scalar::<_, bool>(
+            r#"
+            SELECT EXISTS (
+                SELECT 1
+                  FROM principals
+                 WHERE id = $1
+                   AND organization_id = $2
+                   AND kind = 'human'
+                   AND status = 'active'
+            )
+            "#,
+        )
+        .bind(query.principal_id.as_uuid())
+        .bind(query.organization_id.as_uuid())
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_store_error)?;
+        if !active_human {
+            transaction.commit().await.map_err(map_store_error)?;
+            return Ok(HumanSentListBatch {
+                active_human: false,
+                cursor_valid: false,
+                authorization: None,
+                candidates: Vec::new(),
+                has_more: false,
+            });
+        }
+
+        let Some(authorization) = load_human_sent_access_snapshot(
+            &mut transaction,
+            query.organization_id,
+            query.principal_id,
+            query.mailbox_id,
+            query.now,
+        )
+        .await?
+        else {
+            transaction.commit().await.map_err(map_store_error)?;
+            return Ok(HumanSentListBatch {
+                active_human: true,
+                cursor_valid: query.after_submission_id.is_none(),
+                authorization: None,
+                candidates: Vec::new(),
+                has_more: false,
+            });
+        };
+        if !human_draft_access_permits_read_and_send(
+            &authorization,
+            query.organization_id,
+            query.mailbox_id,
+        ) {
+            transaction.commit().await.map_err(map_store_error)?;
+            return Ok(HumanSentListBatch {
+                active_human: true,
+                cursor_valid: query.after_submission_id.is_none(),
+                authorization: Some(authorization),
+                candidates: Vec::new(),
+                has_more: false,
+            });
+        }
+
+        let cursor_accepted_at = if let Some(after_submission_id) = query.after_submission_id {
+            sqlx::query_scalar::<_, DateTime<Utc>>(
+                r#"
+                SELECT intent.accepted_at
+                  FROM mail_submission_intents AS intent
+                  JOIN mail_drafts AS draft
+                    ON draft.id = intent.draft_id
+                   AND draft.organization_id = intent.organization_id
+                   AND draft.mailbox_id = intent.mailbox_id
+                   AND draft.created_by = intent.requested_by
+                   AND draft.mail_data_plane_id = intent.mail_data_plane_id
+                   AND draft.status = 'sent'
+                   AND draft.version = intent.draft_version + 1
+                   AND draft.recipient_refs IS NOT NULL
+                   AND draft.recipient_domains IS NOT NULL
+                   AND cardinality(draft.recipient_refs) BETWEEN 1 AND 100
+                   AND cardinality(draft.recipient_refs)
+                       = cardinality(draft.recipient_domains)
+                 WHERE intent.id = $1
+                   AND intent.organization_id = $2
+                   AND intent.mailbox_id = $3
+                   AND intent.requested_by = $4
+                   AND intent.status = 'accepted'
+                   AND intent.accepted_at IS NOT NULL
+                "#,
+            )
+            .bind(after_submission_id.as_uuid())
+            .bind(query.organization_id.as_uuid())
+            .bind(query.mailbox_id.as_uuid())
+            .bind(query.principal_id.as_uuid())
+            .fetch_optional(&mut *transaction)
+            .await
+            .map_err(map_store_error)?
+        } else {
+            Some(query.now)
+        };
+        if query.after_submission_id.is_some() && cursor_accepted_at.is_none() {
+            transaction.commit().await.map_err(map_store_error)?;
+            return Ok(HumanSentListBatch {
+                active_human: true,
+                cursor_valid: false,
+                authorization: Some(authorization),
+                candidates: Vec::new(),
+                has_more: false,
+            });
+        }
+
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            id: Uuid,
+            organization_id: Uuid,
+            mailbox_id: Uuid,
+            requested_by: Uuid,
+            accepted_at: DateTime<Utc>,
+            recipient_count: i32,
+            snapshot_id: Option<Uuid>,
+            observed_at: Option<DateTime<Utc>>,
+            terminal: Option<bool>,
+            delivery_recipient_count: Option<i32>,
+            delivered_count: Option<i32>,
+            failed_count: Option<i32>,
+            queued_count: Option<i32>,
+            unknown_count: Option<i32>,
+        }
+
+        let rows = sqlx::query_as::<_, Row>(
+            r#"
+            SELECT intent.id, intent.organization_id, intent.mailbox_id,
+                   intent.requested_by, intent.accepted_at,
+                   cardinality(draft.recipient_refs) AS recipient_count,
+                   snapshot.id AS snapshot_id,
+                   snapshot.observed_at,
+                   snapshot.terminal,
+                   snapshot.recipient_count AS delivery_recipient_count,
+                   snapshot.delivered_count,
+                   snapshot.failed_count,
+                   snapshot.queued_count,
+                   snapshot.unknown_count
+              FROM mail_submission_intents AS intent
+              JOIN mail_drafts AS draft
+                ON draft.id = intent.draft_id
+               AND draft.organization_id = intent.organization_id
+               AND draft.mailbox_id = intent.mailbox_id
+               AND draft.created_by = intent.requested_by
+               AND draft.mail_data_plane_id = intent.mail_data_plane_id
+               AND draft.status = 'sent'
+               AND draft.version = intent.draft_version + 1
+               AND draft.recipient_refs IS NOT NULL
+               AND draft.recipient_domains IS NOT NULL
+               AND cardinality(draft.recipient_refs) BETWEEN 1 AND 100
+               AND cardinality(draft.recipient_refs)
+                   = cardinality(draft.recipient_domains)
+              LEFT JOIN LATERAL (
+                  SELECT id, observed_at, terminal, recipient_count,
+                         delivered_count, failed_count, queued_count, unknown_count
+                    FROM mail_delivery_snapshots
+                   WHERE organization_id = intent.organization_id
+                     AND submission_id = intent.id
+                   ORDER BY observed_at DESC, id DESC
+                   LIMIT 1
+              ) AS snapshot ON true
+             WHERE intent.organization_id = $1
+               AND intent.mailbox_id = $2
+               AND intent.requested_by = $3
+               AND intent.status = 'accepted'
+               AND intent.accepted_at IS NOT NULL
+               AND (
+                   $4::timestamptz IS NULL
+                   OR (intent.accepted_at, intent.id) < ($4, $5)
+               )
+             ORDER BY intent.accepted_at DESC, intent.id DESC
+             LIMIT $6
+            "#,
+        )
+        .bind(query.organization_id.as_uuid())
+        .bind(query.mailbox_id.as_uuid())
+        .bind(query.principal_id.as_uuid())
+        .bind(query.after_submission_id.and(cursor_accepted_at))
+        .bind(query.after_submission_id.map(MailSubmissionId::as_uuid))
+        .bind(i64::from(query.limit) + 1)
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_store_error)?;
+        let has_more = rows.len() > usize::from(query.limit);
+        let candidates = rows
+            .into_iter()
+            .take(usize::from(query.limit))
+            .map(|row| {
+                let delivery = match (
+                    row.snapshot_id,
+                    row.observed_at,
+                    row.terminal,
+                    row.delivery_recipient_count,
+                    row.delivered_count,
+                    row.failed_count,
+                    row.queued_count,
+                    row.unknown_count,
+                ) {
+                    (None, None, None, None, None, None, None, None) => None,
+                    (
+                        Some(snapshot_id),
+                        Some(observed_at),
+                        Some(terminal),
+                        Some(recipient_count),
+                        Some(delivered_count),
+                        Some(failed_count),
+                        Some(queued_count),
+                        Some(unknown_count),
+                    ) => Some(HumanSentDeliveryEvidence {
+                        snapshot_id,
+                        observed_at,
+                        terminal,
+                        recipient_count: u16::try_from(recipient_count)
+                            .map_err(|_| StoreError::Unavailable)?,
+                        delivered_count: u16::try_from(delivered_count)
+                            .map_err(|_| StoreError::Unavailable)?,
+                        failed_count: u16::try_from(failed_count)
+                            .map_err(|_| StoreError::Unavailable)?,
+                        queued_count: u16::try_from(queued_count)
+                            .map_err(|_| StoreError::Unavailable)?,
+                        unknown_count: u16::try_from(unknown_count)
+                            .map_err(|_| StoreError::Unavailable)?,
+                    }),
+                    _ => return Err(StoreError::Unavailable),
+                };
+                Ok(HumanSentListCandidate {
+                    submission_id: MailSubmissionId::from_uuid(row.id),
+                    organization_id: OrganizationId::from_uuid(row.organization_id),
+                    mailbox_id: MailboxId::from_uuid(row.mailbox_id),
+                    requested_by: PrincipalId::from_uuid(row.requested_by),
+                    accepted_at: row.accepted_at,
+                    recipient_count: u16::try_from(row.recipient_count)
+                        .map_err(|_| StoreError::Unavailable)?,
+                    delivery,
+                })
+            })
+            .collect::<Result<Vec<_>, StoreError>>()?;
+
+        transaction.commit().await.map_err(map_store_error)?;
+        Ok(HumanSentListBatch {
+            active_human: true,
+            cursor_valid: true,
+            authorization: Some(authorization),
+            candidates,
+            has_more,
         })
     }
 }
@@ -8174,6 +8463,204 @@ impl ControlPlaneTransaction for PgControlPlaneTransaction {
         .bind(&proof.expected_engine_account_ref)
         .bind(expected_draft_ids.as_slice())
         .bind(expected_versions.as_slice())
+        .fetch_one(&mut **self.transaction()?)
+        .await
+        .map_err(map_store_error)
+    }
+
+    async fn human_sent_list_still_authorized(
+        &mut self,
+        proof: &HumanSentListRecheck,
+    ) -> Result<bool, StoreError> {
+        if proof.expected_submissions.len() > 50
+            || proof.expected_submissions.iter().any(|submission| {
+                submission.submission_id.as_uuid().is_nil()
+                    || !(1..=100).contains(&submission.expected_recipient_count)
+                    || submission
+                        .expected_delivery_snapshot_id
+                        .is_some_and(|snapshot_id| snapshot_id.is_nil())
+            })
+        {
+            return Ok(false);
+        }
+        let mut unique_submission_ids = BTreeSet::new();
+        if proof
+            .expected_submissions
+            .iter()
+            .any(|submission| !unique_submission_ids.insert(submission.submission_id))
+        {
+            return Ok(false);
+        }
+        let expected_submission_ids = proof
+            .expected_submissions
+            .iter()
+            .map(|submission| submission.submission_id.as_uuid())
+            .collect::<Vec<_>>();
+        let expected_accepted_at = proof
+            .expected_submissions
+            .iter()
+            .map(|submission| submission.expected_accepted_at)
+            .collect::<Vec<_>>();
+        let expected_recipient_counts = proof
+            .expected_submissions
+            .iter()
+            .map(|submission| i32::from(submission.expected_recipient_count))
+            .collect::<Vec<_>>();
+        // PostgreSQL arrays cannot represent a portable typed NULL element in
+        // every sqlx version we support. A nil UUID is impossible for an
+        // actual snapshot (and rejected above when caller-supplied), so it is
+        // a safe in-transaction sentinel for an expected absent snapshot.
+        let expected_snapshot_ids = proof
+            .expected_submissions
+            .iter()
+            .map(|submission| {
+                submission
+                    .expected_delivery_snapshot_id
+                    .unwrap_or_else(Uuid::nil)
+            })
+            .collect::<Vec<_>>();
+
+        sqlx::query_scalar::<_, bool>(
+            r#"
+            SELECT EXISTS (
+                SELECT 1
+                  FROM principals AS principal
+                  JOIN mailboxes AS mailbox
+                    ON mailbox.organization_id = principal.organization_id
+                   AND mailbox.id = $3
+                 WHERE principal.id = $2
+                   AND principal.organization_id = $1
+                   AND principal.kind = 'human'
+                   AND principal.status = 'active'
+                   AND EXISTS (
+                       SELECT 1
+                         FROM role_assignments AS assignment
+                         JOIN roles AS role
+                           ON role.id = assignment.role_id
+                          AND role.organization_id = assignment.organization_id
+                         JOIN role_permissions AS permission
+                           ON permission.role_id = role.id
+                          AND permission.permission = 'mailbox.use'
+                        WHERE assignment.organization_id = $1
+                          AND assignment.principal_id = $2
+                          AND assignment.revoked_at IS NULL
+                          AND assignment.valid_from <= CURRENT_TIMESTAMP
+                          AND (
+                              assignment.valid_until IS NULL
+                              OR assignment.valid_until > CURRENT_TIMESTAMP
+                          )
+                   )
+                   AND (
+                       EXISTS (
+                           SELECT 1
+                             FROM mailbox_memberships AS membership
+                            WHERE membership.organization_id = $1
+                              AND membership.mailbox_id = $3
+                              AND membership.principal_id = $2
+                              AND membership.role IN ('owner', 'member')
+                              AND membership.valid_from <= CURRENT_TIMESTAMP
+                              AND (
+                                  membership.valid_until IS NULL
+                                  OR membership.valid_until > CURRENT_TIMESTAMP
+                              )
+                       )
+                       OR EXISTS (
+                           SELECT 1
+                             FROM delegations AS delegation
+                            WHERE delegation.organization_id = $1
+                              AND delegation.mailbox_id = $3
+                              AND delegation.grantee_principal_id = $2
+                              AND 'mailbox.read' = ANY(delegation.scopes)
+                              AND delegation.revoked_at IS NULL
+                              AND delegation.valid_from <= CURRENT_TIMESTAMP
+                              AND delegation.valid_until > CURRENT_TIMESTAMP
+                       )
+                   )
+                   AND (
+                       EXISTS (
+                           SELECT 1
+                             FROM mailbox_memberships AS membership
+                            WHERE membership.organization_id = $1
+                              AND membership.mailbox_id = $3
+                              AND membership.principal_id = $2
+                              AND membership.role IN ('owner', 'member')
+                              AND membership.valid_from <= CURRENT_TIMESTAMP
+                              AND (
+                                  membership.valid_until IS NULL
+                                  OR membership.valid_until > CURRENT_TIMESTAMP
+                              )
+                       )
+                       OR EXISTS (
+                           SELECT 1
+                             FROM delegations AS delegation
+                            WHERE delegation.organization_id = $1
+                              AND delegation.mailbox_id = $3
+                              AND delegation.grantee_principal_id = $2
+                              AND 'mailbox.send' = ANY(delegation.scopes)
+                              AND delegation.revoked_at IS NULL
+                              AND delegation.valid_from <= CURRENT_TIMESTAMP
+                              AND delegation.valid_until > CURRENT_TIMESTAMP
+                       )
+                   )
+                   AND NOT EXISTS (
+                       SELECT 1
+                         FROM unnest(
+                                  $4::uuid[],
+                                  $5::timestamptz[],
+                                  $6::integer[],
+                                  $7::uuid[]
+                              ) AS expected(
+                                  submission_id,
+                                  accepted_at,
+                                  recipient_count,
+                                  snapshot_id
+                              )
+                         LEFT JOIN mail_submission_intents AS intent
+                           ON intent.id = expected.submission_id
+                          AND intent.organization_id = $1
+                          AND intent.mailbox_id = $3
+                          AND intent.requested_by = $2
+                          AND intent.status = 'accepted'
+                          AND intent.accepted_at = expected.accepted_at
+                         LEFT JOIN mail_drafts AS draft
+                           ON draft.id = intent.draft_id
+                          AND draft.organization_id = intent.organization_id
+                          AND draft.mailbox_id = intent.mailbox_id
+                          AND draft.created_by = intent.requested_by
+                          AND draft.mail_data_plane_id = intent.mail_data_plane_id
+                          AND draft.status = 'sent'
+                          AND draft.version = intent.draft_version + 1
+                          AND draft.recipient_refs IS NOT NULL
+                          AND draft.recipient_domains IS NOT NULL
+                          AND cardinality(draft.recipient_refs) BETWEEN 1 AND 100
+                          AND cardinality(draft.recipient_refs)
+                              = cardinality(draft.recipient_domains)
+                         LEFT JOIN LATERAL (
+                             SELECT id
+                               FROM mail_delivery_snapshots
+                              WHERE organization_id = intent.organization_id
+                                AND submission_id = intent.id
+                              ORDER BY observed_at DESC, id DESC
+                              LIMIT 1
+                         ) AS snapshot ON true
+                        WHERE intent.id IS NULL
+                           OR draft.id IS NULL
+                           OR cardinality(draft.recipient_refs) <> expected.recipient_count
+                           OR COALESCE(
+                                  snapshot.id,
+                                  '00000000-0000-0000-0000-000000000000'::uuid
+                              ) <> expected.snapshot_id
+                   )
+            )
+            "#,
+        )
+        .bind(proof.organization_id.as_uuid())
+        .bind(proof.principal_id.as_uuid())
+        .bind(proof.mailbox_id.as_uuid())
+        .bind(expected_submission_ids.as_slice())
+        .bind(expected_accepted_at.as_slice())
+        .bind(expected_recipient_counts.as_slice())
+        .bind(expected_snapshot_ids.as_slice())
         .fetch_one(&mut **self.transaction()?)
         .await
         .map_err(map_store_error)
@@ -13403,6 +13890,138 @@ fn encode_hex(value: &[u8]) -> String {
         encoded.push(char::from(HEX[usize::from(byte & 0x0f)]));
     }
     encoded
+}
+
+/// Loads the current Human mailbox authorization snapshot without binding the
+/// result to a particular mail data plane. Content-free historical evidence
+/// (such as the sent-directory) remains valid after a safe binding rotation.
+async fn load_human_sent_access_snapshot(
+    transaction: &mut Transaction<'_, Postgres>,
+    organization_id: OrganizationId,
+    principal_id: PrincipalId,
+    mailbox_id: MailboxId,
+    now: DateTime<Utc>,
+) -> Result<Option<MailboxAccessSnapshot>, StoreError> {
+    #[derive(sqlx::FromRow)]
+    struct AccessRow {
+        mailbox_id: Uuid,
+        organization_id: Uuid,
+        membership: Option<String>,
+    }
+    #[derive(sqlx::FromRow)]
+    struct DelegationRow {
+        id: Uuid,
+        grantor_principal_id: Uuid,
+        scopes: Vec<String>,
+    }
+
+    let row = sqlx::query_as::<_, AccessRow>(
+        r#"
+        SELECT mailbox.id AS mailbox_id, mailbox.organization_id,
+               (
+                   SELECT membership.role
+                     FROM mailbox_memberships AS membership
+                    WHERE membership.organization_id = mailbox.organization_id
+                      AND membership.mailbox_id = mailbox.id
+                      AND membership.principal_id = principal.id
+                      AND membership.valid_from <= $4
+                      AND (
+                          membership.valid_until IS NULL
+                          OR membership.valid_until > $4
+                      )
+                    ORDER BY CASE membership.role
+                        WHEN 'owner' THEN 1
+                        WHEN 'member' THEN 2
+                        ELSE 3
+                    END
+                    LIMIT 1
+               ) AS membership
+          FROM mailboxes AS mailbox
+          JOIN principals AS principal
+            ON principal.id = $2
+           AND principal.organization_id = mailbox.organization_id
+           AND principal.kind = 'human'
+           AND principal.status = 'active'
+         WHERE mailbox.organization_id = $1
+           AND mailbox.id = $3
+           AND EXISTS (
+               SELECT 1
+                 FROM role_assignments AS assignment
+                 JOIN roles AS role
+                   ON role.id = assignment.role_id
+                  AND role.organization_id = assignment.organization_id
+                 JOIN role_permissions AS permission
+                   ON permission.role_id = role.id
+                  AND permission.permission = 'mailbox.use'
+                WHERE assignment.organization_id = $1
+                  AND assignment.principal_id = $2
+                  AND assignment.revoked_at IS NULL
+                  AND assignment.valid_from <= $4
+                  AND (
+                      assignment.valid_until IS NULL
+                      OR assignment.valid_until > $4
+                  )
+           )
+        "#,
+    )
+    .bind(organization_id.as_uuid())
+    .bind(principal_id.as_uuid())
+    .bind(mailbox_id.as_uuid())
+    .bind(now)
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_store_error)?;
+    let Some(row) = row else {
+        return Ok(None);
+    };
+
+    let delegation_rows = sqlx::query_as::<_, DelegationRow>(
+        r#"
+        SELECT id, grantor_principal_id, scopes
+          FROM delegations
+         WHERE organization_id = $1
+           AND mailbox_id = $2
+           AND grantee_principal_id = $3
+           AND revoked_at IS NULL
+           AND valid_from <= $4
+           AND valid_until > $4
+         ORDER BY id
+        "#,
+    )
+    .bind(organization_id.as_uuid())
+    .bind(mailbox_id.as_uuid())
+    .bind(principal_id.as_uuid())
+    .bind(now)
+    .fetch_all(&mut **transaction)
+    .await
+    .map_err(map_store_error)?;
+
+    let membership = row
+        .membership
+        .as_deref()
+        .map(|role| mailbox_membership_role_from_str(role).ok_or(StoreError::Unavailable))
+        .transpose()?;
+    let delegations = delegation_rows
+        .into_iter()
+        .map(|delegation| {
+            let capabilities = delegation
+                .scopes
+                .into_iter()
+                .map(|scope| mailbox_capability_from_str(&scope).ok_or(StoreError::Unavailable))
+                .collect::<Result<BTreeSet<_>, StoreError>>()?;
+            Ok(ResolvedMailboxDelegation {
+                delegation_id: DelegationId::from_uuid(delegation.id),
+                grantor_principal_id: PrincipalId::from_uuid(delegation.grantor_principal_id),
+                capabilities,
+            })
+        })
+        .collect::<Result<Vec<_>, StoreError>>()?;
+    Ok(Some(MailboxAccessSnapshot {
+        organization_id: OrganizationId::from_uuid(row.organization_id),
+        mailbox_id: MailboxId::from_uuid(row.mailbox_id),
+        membership,
+        delegations,
+    }))
 }
 
 async fn load_human_draft_access_snapshot(

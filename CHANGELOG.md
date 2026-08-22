@@ -21,6 +21,9 @@ implementation evidence remains in
 - Human Mail responsive list/detail navigation, accessible modal composition, and
   generation-bound asynchronous state that discards stale draft, submission, and
   inbox responses.
+- A Human Mail Session-only sent directory for the caller's own durable accepted
+  submissions, with paged aggregate delivery status, final authorization
+  rechecks, and atomic `mail.submissions.queried` audit/Outbox evidence.
 - Agent processing subscriptions, leases, Ack/Nack, dead letters, Cursor/SSE
   recovery, signed Webhooks, idempotent mail submission, and non-delivering
   Testing-Agent Sandbox.
@@ -36,6 +39,16 @@ implementation evidence remains in
   cannot be established.
 - Browser and Agent credentials, provider identifiers, recipient evidence, and
   mail content are minimized or excluded from public responses and audit data.
+- The sent-directory contract excludes Draft identifiers, content, addresses,
+  recipient digests, SMTP replies, provider/data-plane references, and remote
+  errors; it never queries JMAP and does not lose local history after a safe
+  data-plane rebind.
+- The shared submissions route authenticates before decoding its mailbox UUID;
+  the Human-only GET route rejects HEAD after Mail Session authentication so a
+  bodyless probe cannot create disclosure Audit/Outbox evidence.
+- The sent-directory index is created through a separate SQLx
+  `CREATE INDEX CONCURRENTLY` migration and is part of the fail-closed schema
+  readiness check, avoiding a blocking production submission-table index build.
 - Immutable evidence tables and migration/readiness gates detect disabled or
   missing enforcement controls.
 - Audit-export downloads now require an active Human Principal, verify the
