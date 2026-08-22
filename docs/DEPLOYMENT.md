@@ -1,10 +1,23 @@
-# Production deployment
+# Deployment boundaries
 
-## 1. Configuration
+> **Do not treat this document as a V2 production deployment runbook.** The
+> repository has no NixOS-native delivery artifact, and a shared production
+> host is not authorized for a Compose startup merely because it has a source
+> checkout. The V1 material below is archival only. Never run its commands on
+> a host carrying production workloads.
+
+For a NixOS development or isolated-test node, first follow the
+[NixOS development-node boundary](NIXOS_DEVELOPMENT_NODE.zh-CN.md). It permits
+source synchronization and offline checks only until a separate runtime test is
+explicitly approved.
+
+## Historical V1 prototype (archival; not a V2 deployment path)
+
+### 1. Configuration
 
 Generate independent random values for `COPILOTMAIL_JWT_SECRET` and `COPILOTMAIL_ADMIN_KEY`. Set `COPILOTMAIL_DOMAIN` to the mail domain, for example `agents.example.com`. Do not commit `.env`.
 
-## 2. DNS and network
+### 2. DNS and network
 
 For `agents.example.com`:
 
@@ -15,7 +28,7 @@ agents.example.com.   MX 10 mx.example.com.
 
 Forward public TCP/25 to the Compose host and set `SMTP_PORT=25`. Permit outbound TCP/25 for direct MX delivery. Put HTTP behind an HTTPS reverse proxy; WebSocket upgrade must be enabled for `/v1/events`.
 
-## 3. Start and inspect
+### 3. Start and inspect
 
 ```bash
 cp .env.example .env
@@ -27,7 +40,7 @@ curl https://mail-api.example.com/healthz
 
 The named volume `copilotmail-data` stores SQLite data. Back it up while the service is stopped, or use SQLite's online backup mechanism.
 
-## 4. Security boundaries
+### 4. Security boundaries
 
 - Keep `X-Admin-Key` server-side; it can create mailboxes.
 - Rate-limit login, mailbox creation, sending and WebSocket connection attempts at the proxy.
@@ -36,7 +49,7 @@ The named volume `copilotmail-data` stores SQLite data. Back it up while the ser
 - Add TLS/STARTTLS, DKIM signing, bounce processing and a durable retry queue before relying on external delivery for production workloads.
 - Rotate any credential that was pasted into chat or logs.
 
-## 5. V2 enterprise control plane
+## V2 isolated Pilot / development control plane
 
 The sections above describe the retained V1 prototype and are not a V2
 production runbook. V2 development uses `deploy/compose.dev.yaml`; a
@@ -56,9 +69,10 @@ It uses native PostgreSQL clients, keeps all source sessions read-only, restores
 only to a script-generated database, and fails unless migration, immutable-audit
 trigger/catalog, and seeded-row evidence match.
 
-Migration 0053 has an additional stop-the-world requirement. An installation at
-0052 or earlier must stop every old API, Outbox Worker, and audit-maintenance
-binary before migration; old and new binaries cannot overlap. Run the new
+The latest repository migration is currently `0054_human_mail_draft_reads.sql`.
+Migration 0053 still has an additional stop-the-world requirement: an
+installation at 0052 or earlier must stop every old API, Outbox Worker, and
+audit-maintenance binary before migration; old and new binaries cannot overlap. Run the new
 `migrate` command separately with the governed `MailDataPlaneId` and canonical
 origin. That command first commits the SQL migration and then performs the
 append-only origin bind, so a bind failure must leave all services stopped until

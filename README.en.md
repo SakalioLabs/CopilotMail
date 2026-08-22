@@ -24,6 +24,13 @@ Chinese-first and is being translated incrementally.
 > and then start only the new binaries. Follow the
 > [Ubuntu / WSL Pilot runbook](docs/UBUNTU_WSL_PILOT.zh-CN.md).
 
+> The latest repository migration is `0054_human_mail_draft_reads.sql`. The
+> 0053 stop-the-world rule still applies only to upgrades that cross 0053;
+> Migration 0054 and the full dynamic chain require a clean, isolated
+> PostgreSQL acceptance run. NixOS is currently a constrained development or
+> isolated-test node only, not an approved deployment target; see the
+> [NixOS development-node boundary](docs/NIXOS_DEVELOPMENT_NODE.zh-CN.md).
+
 ## Current V2 capabilities
 
 - Modular Rust workspace with domain, application, contract, PostgreSQL, S3,
@@ -138,7 +145,8 @@ Copy the non-secret development configuration and start the V2 stack:
 ```bash
 cp deploy/.env.v2.example deploy/.env.v2
 docker compose --env-file deploy/.env.v2 \
-  -f deploy/compose.dev.yaml up --build
+  -f deploy/compose.dev.yaml \
+  -f deploy/compose.pilot.yaml up --build
 
 curl http://127.0.0.1:8081/healthz
 curl http://127.0.0.1:8081/readyz
@@ -146,7 +154,8 @@ curl http://127.0.0.1:8081/readyz
 # After configuring both public OIDC clients and the 32-byte session key:
 docker compose --env-file deploy/.env.v2 \
   -f deploy/compose.dev.yaml \
-  -f deploy/compose.human-session.yaml up --build
+  -f deploy/compose.human-session.yaml \
+  -f deploy/compose.pilot.yaml up --build
 ```
 
 The API listens on `http://127.0.0.1:8081` and the administration application
@@ -156,9 +165,12 @@ audience, browser client IDs/public origins, organization ID, and a mounted
 BFF performs Authorization Code + S256 PKCE and gives the browser only an
 opaque HttpOnly session cookie.
 
-Ubuntu/WSL operators must follow the
+Ubuntu/WSL and compatible native-Linux Pilot operators must follow the
 [Ubuntu/WSL Pilot runbook](docs/UBUNTU_WSL_PILOT.zh-CN.md) and pass its
 read-only, fail-closed preflight before starting the stack.
+On a shared NixOS host, also follow the
+[NixOS development-node boundary](docs/NIXOS_DEVELOPMENT_NODE.zh-CN.md)
+before any runtime action.
 Before every V2 PostgreSQL schema upgrade, follow the Chinese-first
 [logical backup, isolated restore, and consistency runbook](docs/BACKUP_RESTORE.zh-CN.md).
 The verification uses native PostgreSQL clients and does not require Docker.
@@ -217,6 +229,8 @@ disposable PostgreSQL 17. That evidence does not claim the complete ignored
 PostgreSQL suite, a target Pilot upgrade, or the S3-compatible Object Lock
 scenarios; those external-runtime acceptance criteria remain separate CI or
 Pilot gates.
+The repository now contains Migration 0054; the existing 0001→0053 evidence
+does not cover it or constitute a NixOS target-host runtime acceptance result.
 
 ## Production mail boundary
 

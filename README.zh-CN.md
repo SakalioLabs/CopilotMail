@@ -15,36 +15,51 @@ V2 已建立 Rust Cargo Workspace、统一 `Principal` 领域模型、人与 Age
 > 单独运行新版本 `migrate` 并核对数据平面 Origin 绑定，再只启动新版本进程。完整顺序见
 > [Ubuntu / WSL Pilot 部署手册](docs/UBUNTU_WSL_PILOT.zh-CN.md)。
 
+> 当前仓库最新迁移为 `0054_human_mail_draft_reads.sql`。0053 的停写规则仍只适用于
+> 跨越 0053 的升级；0054 及完整动态迁移链必须在干净、隔离的 PostgreSQL 环境重新验收。
+> NixOS 目前仅可作为受限开发/隔离测试节点，不能将源码同步视作已获部署授权；详见
+> [NixOS 开发与隔离测试节点边界](docs/NIXOS_DEVELOPMENT_NODE.zh-CN.md)。
+
 ```bash
 cp deploy/.env.v2.example deploy/.env.v2
-docker compose --env-file deploy/.env.v2 -f deploy/compose.dev.yaml up --build
+docker compose --env-file deploy/.env.v2 \
+  -f deploy/compose.dev.yaml \
+  -f deploy/compose.pilot.yaml up --build
 curl http://127.0.0.1:8081/healthz
 curl http://127.0.0.1:8081/readyz
 
 # 配置两套 OIDC 公共客户端并生成 32 字节会话密钥后，启用 Human BFF：
 docker compose --env-file deploy/.env.v2 \
   -f deploy/compose.dev.yaml \
-  -f deploy/compose.human-session.yaml up --build
+  -f deploy/compose.human-session.yaml \
+  -f deploy/compose.pilot.yaml up --build
 
 # 首次初始化企业；重复执行同一 slug 会返回相同 ID
-docker compose --env-file deploy/.env.v2 -f deploy/compose.dev.yaml run --rm \
+docker compose --env-file deploy/.env.v2 \
+  -f deploy/compose.dev.yaml \
+  -f deploy/compose.pilot.yaml run --rm \
   api bootstrap-organization --slug example-corp --display-name "Example Corporation"
 
 # 配置 deploy/.env.v2 中的 OIDC issuer/audience 后，将首位企业人员设为 Owner。
 # ORGANIZATION_ID 来自上一条命令；SUBJECT 是 IdP 令牌中稳定的 sub，不是邮箱。
-docker compose --env-file deploy/.env.v2 -f deploy/compose.dev.yaml run --rm \
+docker compose --env-file deploy/.env.v2 \
+  -f deploy/compose.dev.yaml \
+  -f deploy/compose.pilot.yaml run --rm \
   api bind-oidc-owner --organization-id "$ORGANIZATION_ID" \
   --subject "$SUBJECT" --display-name "Initial Organization Owner"
 
 # 签发只显示一次明文的租户 SCIM Token；数据库仅保留摘要。
-docker compose --env-file deploy/.env.v2 -f deploy/compose.dev.yaml run --rm \
+docker compose --env-file deploy/.env.v2 \
+  -f deploy/compose.dev.yaml \
+  -f deploy/compose.pilot.yaml run --rm \
   api issue-scim-token --organization-id "$ORGANIZATION_ID" \
   --label "Enterprise IdP provisioning" --expires-in-days 90
 ```
 
-Ubuntu / WSL 隔离 Pilot 在启动前必须遵循
+Ubuntu / WSL 或兼容原生 Linux 的隔离 Pilot 在启动前必须遵循
 [Ubuntu / WSL Pilot 部署手册](docs/UBUNTU_WSL_PILOT.zh-CN.md)，并先运行其中的
-只读、Fail-Closed 前置检查。
+只读、Fail-Closed 前置检查。NixOS 共享宿主机还必须先满足
+[NixOS 开发与隔离测试节点边界](docs/NIXOS_DEVELOPMENT_NODE.zh-CN.md)。
 V2 PostgreSQL schema 升级前还必须完成
 [逻辑备份、隔离恢复与一致性验收](docs/BACKUP_RESTORE.zh-CN.md)；该流程使用原生
 PostgreSQL 客户端，不依赖 Docker 执行备份。
@@ -196,6 +211,9 @@ Migration 0001→0053 与针对数据平面身份、Origin、Domain、Outbox 的
 套件、目标 Pilot 升级或真实 Stalwart 互操作已经完成。真实域名邮件收发仍需完成公网
 PoC、域名认证、反垃圾、队列持久性、真实退信与故障恢复测试。
 
+当前仓库已新增 0054；上述 0001→0053 动态证据不覆盖 0054，故不能作为最新迁移链或
+NixOS 目标机的运行态验收结论。
+
 ## V1 原型
 
 ## 能力
@@ -209,6 +227,9 @@ PoC、域名认证、反垃圾、队列持久性、真实退信与故障恢复�
 - Dockerfile、Compose、单元测试和全链路 E2E 测试
 
 ## Docker 启动
+
+> 以下为保留 V1 原型的历史回归说明，不得在共享 NixOS/生产宿主机执行；V2 不使用
+> 根目录 `docker-compose.yaml`。
 
 ```bash
 cp .env.example .env

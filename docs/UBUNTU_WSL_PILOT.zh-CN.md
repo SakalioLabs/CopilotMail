@@ -1,9 +1,13 @@
-# Ubuntu / WSL 隔离 Pilot 部署手册
+# Ubuntu / WSL 与兼容原生 Linux 隔离 Pilot 部署手册
 
 > 适用范围：单机、隔离、可回滚的开发或企业 Pilot。
 >
 > 明确边界：本手册不构成生产放行，不允许公网 MX 切换，也不替代容量、
 > 备份恢复、HA、反滥用、法务和安全签字。
+
+> NixOS 不是本仓库已支持的原生交付目标。共享 NixOS 宿主机必须额外遵循
+> [NixOS 开发与隔离测试节点边界](NIXOS_DEVELOPMENT_NODE.zh-CN.md)，在取得单独
+> 运行授权前只可同步源码和运行离线门禁。
 
 仓库同时保留了 V1 原型与 V2。**禁止在仓库根目录裸执行
 `docker compose up`**，因为 Docker Compose 会自动选择根目录的旧 V1
@@ -15,7 +19,7 @@
 
 目标环境应满足：
 
-- Ubuntu on WSL2，或行为等价的原生 Ubuntu；
+- Ubuntu on WSL2，或行为等价、经单独预检批准的原生 Linux；
 - Docker Engine 20.10+，建议 24+；Docker Compose v2.20+；
 - Git、OpenSSL、curl、Python 3、`ip`、`ss`；
 - 使用 WSL Linux 文件系统中的仓库，例如
@@ -477,8 +481,9 @@ docker compose --env-file deploy/.env.v2 \
 ## 10. 无企业输入时可以验收什么
 
 Migration 0001→0053 与针对数据平面身份、Origin、Domain、Outbox 的直接 SQL 不变量
-验证已在 disposable PostgreSQL 17 实际执行；完整 ignored PostgreSQL 套件和当前目标
-Pilot 的 0053 停写升级仍需各自验收。以下“可以完成”描述的是具备健康 disposable
+验证已在 disposable PostgreSQL 17 实际执行。当前仓库最新迁移为 0054，因此该历史
+证据不覆盖 0054；完整 ignored PostgreSQL 套件和当前目标 Pilot 的 0053 停写升级仍需
+各自验收。以下“可以完成”描述的是具备健康 disposable
 PostgreSQL/Docker 后的可执行范围，不是当前目标主机已经完成的结论。
 
 可以完成：

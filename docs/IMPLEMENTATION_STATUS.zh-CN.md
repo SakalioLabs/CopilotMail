@@ -1,6 +1,6 @@
 # CopilotMail V2 实施状态
 
-> 更新时间：2026-08-13
+> 更新时间：2026-08-22
 > 状态口径：只记录已有代码、测试或文档证据的结果；未验证项不视为完成。
 > 依据：[企业级实施计划](IMPLEMENTATION_PLAN.zh-CN.md)
 > 当前权威计数：82 类审计事件；Application 99、Domain 43、Mail Engine 35、
@@ -9,12 +9,13 @@
 > OpenAPI 82 条路径、97 个唯一 Operation ID；Web 共 117 个 Vitest
 > （Admin 18、Mail 99）。
 > 当前 Windows 工作区全量门禁已通过；上述测试计数为本轮最终已完整执行的基线。
-> 目标 Ubuntu WSL Pilot 仍停留在 Migration 0051，尚未应用当前 0054，因此本地
-> 门禁不能替代本轮部署验收。
+> 已向受限 NixOS 开发目录同步经提交校验的源码快照；尚未在该宿主机启动容器、写入
+> Secret、执行 migration 或变更端口/服务。WSL 不再作为后续验证依赖。目标运行环境仍
+> 未应用当前 0054，因此本地门禁不能替代部署验收。
 
 ## 当前结论
 
-项目已从单包 V1 原型进入 V2 企业控制平面与纵向业务切片阶段。V1 继续作为邮件概念和端到端回归基线；V2 已形成独立的模块化 Rust workspace、Human/Agent 双认证边界、邮件端和管理审计端，并已在 Ubuntu WSL 完成仅回环暴露的 Base Pilot 实际部署。该结果只证明基础容器栈、迁移、健康检查和重启持久性可运行，不等同于内部 Alpha 或生产验收；真实企业 IdP、企业域名邮件收发、PostgreSQL 17 同版本原生恢复、HA、容量与安全验收仍未完成。
+项目已从单包 V1 原型进入 V2 企业控制平面与纵向业务切片阶段。V1 继续作为邮件概念和端到端回归基线；V2 已形成独立的模块化 Rust workspace、Human/Agent 双认证边界、邮件端和管理审计端。此前 Ubuntu WSL 的仅回环 Base Pilot 运行结果仅作为历史基础栈证据；因持续 I/O 风险，后续不再依赖该 WSL。当前 NixOS 仅保存了经提交校验的开发快照，尚无任何运行态部署证据。无论何种宿主机，上述结果都不等同于内部 Alpha 或生产验收；真实企业 IdP、企业域名邮件收发、PostgreSQL 17 同版本原生恢复、HA、容量与安全验收仍未完成。
 
 > **当前宿主机阻断（2026-07-27）**：部署验收完成后，WSL 内核报告承载
 > `Ubuntu-24.04` 的 ext4 VHD 出现目录块校验错误并中止 journal，随后将文件系统
@@ -42,7 +43,7 @@
 | P4A 人类邮件体验 | 进行中 | 独立 React/TypeScript 邮件端与 Human-only 收件箱：浏览器只使用同源 BFF Session，不执行 Discovery/PKCE/Token 交换、不保存或发送 Provider Token；Admin/Mail 客户端与 Cookie 完全分区；Mail Session-only 的 `GET /api/v2/mailboxes` 在查询前拒绝 Admin Cookie 与 Bearer，并要求 Active Human、`mailbox.use`、current data-plane binding 和资源级 `Read(None)`；目录仅返回邮箱 UUID、kind、主地址与由 `Send(None)` 推导的 `can_send`，canonical Cursor 绑定仍可见锚点，`SendAs`-only 邮箱保持只读；可选 `mailboxId` 仅作初始偏好，桌面/移动端可切换授权 Human/Shared 邮箱，切换时作废异步请求并清空搜索、列表、详情、选择与写信草稿；写信框明确显示不可编辑 From，只读邮箱禁用写信、回复、草稿和发送；实时 RBAC/Scope、邮箱 Read/Send ABAC、精确租户 JMAP Account 绑定及永久 Account 所有权；列表/搜索必须先解析唯一可读 `role=inbox`，每项只使用既有入站投影的安全 UUID，原始 JMAP Account/Email/Thread/Query State 不进入响应或 Cursor；POST 请求体内的隐私优先有界搜索，查询词不进入 URL、Cursor、审计或 Outbox，搜索 Cursor 绑定邮箱与查询摘要；信封及详情正文分别只有在最小化 Audit/Outbox 原子提交后才披露；详情只取有界 `text/plain`，不渲染 HTML、不暴露 Blob ID；Human 邮件响应统一 `no-store`，前端快速切换会中止并丢弃过期详情响应且状态更新不重复 GET 正文；应用固定文案使用类型安全的简中/英文词典，按持久化值、文档和浏览器语言确定 Locale，无刷新切换并同步 `<html lang>`，日期、数量和附件大小按 Locale 格式化；不超过 900 px 时使用单列列表—详情，打开后聚焦详情标题、返回恢复原邮件焦点，移动工具栏保留写信、语言和退出；写信对话框具备 Modal 语义、背景 `inert`、初始焦点、Tab 环绕、发送中禁止关闭和触发器焦点恢复；一次操作打开并标记已读、切换星标；内容、草稿与提交 OAuth 凭据物理隔离；写信请求不能选择 From，纯文本草稿严格串行自动保存；控制平面 Draft UUID、摘要和 CAS 隐藏远端 ID；本人 active 草稿目录只返回最小元数据，Shared Mailbox 不共享其他人的草稿；恢复仅按 PG 证明的单 ID 读取，复核 Drafts/$draft/From/Thread 与内容证据，并在最终授权/版本复核及 Audit+Outbox 提交后披露正文；已提交入站投影提供安全回复 UUID，回复按钮不接受原始 Header/JMAP ID，服务端验证并生成 `In-Reply-To`/`References`；点击发送在首个异步等待前同步锁定快照，保存最新版本后以 Header-only Idempotency Key 冻结 Draft 并创建 durable Intent，可能出网后持续锁定且不静默复制 Draft；Worker 以已提交租约执行 Identity 唯一解析、EmailSubmission 查询优先对账、歧义人工复核及终态原子审计/Outbox；接受后继续读取精确 Submission 的收件人级状态，UI 区分服务端接受、排队、对端接收和永久失败；响应未知不会盲目重发；Human JMAP 关键词与 Agent Ack/Lease 状态严格隔离 | 真实 IdP 与公网延迟/退信/DSN 演练、附件、已发送列表、线程、快捷键、孤儿草稿检测/受治理清理、共享协作编辑、真实浏览器移动端/键盘/屏幕阅读器 E2E 与 axe/WCAG 2.2 AA 验收 |
 | P4B Agent Mail Platform | 进行中 | 自绑定邮箱处理订阅；入站事务 Fanout；所有权与有效期约束的 Claim/Lease/续租/Ack/Nack/五次死信工作流；幂等暂停/恢复/终态退役、暂停排空与活动 Lease 退役保护；订阅/真实锚点绑定、先审计后披露且不含原始错误的 Agent 自助死信查询；Header-only Idempotency 精确重放、冲突拒绝和不可变操作证据；Human 已读/星标、Webhook/Cursor 与 Agent processing 状态隔离；事务型 Outbox Worker；签名 Webhook 安全 adapter、Agent 所有权订阅治理、追加式投递账本、独立重试/死信检索、受控人工重放、订阅级 Cursor、有界 SSE、跨副本租户/Agent 一分钟 Ingress 请求窗口与 SSE 租约配额、稳定 `Retry-After`、独立无主体标签 Prometheus 指标与统一 AsyncAPI 信封；development Agent 可通过主体隔离 Draft、CAS、Send ABAC 和 durable Idempotency Submission 发送有界纯文本邮件；Testing Agent 正式投递在应用/数据库双层拒绝，只能原子冻结精确 Draft 并写入不可变非投递 Sandbox、Audit 与 Outbox；所有 Agent 外发由服务端写 RFC 3834 标记，自动来源回复默认拒绝，同主体精确重复正文具备独立 24 小时熔断；production Agent 通过不可变策略激活、最小收件证据、首次联系人审批、跨副本小时/单地址额度、同线程熔断、原子 Admission 和 Worker 租赁证据受控放行，并为策略、额度、熔断和审批拒绝提供不泄露地址的稳定机器错误码；主体绑定的自助 API 返回 Token/RBAC 有效权限、活动策略和数据库时钟下的小时汇总用量，不披露收件人/线程账本；真实 SMTP 入站 `message.received.v1` 生产边界；Feed Message UUID 精确映射、三 Scope 与 Read ABAC 约束、审计先于披露且不污染 Human 状态的有界纯文本正文读取；安全 UUID 绑定、服务端推导 RFC/JMAP 头且不可换绑的显式回复语义；精确 JMAP 投递状态外部事件与隔离的队列运维证据；按 V2 安全模型重写且含 Sandbox 的可分发 Agent Skill 与无依赖 CLI | 多语言 SDK、附件/HTML、公司实际额度签字、真实 Stalwart Header/双 Agent 回环及公网投递/退信验收 |
 | P5 管理、审计与治理 | 原型中 | 追加式审计模型；迁移管理的 82 类事件目录；Human-only `audit.read` 有界检索与查询自身 Fail Closed 审计；显式请求/策略/审批/Session 上下文；敏感数据拒绝；事务审计覆盖率门禁；租户级并发安全 SHA-256 哈希链；RSA 签名 Checkpoint、便携 Manifest、完全离线验签与经回读确认的 S3 Object Lock/WORM 双对象归档；可恢复且由 PostgreSQL 租户锁协调跨主机单活的定时维护 Worker；Prometheus 失败/时效指标与阈值就绪检查；稳定业务 Trace 贯穿审计、日志与对象 metadata，OTLP Span 进一步关联 HTTP Request ID、维护周期和 Checkpoint；案件绑定、双人审批、精确双版本回读和跨主机会话锁保护的审计归档 Legal Hold CLI、受认证管理 API、自审计有界分页读模型及 React 中英双语审计/合规管理工作流；审批请求人与执行人强绑定、双人审批且最长 15 分钟的不可变审计导出授权凭证；精确 S3 Version ID、长度和 SHA-256 回读校验，先落不可变下载账本再返回内容的审计证据下载 API 与 UI；不可变保留策略版本、Active Human 双人审批激活、单调版本前移、Legal Hold 优先语义及中英双语管理 UI；请求人/待办隔离、绑定筛选 Cursor、自审计读取、Active Human 决策和请求人取消的审批中心；角色目录、授权查询、精确双人审批授予、Owner 保护撤销与不可变证据账本；正式发送请求/接受/拒绝/人工复核、Human 邮箱信封/正文与本人草稿目录/正文读取、production Agent Admission、Testing Agent Sandbox、Human Session 与 Agent processing 全生命周期均进入受治理目录，状态与 Outbox 原子提交；禁止非法状态变更/更新/删除/截断触发器 | 邮件内容 Legal Hold、保留策略自动执行与精确处置证明、跨数据库选主、生产 Collector/Trace 告警与真实 IdP/Object Lock 故障演练及其余管理信息架构 |
-| P6 硬化、迁移与企业 Pilot | 进行中 | V1 E2E 回归继续通过；PostgreSQL 原生 custom-format 逻辑备份、自动生成隔离数据库恢复、迁移/审计/触发器/租户证据一致性比较与精确清理门禁；真实 `0050 → latest` Account 历史归属、direct-INSERT、触发器破坏与歧义回滚 CI 场景；Ubuntu/WSL 只读前置检查与部署手册；Ubuntu WSL Base Pilot 曾在 PostgreSQL 17 应用当时全部 51 份迁移并核对 80 类审计目录，API/Admin/Mail/MinIO 健康、端口仅回环、应用进程非 root，PostgreSQL/MinIO 持久化重启和 Worker 同容器自恢复通过；单主机 Pilot 资源/CPU/PID 上限、持久 SIGTERM 优雅关停、Worker 健康检查与有界 CI 重启验收已编码 | 修复当前 WSL ext4 VHD 并实际应用至最新 Migration 0054、第二台机器 LAN 负向探测、PostgreSQL 17 同版本原生恢复、完整 ignored PostgreSQL/MinIO Object Lock 测试、企业 IdP/域名/邮件验收、migration rollback、负载/模糊/故障注入/渗透测试、旧邮件导入与 MX 灰度、容量和完整企业 Pilot 运维演练 |
+| P6 硬化、迁移与企业 Pilot | 进行中 | V1 E2E 回归继续通过；PostgreSQL 原生 custom-format 逻辑备份、自动生成隔离数据库恢复、迁移/审计/触发器/租户证据一致性比较与精确清理门禁；真实 `0050 → latest` Account 历史归属、direct-INSERT、触发器破坏与歧义回滚 CI 场景；Ubuntu/WSL 只读前置检查与部署手册；NixOS 开发/隔离测试节点边界；Ubuntu WSL Base Pilot 曾在 PostgreSQL 17 应用当时全部 51 份迁移并核对 80 类审计目录，API/Admin/Mail/MinIO 健康、端口仅回环、应用进程非 root，PostgreSQL/MinIO 持久化重启和 Worker 同容器自恢复通过；单主机 Pilot 资源/CPU/PID 上限、持久 SIGTERM 优雅关停、Worker 健康检查与有界 CI 重启验收已编码 | 在专用或明确隔离的 Linux Docker 环境实际应用至最新 Migration 0054、第二台机器 LAN 负向探测、PostgreSQL 17 同版本原生恢复、完整 ignored PostgreSQL/MinIO Object Lock 测试、企业 IdP/域名/邮件验收、migration rollback、负载/模糊/故障注入/渗透测试、旧邮件导入与 MX 灰度、容量和完整企业 Pilot 运维演练 |
 | P7 GA 发布 | 未开始 | 根 README 语言入口、独立中英文完整 README、贡献/安全/变更文档、Apache-2.0 LICENSE 与 CI 文档治理门禁（仅为 GA 文档基础，不代表 GA 放行） | HA 部署验证、版本升级/回滚、SBOM、镜像签名与来源证明、正式发布说明、培训、文档站、安装/故障/回滚演练和放行签字 |
 
 ## 本轮已落地
@@ -497,13 +498,13 @@
 
 ## 下一实施队列
 
-1. 先在获准的维护窗口停止同机全部 WSL 工作负载，备份并离线修复发生 ext4
-   checksum/journal 错误的 VHD；修复后将目标副本同步到最新代码，实际应用至 Migration
-   0054，并重新执行 Base Pilot 的写入、重启与持久性验收。随后从第二台 LAN 机器执行发布端口不可达负向探测；使用 PostgreSQL 17
-   同版本原生客户端完成 custom dump、自动生成隔离库 restore 和证据比对；运行
-   完整 ignored PostgreSQL/MinIO Object Lock 测试及最终 Linux 全量门禁。企业
-   IdP、域名和邮件输入到位前，Base Pilot 成功不得记为生产邮件、SSO、HA、容量、
-   安全或 GA 验收。
+1. 不再将存在 I/O 风险的 WSL 作为验证前提。先由责任人确认专用或明确隔离的 Linux
+   Docker 环境、至少 40 GiB 可用磁盘和无端口/Compose 资源冲突；以提交校验源码重新
+   实际应用至 Migration 0054，并重新执行 Base Pilot 的写入、重启与持久性验收。随后
+   从第二台 LAN 机器执行发布端口不可达负向探测；使用 PostgreSQL 17 同版本原生客户端
+   完成 custom dump、自动生成隔离库 restore 和证据比对；运行完整 ignored
+   PostgreSQL/MinIO Object Lock 测试及最终 Linux 全量门禁。企业 IdP、域名和邮件输入
+   到位前，Base Pilot 成功不得记为生产邮件、SSO、HA、容量、安全或 GA 验收。
 2. 由公司责任人填写并签署 P0 输入清单中的容量、IdP、域名、合规、SLO/RPO/RTO
    与运维决定；完成邮件数据平面对比 PoC 与选型签字。威胁模型已建立，后续每个
    新外部边界必须持续更新。
