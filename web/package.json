@@ -1,0 +1,14 @@
+{
+  "name": "copilotmail-web",
+  "private": true,
+  "workspaces": [
+    "admin-app",
+    "mail-app",
+    "design-system"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @copilotmail/admin-app && npm run build --workspace @copilotmail/mail-app",
+    "check": "npm run check --workspace @copilotmail/admin-app && npm run check --workspace @copilotmail/mail-app",
+    "test": "npm run test --workspace @copilotmail/admin-app && npm run test --workspace @copilotmail/mail-app -- --passWithNoTests"
+  }
+}

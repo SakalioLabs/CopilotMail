@@ -1,4 +1,4 @@
 interface:
   display_name: "CopilotMail Agent"
-  short_description: "Create, monitor, and send agent email"
-  default_prompt: "Use $copilotmail to create an inbox, monitor new messages, and send a reply."
+  short_description: "Securely process and send CopilotMail Agent email"
+  default_prompt: "Use $copilotmail to safely process new Agent mail with leases; use non-delivering sandbox capture for Testing Agents and idempotent submission only in eligible environments."

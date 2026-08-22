@@ -3,21 +3,331 @@ on:
   push:
   pull_request:
 jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - working-directory: web
+        run: npm ci
+      - working-directory: web
+        run: npm audit --audit-level=moderate
+      - run: python3 scripts/check_web_i18n.py --self-test
+      - working-directory: web
+        run: npm run check
+      - working-directory: web
+        run: npm test
+      - working-directory: web
+        run: npm run build
   rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.97.1
         with:
           components: rustfmt, clippy
-      - run: cargo fmt --check
-      - run: cargo test --locked
-      - run: cargo clippy --locked --all-targets -- -D warnings
-      - run: cargo build --locked
+      - run: cargo fmt --all --check
+      - run: python3 scripts/check_audit_governance.py
+      - run: python3 scripts/check_architecture.py --self-test
+      - run: python3 scripts/check_agent_skill.py
+      - run: python3 scripts/check_documentation.py
+      - run: python3 scripts/render_stalwart_poc_plan.py --self-test
+      - run: python3 tests/stalwart_poc.py self-test
+      - run: cargo test --workspace --locked
+      - run: cargo clippy --workspace --locked --all-targets -- -D warnings
+      - run: cargo build --workspace --locked
       - run: python3 tests/e2e.py
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: copilotmail
+          POSTGRES_USER: copilotmail
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U copilotmail -d copilotmail"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      COPILOTMAIL_DATABASE_URL: postgres://copilotmail:ci-only-password@127.0.0.1:5432/copilotmail
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: copilotmail
+      PGPASSWORD: ci-only-password
+      PGDATABASE: copilotmail
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - name: Self-test PostgreSQL backup/restore safety gate
+        run: bash scripts/check_postgres_backup_restore.sh --self-test
+      - name: Install PostgreSQL 17 client tools
+        shell: bash
+        run: |
+          if [[ ! -x /usr/lib/postgresql/17/bin/pg_dump ]]; then
+            . /etc/os-release
+            architecture="$(dpkg --print-architecture)"
+            sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+            sudo curl \
+              --fail --silent --show-error --location \
+              --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+              https://www.postgresql.org/media/keys/ACCC4CF8.asc
+            {
+              echo "Types: deb"
+              echo "URIs: https://apt.postgresql.org/pub/repos/apt"
+              echo "Suites: ${VERSION_CODENAME}-pgdg"
+              echo "Architectures: ${architecture}"
+              echo "Components: main"
+              echo "Signed-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc"
+            } | sudo tee /etc/apt/sources.list.d/pgdg.sources >/dev/null
+            sudo apt-get update
+            sudo apt-get install --yes postgresql-client-17
+          fi
+          test -x /usr/lib/postgresql/17/bin/pg_dump
+          echo "/usr/lib/postgresql/17/bin" >>"$GITHUB_PATH"
+      - name: Verify mail-engine account ownership upgrade
+        shell: bash
+        run: >-
+          COPILOTMAIL_ACCOUNT_OWNER_REQUIRE_READINESS_GATE=1
+          bash scripts/check_mail_engine_account_ownership_upgrade.sh
+      - name: Apply PostgreSQL migrations
+        run: cargo run --locked -p copilotmail-control -- migrate
+      - name: Verify PostgreSQL migration rerun is a no-op
+        run: cargo run --locked -p copilotmail-control -- migrate
+      - run: cargo run --locked -p copilotmail-control -- check
+      - name: Seed backup/restore verification evidence
+        id: backup_restore_seed
+        shell: bash
+        run: |
+          seed_output="$(
+            cargo run --locked -p copilotmail-control -- \
+              bootstrap-organization \
+              --slug backup-restore-ci \
+              --display-name "Backup Restore CI"
+          )"
+          organization_id="$(
+            printf '%s\n' "$seed_output" |
+              tail -n 1 |
+              python3 -c \
+                'import json, sys; print(json.load(sys.stdin)["organization_id"])'
+          )"
+          [[ "$organization_id" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]
+          printf 'organization_id=%s\n' "$organization_id" >>"$GITHUB_OUTPUT"
+      - name: Verify PostgreSQL logical backup and isolated restore
+        shell: bash
+        env:
+          VERIFY_ORGANIZATION_ID: ${{ steps.backup_restore_seed.outputs.organization_id }}
+        run: |
+          artifact_directory="$(
+            mktemp -d "${RUNNER_TEMP}/copilotmail-backup-restore.XXXXXX"
+          )"
+          chmod 0700 "$artifact_directory"
+          bash scripts/check_postgres_backup_restore.sh \
+            --archive "$artifact_directory/control-plane.dump" \
+            --verify-organization-id "$VERIFY_ORGANIZATION_ID"
+          test -s "$artifact_directory/control-plane.dump"
+          test -s "$artifact_directory/control-plane.dump.evidence"
+          leaked_database_count="$(
+            psql \
+              --no-psqlrc \
+              --no-password \
+              --set=ON_ERROR_STOP=1 \
+              --quiet \
+              --tuples-only \
+              --no-align \
+              --command="
+                SELECT count(*)
+                  FROM pg_catalog.pg_database
+                 WHERE left(
+                         datname,
+                         length('copilotmail_restore_verify_')
+                       ) = 'copilotmail_restore_verify_';
+              "
+          )"
+          [[ "$leaked_database_count" == "0" ]]
+      - run: cargo test --locked -p copilotmail-postgres --test postgres_integration -- --ignored --test-threads=1
+  object-lock:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: copilotmail
+      AWS_SECRET_ACCESS_KEY: ci-only-minio-password
+      AWS_REGION: us-east-1
+      COPILOTMAIL_TEST_S3_ENDPOINT: http://127.0.0.1:9000
+      COPILOTMAIL_TEST_S3_BUCKET: copilotmail-audit-ci
+      COPILOTMAIL_TEST_S3_REGION: us-east-1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - name: Start MinIO
+        run: >-
+          docker run -d --name copilotmail-minio -p 9000:9000
+          -e MINIO_ROOT_USER="$AWS_ACCESS_KEY_ID"
+          -e MINIO_ROOT_PASSWORD="$AWS_SECRET_ACCESS_KEY"
+          minio/minio:RELEASE.2025-04-22T22-12-26Z
+          server /data
+      - name: Create Object Lock bucket
+        run: |
+          for attempt in $(seq 1 30); do
+            curl --fail --silent http://127.0.0.1:9000/minio/health/live && break
+            sleep 2
+          done
+          curl --fail http://127.0.0.1:9000/minio/health/live
+          docker run --rm --network host \
+            -e MINIO_ROOT_USER="$AWS_ACCESS_KEY_ID" \
+            -e MINIO_ROOT_PASSWORD="$AWS_SECRET_ACCESS_KEY" \
+            -e AUDIT_BUCKET="$COPILOTMAIL_TEST_S3_BUCKET" \
+            --entrypoint /bin/sh minio/mc:RELEASE.2025-08-13T08-35-41Z \
+            -c 'mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" &&
+                mc mb --with-lock "local/$AUDIT_BUCKET" &&
+                mc version enable "local/$AUDIT_BUCKET"'
+      - run: cargo test --locked -p copilotmail-object-store --test minio_integration -- --ignored
   container:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: bash -n scripts/check_ubuntu_wsl_pilot.sh
+      - run: bash scripts/check_ubuntu_wsl_pilot.sh --self-test
+      - run: python3 scripts/check_compose_security.py --self-test
+      - run: >-
+          docker compose --env-file deploy/.env.v2.example
+          -f deploy/compose.dev.yaml
+          -f deploy/compose.mail-poc.yaml config
+      - name: Render isolated Stalwart bootstrap policy
+        run: >-
+          docker compose --env-file deploy/.env.v2.example
+          -f deploy/compose.dev.yaml
+          -f deploy/compose.mail-poc.yaml
+          -f deploy/compose.mail-bootstrap.yaml
+          -f deploy/compose.pilot.yaml config
+      - name: Render bounded single-host Pilot policy
+        run: >-
+          docker compose --env-file deploy/.env.v2.example
+          -f deploy/compose.dev.yaml
+          -f deploy/compose.pilot.yaml config
+      - name: Render optional Human Session overlay
+        env:
+          COPILOTMAIL_OIDC_ISSUER: https://identity.example.test
+          COPILOTMAIL_OIDC_AUDIENCE: copilotmail-control
+          COPILOTMAIL_ADMIN_OIDC_CLIENT_ID: ci-admin
+          COPILOTMAIL_ADMIN_PUBLIC_ORIGIN: https://admin.example.test
+          COPILOTMAIL_MAIL_APP_OIDC_CLIENT_ID: ci-mail
+          COPILOTMAIL_MAIL_APP_PUBLIC_ORIGIN: https://mail.example.test
+        run: >-
+          docker compose --env-file deploy/.env.v2.example
+          -f deploy/compose.dev.yaml
+          -f deploy/compose.human-session.yaml config
+      - run: >-
+          docker compose --env-file deploy/.env.v2.example
+          -f deploy/compose.dev.yaml
+          -f deploy/compose.observability.yaml
+          --profile audit-maintenance config
+      - run: >-
+          docker run --rm
+          -v "$PWD/deploy/observability/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro"
+          otel/opentelemetry-collector-contrib:0.153.0
+          validate --config=/etc/otelcol-contrib/config.yaml
+      - run: >-
+          docker run --rm --entrypoint promtool
+          -v "$PWD/deploy/observability/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro"
+          prom/prometheus:v3.5.0
+          check config /etc/prometheus/prometheus.yaml
       - run: docker build -t copilotmail:test .
+      - run: docker build -f deploy/docker/Dockerfile.control-plane -t copilotmail-control:test .
+      - run: docker build -f deploy/docker/Dockerfile.admin-app -t copilotmail-admin:test .
+      - run: docker build -f deploy/docker/Dockerfile.mail-app -t copilotmail-mail:test .
+      - name: Smoke Pilot startup and SIGTERM graceful restart
+        shell: bash
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          compose=(
+            docker compose
+            --env-file deploy/.env.v2.example
+            -f deploy/compose.dev.yaml
+            -f deploy/compose.pilot.yaml
+          )
 
+          finish() {
+            local exit_code="$?"
+            trap - EXIT INT TERM
+            set +e
+
+            if (( exit_code != 0 )); then
+              echo "::group::Bounded Pilot failure diagnostics"
+              timeout --signal=TERM --kill-after=5s 20s \
+                "${compose[@]}" ps --all || true
+              timeout --signal=TERM --kill-after=5s 30s \
+                "${compose[@]}" logs --no-color --tail 120 \
+                api worker migrate || true
+              echo "::endgroup::"
+            fi
+
+            timeout --signal=TERM --kill-after=10s 90s \
+              "${compose[@]}" down --volumes --remove-orphans || true
+            exit "$exit_code"
+          }
+          trap finish EXIT
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+
+          timeout --signal=TERM --kill-after=30s 15m \
+            "${compose[@]}" up --build --wait --wait-timeout 300
+          api_id="$(
+            timeout --signal=TERM --kill-after=5s 20s \
+              "${compose[@]}" ps -q api
+          )"
+          worker_id="$(
+            timeout --signal=TERM --kill-after=5s 20s \
+              "${compose[@]}" ps -q worker
+          )"
+          test -n "$api_id"
+          test -n "$worker_id"
+
+          timeout --signal=TERM --kill-after=10s 75s \
+            "${compose[@]}" stop --timeout 60 api worker
+          api_exit_code="$(
+            timeout --signal=TERM --kill-after=5s 10s \
+              docker inspect --format '{{.State.ExitCode}}' "$api_id"
+          )"
+          worker_exit_code="$(
+            timeout --signal=TERM --kill-after=5s 10s \
+              docker inspect --format '{{.State.ExitCode}}' "$worker_id"
+          )"
+          test "$api_exit_code" -eq 0
+          test "$worker_exit_code" -eq 0
+
+          timeout --signal=TERM --kill-after=10s 45s \
+            "${compose[@]}" start api worker
+          health_deadline=$((SECONDS + 150))
+          api_health=""
+          worker_health=""
+          while (( SECONDS < health_deadline )); do
+            api_health="$(
+              timeout --signal=TERM --kill-after=2s 5s \
+                docker inspect --format '{{.State.Health.Status}}' "$api_id" \
+                2>/dev/null || true
+            )"
+            worker_health="$(
+              timeout --signal=TERM --kill-after=2s 5s \
+                docker inspect --format '{{.State.Health.Status}}' "$worker_id" \
+                2>/dev/null || true
+            )"
+            if [[ "$api_health" == healthy && "$worker_health" == healthy ]]; then
+              break
+            fi
+            sleep 2
+          done
+          test "$api_health" = healthy
+          test "$worker_health" = healthy
+          timeout --signal=TERM --kill-after=2s 10s \
+            curl --fail --silent --show-error \
+              --connect-timeout 3 --max-time 8 \
+              http://127.0.0.1:8081/readyz >/dev/null

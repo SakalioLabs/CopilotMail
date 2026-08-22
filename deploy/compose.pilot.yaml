@@ -1,0 +1,75 @@
+name: copilotmail-v2-pilot
+
+# Resource and shutdown policy for a single-host Pilot. Apply this file after
+# compose.dev.yaml and any required feature overlays. These limits are an
+# acceptance baseline, not a production capacity recommendation.
+services:
+  postgres:
+    mem_limit: 2g
+    cpus: 2.0
+    pids_limit: 256
+    stop_grace_period: 1m
+    restart: unless-stopped
+
+  minio:
+    mem_limit: 2g
+    cpus: 2.0
+    pids_limit: 256
+    stop_grace_period: 1m
+    restart: unless-stopped
+
+  minio-init:
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    stop_grace_period: 15s
+
+  migrate:
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 128
+    stop_grace_period: 30s
+
+  api:
+    mem_limit: 1g
+    cpus: 2.0
+    pids_limit: 256
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+  admin:
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+    stop_grace_period: 15s
+    restart: unless-stopped
+
+  mail:
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+    stop_grace_period: 15s
+    restart: unless-stopped
+
+  worker:
+    mem_limit: 1g
+    cpus: 2.0
+    pids_limit: 256
+    stop_signal: SIGTERM
+    stop_grace_period: 1m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "copilotmail-control", "check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  audit-maintenance:
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 256
+    stop_signal: SIGTERM
+    stop_grace_period: 2m
+    restart: unless-stopped

@@ -2,6 +2,14 @@
 .github
 target
 data
-.env
+.env*
 backups
-
+web/node_modules
+web/*/node_modules
+web/*/dist
+web/*/*.tsbuildinfo
+web/*/admin-*.png
+deploy/.env.v2*
+deploy/secrets/*
+!deploy/secrets/README.md
+.local

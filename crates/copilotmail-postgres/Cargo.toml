@@ -1,0 +1,27 @@
+[package]
+name = "copilotmail-postgres"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+chrono.workspace = true
+copilotmail-audit = { path = "../copilotmail-audit" }
+copilotmail-application = { path = "../copilotmail-application" }
+copilotmail-domain = { path = "../copilotmail-domain" }
+serde_json.workspace = true
+serde.workspace = true
+sha2.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+url.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+copilotmail-agent-auth = { path = "../copilotmail-agent-auth" }
+rand_core_06 = { package = "rand_core", version = "0.6", features = ["getrandom"] }
+rsa.workspace = true
+tokio.workspace = true

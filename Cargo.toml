@@ -4,6 +4,98 @@ version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
 
+[workspace]
+resolver = "3"
+members = [
+    ".",
+    "apps/copilotmail-control",
+    "crates/copilotmail-audit",
+    "crates/copilotmail-application",
+    "crates/copilotmail-agent-auth",
+    "crates/copilotmail-contracts",
+    "crates/copilotmail-domain",
+    "crates/copilotmail-dns",
+    "crates/copilotmail-mail-engine",
+    "crates/copilotmail-oidc",
+    "crates/copilotmail-object-store",
+    "crates/copilotmail-platform",
+    "crates/copilotmail-postgres",
+    "crates/copilotmail-scim",
+    "crates/copilotmail-webhook",
+]
+
+[workspace.package]
+version = "0.2.0-alpha.1"
+edition = "2024"
+rust-version = "1.97.1"
+license = "Apache-2.0"
+
+# Full debuginfo makes the already large control-plane test binary unstable in
+# the Windows MSVC linker after adding AWS, SQLx, Rustls, and OpenTelemetry.
+# Dependencies retain normal symbols; only this aggregate test harness omits
+# debuginfo so links remain deterministic on Windows.
+[profile.test.package.copilotmail-control]
+debug = 0
+
+[workspace.dependencies]
+anyhow = "1"
+async-trait = "0.1.91"
+aws-config = { version = "=1.10.0", default-features = false, features = [
+    "behavior-version-latest",
+    "credentials-process",
+    "default-https-client",
+    "rt-tokio",
+] }
+aws-sdk-s3 = "=1.139.0"
+axum = "0.8"
+base64 = "0.22"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4.5", features = ["derive", "env"] }
+futures-util = "0.3"
+idna = "1.1.0"
+hickory-resolver = "0.25.2"
+hmac = "0.12"
+jsonwebtoken-v2 = { package = "jsonwebtoken", version = "10.4.0", features = ["rust_crypto"] }
+opentelemetry = { version = "0.32", features = ["trace"] }
+opentelemetry-otlp = { version = "0.32", default-features = false, features = [
+    "experimental-http-retry",
+    "http-proto",
+    "reqwest-blocking-client",
+    "reqwest-rustls",
+    "trace",
+] }
+opentelemetry_sdk = { version = "0.32", features = ["trace"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls-no-provider"] }
+ring = "0.17"
+rsa = { version = "0.9", features = ["pem", "sha2"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-pemfile = "2.2"
+secrecy = "0.10.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+sqlx = { version = "0.9.0", default-features = false, features = [
+    "chrono",
+    "json",
+    "macros",
+    "migrate",
+    "postgres",
+    "runtime-tokio",
+    "tls-rustls-ring",
+    "uuid",
+] }
+thiserror = "2.0.19"
+tokio = { version = "1", features = ["full"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["request-id", "trace"] }
+tracing = "0.1"
+tracing-opentelemetry = "0.33"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+uuid = { version = "1", features = ["serde", "v4", "v7"] }
+url = "2"
+
 [dependencies]
 anyhow = "1"
 argon2 = "0.5"
@@ -11,11 +103,11 @@ axum = { version = "0.8", features = ["ws"] }
 base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 futures-util = "0.3"
-hickory-resolver = "0.25"
+hickory-resolver.workspace = true
 jsonwebtoken = "9"
 mail-parser = "0.11"
 rand = "0.9"
-rand_core = { version = "0.6", features = ["getrandom"] }
+rand_core.workspace = true
 rusqlite = { version = "0.37", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

@@ -1,0 +1,27 @@
+[package]
+name = "copilotmail-mail-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+base64.workspace = true
+chrono.workspace = true
+copilotmail-application = { path = "../copilotmail-application" }
+copilotmail-domain = { path = "../copilotmail-domain" }
+hmac.workspace = true
+reqwest.workspace = true
+rustls.workspace = true
+secrecy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+uuid.workspace = true

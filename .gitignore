@@ -1,4 +1,16 @@
 /target
+/target-*
+__pycache__/
+*.py[cod]
 /.env
+/deploy/.env.v2
+!/deploy/.env.v2.example
 /data
-
+/web/node_modules
+/web/*/node_modules
+/web/*/dist
+/web/*/*.tsbuildinfo
+/deploy/secrets/*
+!/deploy/secrets/README.md
+/.local/
+/tmp/

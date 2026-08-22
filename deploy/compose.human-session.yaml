@@ -1,0 +1,28 @@
+name: copilotmail-v2-dev
+
+# Optional server-side Human OIDC BFF overlay. The base Compose file remains
+# startable without OIDC; this overlay fails closed unless every public
+# relying-party value is supplied and mounts the encryption key only into API.
+services:
+  api:
+    environment:
+      COPILOTMAIL_REQUIRE_HUMAN_AUTH: "true"
+      COPILOTMAIL_REQUIRE_HUMAN_SESSION: "true"
+      COPILOTMAIL_OIDC_ISSUER: ${COPILOTMAIL_OIDC_ISSUER:?COPILOTMAIL_OIDC_ISSUER must be set}
+      COPILOTMAIL_OIDC_AUDIENCE: ${COPILOTMAIL_OIDC_AUDIENCE:?COPILOTMAIL_OIDC_AUDIENCE must be set}
+      COPILOTMAIL_ADMIN_OIDC_CLIENT_ID: ${COPILOTMAIL_ADMIN_OIDC_CLIENT_ID:?COPILOTMAIL_ADMIN_OIDC_CLIENT_ID must be set}
+      COPILOTMAIL_ADMIN_OIDC_SCOPE: ${COPILOTMAIL_ADMIN_OIDC_SCOPE:-openid profile email}
+      COPILOTMAIL_ADMIN_PUBLIC_ORIGIN: ${COPILOTMAIL_ADMIN_PUBLIC_ORIGIN:?COPILOTMAIL_ADMIN_PUBLIC_ORIGIN must be set}
+      COPILOTMAIL_MAIL_APP_OIDC_CLIENT_ID: ${COPILOTMAIL_MAIL_APP_OIDC_CLIENT_ID:?COPILOTMAIL_MAIL_APP_OIDC_CLIENT_ID must be set}
+      COPILOTMAIL_MAIL_APP_OIDC_SCOPE: ${COPILOTMAIL_MAIL_APP_OIDC_SCOPE:-openid profile email}
+      COPILOTMAIL_MAIL_APP_PUBLIC_ORIGIN: ${COPILOTMAIL_MAIL_APP_PUBLIC_ORIGIN:?COPILOTMAIL_MAIL_APP_PUBLIC_ORIGIN must be set}
+      COPILOTMAIL_HUMAN_SESSION_TTL_SECONDS: ${COPILOTMAIL_HUMAN_SESSION_TTL_SECONDS:-3600}
+      # The cluster-wide login admission limit is inherited from the base API
+      # environment so this security overlay does not define a second default.
+      COPILOTMAIL_HUMAN_SESSION_ALLOW_INSECURE_COOKIE: ${COPILOTMAIL_HUMAN_SESSION_ALLOW_INSECURE_COOKIE:-false}
+      COPILOTMAIL_HUMAN_SESSION_ENCRYPTION_KEY_FILE: /run/secrets/copilotmail/human-session.key
+    volumes:
+      - type: bind
+        source: ./secrets/human-session.key
+        target: /run/secrets/copilotmail/human-session.key
+        read_only: true

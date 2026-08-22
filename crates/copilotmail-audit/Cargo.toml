@@ -1,0 +1,20 @@
+[package]
+name = "copilotmail-audit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+base64.workspace = true
+chrono.workspace = true
+copilotmail-domain = { path = "../copilotmail-domain" }
+rsa.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+rand_core_06 = { package = "rand_core", version = "0.6", features = ["getrandom"] }

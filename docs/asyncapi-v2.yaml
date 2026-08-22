@@ -1,0 +1,196 @@
+asyncapi: 3.1.0
+id: urn:copilotmail:agent-events:v2
+info:
+  title: CopilotMail Agent Events
+  version: 0.2.0-alpha.1
+  description: >
+    At-least-once events sent by CopilotMail to a tenant-owned Agent webhook
+    subscription over signed HTTPS Webhook or bounded SSE. Consumers
+    deduplicate the stable event ID and can recover through the Cursor API.
+    Internal mail-engine queue trace events are deliberately excluded; Agent
+    delivery status is emitted only after exact JMAP Submission reconciliation.
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+defaultContentType: application/json
+channels:
+  agentWebhook:
+    address: webhook-subscription-endpoint
+    description: >
+      The exact HTTPS endpoint registered for one tenant subscription.
+      Redirects are not followed.
+    messages:
+      applicationEvent:
+        $ref: "#/components/messages/ApplicationEvent"
+  agentEventStream:
+    address: /api/v2/webhook-subscriptions/{subscription_id}/stream
+    description: >
+      Authenticated SSE connection owned by the exact Agent subscription.
+      Event IDs are opaque subscription-scoped cursors. The connection is
+      capped at five minutes, emits transport keepalive comments, consumes one
+      database-authoritative tenant/Agent ingress request, and acquires a
+      cluster-wide concurrency lease before HTTP 200.
+    parameters:
+      subscription_id:
+        description: Stable webhook subscription ID.
+    messages:
+      applicationEvent:
+        $ref: "#/components/messages/SseApplicationEvent"
+operations:
+  sendApplicationEvent:
+    action: send
+    title: Deliver an application event to an Agent
+    summary: Signed at-least-once webhook attempt.
+    channel:
+      $ref: "#/channels/agentWebhook"
+    messages:
+      - $ref: "#/channels/agentWebhook/messages/applicationEvent"
+  streamApplicationEvent:
+    action: send
+    title: Stream an application event to an Agent
+    summary: Authenticated SSE delivery with Cursor recovery.
+    channel:
+      $ref: "#/channels/agentEventStream"
+    messages:
+      - $ref: "#/channels/agentEventStream/messages/applicationEvent"
+components:
+  messages:
+    ApplicationEvent:
+      name: ApplicationEvent
+      title: CopilotMail application event
+      summary: Stable envelope shared by versioned event types.
+      contentType: application/json
+      correlationId:
+        description: Stable event identifier used for receiver deduplication.
+        location: "$message.header#/CopilotMail-Webhook-Id"
+      headers:
+        type: object
+        additionalProperties: false
+        required:
+          - CopilotMail-Webhook-Id
+          - CopilotMail-Webhook-Timestamp
+          - CopilotMail-Webhook-Key-Id
+          - CopilotMail-Webhook-Signature
+        properties:
+          CopilotMail-Webhook-Id:
+            type: string
+            format: uuid
+          CopilotMail-Webhook-Timestamp:
+            type: string
+            pattern: "^[0-9]{10,}$"
+          CopilotMail-Webhook-Key-Id:
+            type: string
+            pattern: "^[A-Za-z0-9._-]{1,100}$"
+          CopilotMail-Webhook-Signature:
+            type: string
+            pattern: "^v1=[A-Za-z0-9_-]{43}$"
+      payload:
+        $ref: "#/components/schemas/EventEnvelope"
+    SseApplicationEvent:
+      name: SseApplicationEvent
+      title: CopilotMail SSE application event
+      summary: >
+        Stable JSON envelope carried in an SSE data field. The SSE id field is
+        the opaque subscription-scoped Cursor and the SSE event field is the
+        versioned payload type.
+      contentType: application/json
+      correlationId:
+        description: Stable event identifier used for consumer deduplication.
+        location: "$message.payload#/id"
+      payload:
+        $ref: "#/components/schemas/EventEnvelope"
+  schemas:
+    EventEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - organization_id
+        - type
+        - schema_version
+        - occurred_at
+        - aggregate
+        - data
+      properties:
+        id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - message.received.v1
+            - message.delivery_status_changed.v1
+            - agent.message.dead_lettered.v1
+        schema_version:
+          type: integer
+          minimum: 1
+        occurred_at:
+          type: string
+          format: date-time
+        aggregate:
+          $ref: "#/components/schemas/AggregateReference"
+        data:
+          oneOf:
+            - $ref: "#/components/schemas/MessageReceivedData"
+            - $ref: "#/components/schemas/DeliveryStatusChangedData"
+            - type: object
+              additionalProperties: true
+              description: Payload for Agent dead-letter events.
+    MessageReceivedData:
+      type: object
+      additionalProperties: false
+      required: [organization_id, mailbox_id, message_id, classification]
+      properties:
+        organization_id: { type: string, format: uuid }
+        mailbox_id: { type: string, format: uuid }
+        message_id: { type: string, format: uuid }
+        classification:
+          type: string
+          enum: [ham, spam]
+      description: >
+        Minimal normalized inbound event. Engine account/document references,
+        addresses, headers, blob IDs, sizes, and message content are excluded.
+    DeliveryStatusChangedData:
+      type: object
+      additionalProperties: false
+      required:
+        - organization_id
+        - mailbox_id
+        - submission_id
+        - recipient_count
+        - delivered_count
+        - failed_count
+        - queued_count
+        - unknown_count
+        - terminal
+      properties:
+        organization_id: { type: string, format: uuid }
+        mailbox_id: { type: string, format: uuid }
+        submission_id: { type: string, format: uuid }
+        recipient_count: { type: integer, minimum: 1, maximum: 100 }
+        delivered_count: { type: integer, minimum: 0, maximum: 100 }
+        failed_count: { type: integer, minimum: 0, maximum: 100 }
+        queued_count: { type: integer, minimum: 0, maximum: 100 }
+        unknown_count: { type: integer, minimum: 0, maximum: 100 }
+        terminal: { type: boolean }
+      description: >
+        Recipient-minimized aggregate delivery evidence. Addresses, SMTP
+        replies, engine identifiers, and recipient digests are excluded.
+        The submission may have been requested by an eligible Human or
+        development/testing Agent; actor identity is not copied into the
+        externally routed delivery payload.
+    AggregateReference:
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type:
+          type: string
+          pattern: "^[a-z0-9_]+(?:\\.[a-z0-9_]+)*$"
+        id:
+          type: string
+          minLength: 1
+          maxLength: 512

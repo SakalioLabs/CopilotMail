@@ -1,0 +1,96 @@
+name: copilotmail-v2-dev
+
+# Development-only Stalwart overlay. Mail adapters fail closed and the one-time
+# recovery administrator is available only through compose.mail-bootstrap.yaml.
+services:
+  migrate:
+    environment:
+      COPILOTMAIL_MAIL_DATA_PLANE_ID: ${COPILOTMAIL_MAIL_DATA_PLANE_ID:-018f305d-3d0f-7b2a-9d68-7f4a3f6e2101}
+      COPILOTMAIL_MAIL_DATA_PLANE_ORIGIN: ${COPILOTMAIL_STALWART_PUBLIC_URL:?COPILOTMAIL_STALWART_PUBLIC_URL must be set}
+
+  stalwart:
+    image: stalwartlabs/stalwart:v0.16
+    environment:
+      STALWART_HOSTNAME: mail.test
+      STALWART_PUBLIC_URL: ${COPILOTMAIL_STALWART_PUBLIC_URL:?COPILOTMAIL_STALWART_PUBLIC_URL must be set}
+      STALWART_HEALTHCHECK_URL: http://127.0.0.1:8080/healthz/ready
+    ports:
+      - "${COPILOTMAIL_DEV_BIND_HOST:-127.0.0.1}:${COPILOTMAIL_DEV_STALWART_HTTP_PORT:-8082}:8080"
+      - "${COPILOTMAIL_DEV_BIND_HOST:-127.0.0.1}:${COPILOTMAIL_DEV_STALWART_SMTP_PORT:-2525}:25"
+      - "${COPILOTMAIL_DEV_BIND_HOST:-127.0.0.1}:${COPILOTMAIL_DEV_STALWART_SUBMISSION_PORT:-2587}:587"
+      - "${COPILOTMAIL_DEV_BIND_HOST:-127.0.0.1}:${COPILOTMAIL_DEV_STALWART_SUBMISSIONS_PORT:-2465}:465"
+      - "${COPILOTMAIL_DEV_BIND_HOST:-127.0.0.1}:${COPILOTMAIL_DEV_STALWART_IMAP_PORT:-2143}:143"
+      - "${COPILOTMAIL_DEV_BIND_HOST:-127.0.0.1}:${COPILOTMAIL_DEV_STALWART_IMAPS_PORT:-2993}:993"
+    volumes:
+      - copilotmail-v2-stalwart-etc:/etc/stalwart
+      - copilotmail-v2-stalwart-data:/var/lib/stalwart
+    mem_limit: 2g
+    cpus: 2.0
+    pids_limit: 512
+    stop_signal: SIGTERM
+    stop_grace_period: 1m
+    networks: [backend]
+    restart: unless-stopped
+
+  api:
+    environment:
+      COPILOTMAIL_MAIL_DATA_PLANE_ID: ${COPILOTMAIL_MAIL_DATA_PLANE_ID:-018f305d-3d0f-7b2a-9d68-7f4a3f6e2101}
+      COPILOTMAIL_MAIL_DATA_PLANE_ORIGIN: ${COPILOTMAIL_STALWART_PUBLIC_URL:?COPILOTMAIL_STALWART_PUBLIC_URL must be set}
+      COPILOTMAIL_MAIL_ENGINE_BASE_URL: ${COPILOTMAIL_STALWART_PUBLIC_URL:?COPILOTMAIL_STALWART_PUBLIC_URL must be set}
+      COPILOTMAIL_MAIL_ENGINE_API_TOKEN_FILE: /run/secrets/copilotmail/stalwart-jmap.token
+      COPILOTMAIL_MAIL_ENGINE_TIMEOUT_SECONDS: "10"
+      COPILOTMAIL_MAIL_ENGINE_ALLOW_INSECURE_HTTP: "true"
+      COPILOTMAIL_REQUIRE_MAIL_ENGINE: "true"
+      COPILOTMAIL_MAIL_CONTENT_BASE_URL: ${COPILOTMAIL_STALWART_PUBLIC_URL:?COPILOTMAIL_STALWART_PUBLIC_URL must be set}
+      COPILOTMAIL_MAIL_CONTENT_TOKEN_FILE: /run/secrets/copilotmail/stalwart-mail-content.token
+      COPILOTMAIL_MAIL_CONTENT_TIMEOUT_SECONDS: "10"
+      COPILOTMAIL_MAIL_CONTENT_ALLOW_INSECURE_HTTP: "true"
+      COPILOTMAIL_REQUIRE_MAIL_CONTENT: "true"
+      COPILOTMAIL_MAIL_COMPOSE_BASE_URL: ${COPILOTMAIL_STALWART_PUBLIC_URL:?COPILOTMAIL_STALWART_PUBLIC_URL must be set}
+      COPILOTMAIL_MAIL_COMPOSE_TOKEN_FILE: /run/secrets/copilotmail/stalwart-mail-compose.token
+      COPILOTMAIL_MAIL_COMPOSE_TIMEOUT_SECONDS: "10"
+      COPILOTMAIL_MAIL_COMPOSE_ALLOW_INSECURE_HTTP: "true"
+      COPILOTMAIL_REQUIRE_MAIL_COMPOSE: "true"
+      COPILOTMAIL_MAIL_EVENT_INGRESS_BEARER_TOKEN_FILE: /run/secrets/copilotmail/stalwart-events.bearer
+      COPILOTMAIL_MAIL_EVENT_INGRESS_SIGNATURE_KEY_FILE: /run/secrets/copilotmail/stalwart-events.hmac
+      COPILOTMAIL_REQUIRE_MAIL_EVENT_INGRESS: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./secrets/stalwart-jmap.token:/run/secrets/copilotmail/stalwart-jmap.token:ro
+      - ./secrets/stalwart-mail-content.token:/run/secrets/copilotmail/stalwart-mail-content.token:ro
+      - ./secrets/stalwart-mail-compose.token:/run/secrets/copilotmail/stalwart-mail-compose.token:ro
+      - ./secrets/stalwart-events.bearer:/run/secrets/copilotmail/stalwart-events.bearer:ro
+      - ./secrets/stalwart-events.hmac:/run/secrets/copilotmail/stalwart-events.hmac:ro
+    depends_on:
+      stalwart:
+        condition: service_healthy
+
+  worker:
+    environment:
+      COPILOTMAIL_MAIL_DATA_PLANE_ID: ${COPILOTMAIL_MAIL_DATA_PLANE_ID:-018f305d-3d0f-7b2a-9d68-7f4a3f6e2101}
+      COPILOTMAIL_MAIL_DATA_PLANE_ORIGIN: ${COPILOTMAIL_STALWART_PUBLIC_URL:?COPILOTMAIL_STALWART_PUBLIC_URL must be set}
+      # The Outbox Worker owns governed domain projection and therefore needs
+      # the management credential as well as the isolated submission token.
+      COPILOTMAIL_MAIL_ENGINE_BASE_URL: ${COPILOTMAIL_STALWART_PUBLIC_URL:?COPILOTMAIL_STALWART_PUBLIC_URL must be set}
+      COPILOTMAIL_MAIL_ENGINE_API_TOKEN_FILE: /run/secrets/copilotmail/stalwart-jmap.token
+      COPILOTMAIL_MAIL_ENGINE_TIMEOUT_SECONDS: "10"
+      COPILOTMAIL_MAIL_ENGINE_ALLOW_INSECURE_HTTP: "true"
+      COPILOTMAIL_REQUIRE_MAIL_ENGINE: "true"
+      COPILOTMAIL_MAIL_SUBMISSION_BASE_URL: ${COPILOTMAIL_STALWART_PUBLIC_URL:?COPILOTMAIL_STALWART_PUBLIC_URL must be set}
+      COPILOTMAIL_MAIL_SUBMISSION_TOKEN_FILE: /run/secrets/copilotmail/stalwart-mail-submission.token
+      COPILOTMAIL_MAIL_SUBMISSION_TIMEOUT_SECONDS: "10"
+      COPILOTMAIL_MAIL_SUBMISSION_ALLOW_INSECURE_HTTP: "true"
+      COPILOTMAIL_REQUIRE_MAIL_SUBMISSION: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./secrets/stalwart-jmap.token:/run/secrets/copilotmail/stalwart-jmap.token:ro
+      - ./secrets/stalwart-mail-submission.token:/run/secrets/copilotmail/stalwart-mail-submission.token:ro
+    depends_on:
+      stalwart:
+        condition: service_healthy
+
+volumes:
+  copilotmail-v2-stalwart-etc:
+  copilotmail-v2-stalwart-data:

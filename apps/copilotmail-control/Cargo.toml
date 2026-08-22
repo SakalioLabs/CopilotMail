@@ -1,0 +1,50 @@
+[package]
+name = "copilotmail-control"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+axum.workspace = true
+base64.workspace = true
+chrono.workspace = true
+clap.workspace = true
+copilotmail-audit = { path = "../../crates/copilotmail-audit" }
+copilotmail-application = { path = "../../crates/copilotmail-application" }
+copilotmail-agent-auth = { path = "../../crates/copilotmail-agent-auth" }
+copilotmail-contracts = { path = "../../crates/copilotmail-contracts" }
+copilotmail-domain = { path = "../../crates/copilotmail-domain" }
+copilotmail-dns = { path = "../../crates/copilotmail-dns" }
+copilotmail-mail-engine = { path = "../../crates/copilotmail-mail-engine" }
+copilotmail-oidc = { path = "../../crates/copilotmail-oidc" }
+copilotmail-object-store = { path = "../../crates/copilotmail-object-store" }
+copilotmail-platform = { path = "../../crates/copilotmail-platform" }
+copilotmail-postgres = { path = "../../crates/copilotmail-postgres" }
+copilotmail-scim = { path = "../../crates/copilotmail-scim" }
+copilotmail-webhook = { path = "../../crates/copilotmail-webhook" }
+futures-util.workspace = true
+hmac.workspace = true
+opentelemetry.workspace = true
+rustls.workspace = true
+rustls-pemfile.workspace = true
+rand = "0.9"
+ring.workspace = true
+secrecy.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+tokio-rustls.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-opentelemetry.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+opentelemetry_sdk.workspace = true
+rcgen = "0.14.8"
+sqlx.workspace = true
+tower.workspace = true

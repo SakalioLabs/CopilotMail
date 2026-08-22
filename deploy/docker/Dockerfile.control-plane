@@ -1,0 +1,28 @@
+FROM rust:1.97.1-bookworm AS builder
+ENV RUSTUP_TOOLCHAIN=1.97.1
+WORKDIR /src
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY apps ./apps
+COPY crates ./crates
+COPY src ./src
+RUN --mount=type=cache,id=copilotmail-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=copilotmail-cargo-git,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=copilotmail-control-target,target=/src/target,sharing=locked \
+    cargo build --release --locked -p copilotmail-control \
+    && install -D -m 0755 \
+        /src/target/release/copilotmail-control \
+        /out/copilotmail-control
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 --create-home copilotmail
+COPY --from=builder /out/copilotmail-control /usr/local/bin/copilotmail-control
+USER copilotmail
+ENV COPILOTMAIL_V2_HTTP_ADDR=0.0.0.0:8081 \
+    COPILOTMAIL_ENVIRONMENT=production \
+    RUST_LOG=copilotmail=info,tower_http=info
+EXPOSE 8081 9090
+ENTRYPOINT ["copilotmail-control"]
+CMD ["serve"]

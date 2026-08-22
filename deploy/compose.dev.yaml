@@ -1,0 +1,249 @@
+name: copilotmail-v2-dev
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: copilotmail
+      POSTGRES_USER: copilotmail
+      POSTGRES_PASSWORD: ${COPILOTMAIL_DEV_POSTGRES_PASSWORD:-local-development-only}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U copilotmail -d copilotmail"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - copilotmail-v2-postgres:/var/lib/postgresql/data
+    networks: [backend]
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${COPILOTMAIL_DEV_MINIO_USER:-copilotmail}
+      MINIO_ROOT_PASSWORD: ${COPILOTMAIL_DEV_MINIO_PASSWORD:-local-development-minio-only}
+    ports:
+      - "${COPILOTMAIL_DEV_BIND_HOST:-127.0.0.1}:${COPILOTMAIL_DEV_MINIO_API_PORT:-9000}:9000"
+      - "${COPILOTMAIL_DEV_BIND_HOST:-127.0.0.1}:${COPILOTMAIL_DEV_MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - copilotmail-v2-minio:/data
+    networks: [backend]
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
+        mc mb --ignore-existing --with-lock local/"$${AUDIT_BUCKET}" &&
+        mc version enable local/"$${AUDIT_BUCKET}" &&
+        mc stat local/"$${AUDIT_BUCKET}"
+    environment:
+      MINIO_ROOT_USER: ${COPILOTMAIL_DEV_MINIO_USER:-copilotmail}
+      MINIO_ROOT_PASSWORD: ${COPILOTMAIL_DEV_MINIO_PASSWORD:-local-development-minio-only}
+      AUDIT_BUCKET: ${COPILOTMAIL_AUDIT_ARCHIVE_BUCKET:-copilotmail-audit}
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks: [backend]
+    restart: "no"
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.control-plane
+    command: ["migrate"]
+    environment: &control-environment
+      COPILOTMAIL_DATABASE_URL: postgres://copilotmail:${COPILOTMAIL_DEV_POSTGRES_PASSWORD:-local-development-only}@postgres:5432/copilotmail
+      COPILOTMAIL_DATABASE_MAX_CONNECTIONS: "10"
+      COPILOTMAIL_ENVIRONMENT: development
+      COPILOTMAIL_OIDC_ISSUER: ${COPILOTMAIL_OIDC_ISSUER:-}
+      COPILOTMAIL_OIDC_AUDIENCE: ${COPILOTMAIL_OIDC_AUDIENCE:-}
+      COPILOTMAIL_OIDC_ALLOW_INSECURE_HTTP: ${COPILOTMAIL_OIDC_ALLOW_INSECURE_HTTP:-false}
+      COPILOTMAIL_REQUIRE_HUMAN_AUTH: ${COPILOTMAIL_REQUIRE_HUMAN_AUTH:-false}
+      COPILOTMAIL_AGENT_OAUTH_ISSUER: ${COPILOTMAIL_AGENT_OAUTH_ISSUER:-}
+      COPILOTMAIL_AGENT_OAUTH_AUDIENCE: ${COPILOTMAIL_AGENT_OAUTH_AUDIENCE:-}
+      COPILOTMAIL_AGENT_OAUTH_TOKEN_ENDPOINT: ${COPILOTMAIL_AGENT_OAUTH_TOKEN_ENDPOINT:-}
+      COPILOTMAIL_AGENT_OAUTH_SIGNING_KEY_SET_FILE: ${COPILOTMAIL_AGENT_OAUTH_SIGNING_KEY_SET_FILE:-}
+      COPILOTMAIL_AGENT_OAUTH_SIGNING_KEY_RELOAD_SECONDS: ${COPILOTMAIL_AGENT_OAUTH_SIGNING_KEY_RELOAD_SECONDS:-30}
+      COPILOTMAIL_AGENT_OAUTH_SIGNING_KEY_ID: ${COPILOTMAIL_AGENT_OAUTH_SIGNING_KEY_ID:-}
+      COPILOTMAIL_AGENT_OAUTH_PRIVATE_KEY_FILE: ${COPILOTMAIL_AGENT_OAUTH_PRIVATE_KEY_FILE:-}
+      COPILOTMAIL_AGENT_OAUTH_PUBLIC_KEY_FILE: ${COPILOTMAIL_AGENT_OAUTH_PUBLIC_KEY_FILE:-}
+      COPILOTMAIL_AGENT_OAUTH_ACCESS_TOKEN_TTL_SECONDS: ${COPILOTMAIL_AGENT_OAUTH_ACCESS_TOKEN_TTL_SECONDS:-300}
+      COPILOTMAIL_AGENT_OAUTH_ALLOW_INSECURE_HTTP: ${COPILOTMAIL_AGENT_OAUTH_ALLOW_INSECURE_HTTP:-false}
+      COPILOTMAIL_REQUIRE_AGENT_AUTH: ${COPILOTMAIL_REQUIRE_AGENT_AUTH:-false}
+      COPILOTMAIL_NATIVE_TLS_CERT_FILE: ${COPILOTMAIL_NATIVE_TLS_CERT_FILE:-}
+      COPILOTMAIL_NATIVE_TLS_KEY_FILE: ${COPILOTMAIL_NATIVE_TLS_KEY_FILE:-}
+      COPILOTMAIL_NATIVE_TLS_CLIENT_CA_FILE: ${COPILOTMAIL_NATIVE_TLS_CLIENT_CA_FILE:-}
+      COPILOTMAIL_AUDIT_ARCHIVE_ENDPOINT: http://minio:9000
+      COPILOTMAIL_AUDIT_ARCHIVE_REGION: ${COPILOTMAIL_AUDIT_ARCHIVE_REGION:-us-east-1}
+      COPILOTMAIL_AUDIT_ARCHIVE_BUCKET: ${COPILOTMAIL_AUDIT_ARCHIVE_BUCKET:-copilotmail-audit}
+      COPILOTMAIL_AUDIT_ARCHIVE_FORCE_PATH_STYLE: "true"
+      COPILOTMAIL_AUDIT_ARCHIVE_ALLOW_INSECURE_HTTP: "true"
+      COPILOTMAIL_AUDIT_ARCHIVE_RETENTION_MODE: ${COPILOTMAIL_AUDIT_ARCHIVE_RETENTION_MODE:-governance}
+      COPILOTMAIL_AUDIT_ARCHIVE_RETENTION_DAYS: ${COPILOTMAIL_AUDIT_ARCHIVE_RETENTION_DAYS:-30}
+      AWS_ACCESS_KEY_ID: ${COPILOTMAIL_DEV_MINIO_USER:-copilotmail}
+      AWS_SECRET_ACCESS_KEY: ${COPILOTMAIL_DEV_MINIO_PASSWORD:-local-development-minio-only}
+      RUST_LOG: copilotmail=info,tower_http=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    networks: [backend]
+    restart: "no"
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.control-plane
+    command: ["serve"]
+    environment:
+      <<: *control-environment
+      COPILOTMAIL_V2_HTTP_ADDR: 0.0.0.0:8081
+      COPILOTMAIL_REQUIRE_HUMAN_SESSION: ${COPILOTMAIL_REQUIRE_HUMAN_SESSION:-false}
+      COPILOTMAIL_ADMIN_OIDC_CLIENT_ID: ${COPILOTMAIL_ADMIN_OIDC_CLIENT_ID:-}
+      COPILOTMAIL_ADMIN_OIDC_SCOPE: ${COPILOTMAIL_ADMIN_OIDC_SCOPE:-openid profile email}
+      COPILOTMAIL_ADMIN_PUBLIC_ORIGIN: ${COPILOTMAIL_ADMIN_PUBLIC_ORIGIN:-}
+      COPILOTMAIL_MAIL_APP_OIDC_CLIENT_ID: ${COPILOTMAIL_MAIL_APP_OIDC_CLIENT_ID:-}
+      COPILOTMAIL_MAIL_APP_OIDC_SCOPE: ${COPILOTMAIL_MAIL_APP_OIDC_SCOPE:-openid profile email}
+      COPILOTMAIL_MAIL_APP_PUBLIC_ORIGIN: ${COPILOTMAIL_MAIL_APP_PUBLIC_ORIGIN:-}
+      COPILOTMAIL_HUMAN_SESSION_TTL_SECONDS: ${COPILOTMAIL_HUMAN_SESSION_TTL_SECONDS:-3600}
+      COPILOTMAIL_HUMAN_LOGIN_REQUESTS_PER_MINUTE: ${COPILOTMAIL_HUMAN_LOGIN_REQUESTS_PER_MINUTE:-600}
+      COPILOTMAIL_HUMAN_SESSION_ALLOW_INSECURE_COOKIE: ${COPILOTMAIL_HUMAN_SESSION_ALLOW_INSECURE_COOKIE:-false}
+      COPILOTMAIL_HUMAN_SESSION_ENCRYPTION_KEY_FILE: ${COPILOTMAIL_HUMAN_SESSION_ENCRYPTION_KEY_FILE:-}
+      COPILOTMAIL_AGENT_EVENT_STREAM_TENANT_LIMIT: ${COPILOTMAIL_AGENT_EVENT_STREAM_TENANT_LIMIT:-100}
+      COPILOTMAIL_AGENT_EVENT_STREAM_PRINCIPAL_LIMIT: ${COPILOTMAIL_AGENT_EVENT_STREAM_PRINCIPAL_LIMIT:-5}
+      COPILOTMAIL_AGENT_INGRESS_TENANT_REQUESTS_PER_MINUTE: ${COPILOTMAIL_AGENT_INGRESS_TENANT_REQUESTS_PER_MINUTE:-6000}
+      COPILOTMAIL_AGENT_INGRESS_PRINCIPAL_REQUESTS_PER_MINUTE: ${COPILOTMAIL_AGENT_INGRESS_PRINCIPAL_REQUESTS_PER_MINUTE:-600}
+      COPILOTMAIL_AGENT_EVENT_STREAM_METRICS_ADDR: 0.0.0.0:9091
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "${COPILOTMAIL_DEV_BIND_HOST:-127.0.0.1}:${COPILOTMAIL_V2_HTTP_PORT:-8081}:8081"
+    expose: ["9091"]
+    healthcheck:
+      test: ["CMD", "copilotmail-control", "check"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: [backend]
+    restart: unless-stopped
+
+  admin:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.admin-app
+    environment:
+      COPILOTMAIL_ADMIN_API_BASE_URL: ""
+      COPILOTMAIL_ADMIN_ORGANIZATION_ID: ${COPILOTMAIL_ADMIN_ORGANIZATION_ID:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${COPILOTMAIL_DEV_BIND_HOST:-127.0.0.1}:${COPILOTMAIL_ADMIN_HTTP_PORT:-8083}:8080"
+    user: "101:101"
+    read_only: true
+    tmpfs:
+      - /tmp:uid=101,gid=101,mode=1770
+      - /var/cache/nginx:uid=101,gid=101,mode=0750
+      - /var/run:uid=101,gid=101,mode=0750
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: [backend]
+    restart: unless-stopped
+
+  mail:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.mail-app
+    environment:
+      COPILOTMAIL_MAIL_APP_API_BASE_URL: ""
+      COPILOTMAIL_MAIL_APP_MAILBOX_ID: ${COPILOTMAIL_MAIL_APP_MAILBOX_ID:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${COPILOTMAIL_DEV_BIND_HOST:-127.0.0.1}:${COPILOTMAIL_MAIL_APP_HTTP_PORT:-8084}:8080"
+    user: "101:101"
+    read_only: true
+    tmpfs:
+      - /tmp:uid=101,gid=101,mode=1770
+      - /var/cache/nginx:uid=101,gid=101,mode=0750
+      - /var/run:uid=101,gid=101,mode=0750
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: [backend]
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.control-plane
+    command: ["worker"]
+    environment: *control-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: [backend]
+    restart: unless-stopped
+
+  audit-maintenance:
+    profiles: ["audit-maintenance"]
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.control-plane
+    command: ["audit-maintenance-worker"]
+    environment:
+      <<: *control-environment
+      COPILOTMAIL_AUDIT_MAINTENANCE_ORGANIZATION_ID: ${COPILOTMAIL_AUDIT_MAINTENANCE_ORGANIZATION_ID:-}
+      COPILOTMAIL_AUDIT_MAINTENANCE_ACTOR_PRINCIPAL_ID: ${COPILOTMAIL_AUDIT_MAINTENANCE_ACTOR_PRINCIPAL_ID:-}
+      COPILOTMAIL_AUDIT_MAINTENANCE_KEY_ID: ${COPILOTMAIL_AUDIT_MAINTENANCE_KEY_ID:-audit-dev-1}
+      COPILOTMAIL_AUDIT_MAINTENANCE_PRIVATE_KEY_FILE: /run/secrets/copilotmail/audit-private.pem
+      COPILOTMAIL_AUDIT_MAINTENANCE_PUBLIC_KEY_FILE: /run/secrets/copilotmail/audit-public.pem
+      COPILOTMAIL_AUDIT_MAINTENANCE_OBJECT_PREFIX: ${COPILOTMAIL_AUDIT_MAINTENANCE_OBJECT_PREFIX:-audit}
+      COPILOTMAIL_AUDIT_MAINTENANCE_WORK_DIRECTORY: /var/lib/copilotmail/audit-maintenance
+      COPILOTMAIL_AUDIT_MAINTENANCE_INTERVAL_SECONDS: ${COPILOTMAIL_AUDIT_MAINTENANCE_INTERVAL_SECONDS:-86400}
+      COPILOTMAIL_AUDIT_MAINTENANCE_METRICS_ADDR: 0.0.0.0:9090
+      COPILOTMAIL_AUDIT_MAINTENANCE_FAILURE_THRESHOLD: ${COPILOTMAIL_AUDIT_MAINTENANCE_FAILURE_THRESHOLD:-3}
+      COPILOTMAIL_AUDIT_MAINTENANCE_MAX_PENDING_AGE_SECONDS: ${COPILOTMAIL_AUDIT_MAINTENANCE_MAX_PENDING_AGE_SECONDS:-172800}
+      COPILOTMAIL_AUDIT_MAINTENANCE_MAX_CYCLE_SECONDS: ${COPILOTMAIL_AUDIT_MAINTENANCE_MAX_CYCLE_SECONDS:-21600}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./secrets/audit-private.pem:/run/secrets/copilotmail/audit-private.pem:ro
+      - ./secrets/audit-public.pem:/run/secrets/copilotmail/audit-public.pem:ro
+      - copilotmail-v2-audit-maintenance:/var/lib/copilotmail/audit-maintenance
+    expose: ["9090"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: [backend]
+    restart: unless-stopped
+
+networks:
+  backend:
+    internal: false
+
+volumes:
+  copilotmail-v2-postgres:
+  copilotmail-v2-minio:
+  copilotmail-v2-audit-maintenance:
