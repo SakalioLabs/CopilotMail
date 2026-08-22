@@ -287,17 +287,13 @@ impl S3WormArchive {
             return Err(WormArchiveError::Verification);
         }
 
-        let bytes = output
-            .body
-            .collect()
-            .await
-            .map_err(|_| WormArchiveError::Remote)?
-            .to_vec();
-        let actual_size = u64::try_from(bytes.len()).map_err(|_| WormArchiveError::Verification)?;
-        let actual_sha256 = hex_lower(Sha256::digest(&bytes).as_slice());
-        if actual_size != expected_size_bytes || actual_sha256 != expected_sha256_hex {
-            return Err(WormArchiveError::Verification);
-        }
+        let (bytes, actual_size, actual_sha256) = collect_verified_body(
+            output.body,
+            expected_sha256_hex,
+            expected_size_bytes,
+            max_size_bytes,
+        )
+        .await?;
 
         Ok(RetrievedObject {
             key: key.into(),
@@ -417,6 +413,44 @@ impl S3WormArchive {
             .await
             .map_err(|_| WormArchiveError::Remote)
     }
+}
+
+/// Collects a body only after proving that every received byte remains within
+/// the exact archive evidence and caller-selected hard limit.
+///
+/// A returned download response currently needs owned bytes, so this is not a
+/// zero-copy streaming response. It deliberately avoids `ByteStream::collect`,
+/// which would trust an unbounded remote stream before the evidence check.
+async fn collect_verified_body(
+    mut body: ByteStream,
+    expected_sha256_hex: &str,
+    expected_size_bytes: u64,
+    max_size_bytes: u64,
+) -> Result<(Vec<u8>, u64, String), WormArchiveError> {
+    let mut bytes = Vec::new();
+    let mut hasher = Sha256::new();
+    let mut actual_size = 0_u64;
+    while let Some(chunk) = body.next().await {
+        let chunk = chunk.map_err(|_| WormArchiveError::Remote)?;
+        let chunk_size = u64::try_from(chunk.len()).map_err(|_| WormArchiveError::Verification)?;
+        let next_size = actual_size
+            .checked_add(chunk_size)
+            .ok_or(WormArchiveError::Verification)?;
+        if next_size > expected_size_bytes || next_size > max_size_bytes {
+            return Err(WormArchiveError::Verification);
+        }
+        bytes
+            .try_reserve_exact(chunk.len())
+            .map_err(|_| WormArchiveError::Remote)?;
+        hasher.update(&chunk);
+        bytes.extend_from_slice(&chunk);
+        actual_size = next_size;
+    }
+    let actual_sha256 = hex_lower(hasher.finalize().as_slice());
+    if actual_size != expected_size_bytes || actual_sha256 != expected_sha256_hex {
+        return Err(WormArchiveError::Verification);
+    }
+    Ok((bytes, actual_size, actual_sha256))
 }
 
 fn verify_head(
@@ -652,5 +686,37 @@ mod tests {
         assert_eq!(hex.len(), 64);
         assert!(valid_sha256_hex(&hex));
         assert_eq!(sha256_base64(&hex).unwrap(), STANDARD.encode(digest));
+    }
+
+    #[tokio::test]
+    async fn verified_body_collection_is_bounded_and_digest_checked() {
+        let bytes = b"immutable audit evidence";
+        let digest = hex_lower(Sha256::digest(bytes).as_slice());
+        let (retrieved, size, actual_digest) = collect_verified_body(
+            ByteStream::from_static(bytes),
+            &digest,
+            u64::try_from(bytes.len()).unwrap(),
+            u64::try_from(bytes.len()).unwrap(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(retrieved, bytes);
+        assert_eq!(size, u64::try_from(bytes.len()).unwrap());
+        assert_eq!(actual_digest, digest);
+
+        let over_limit = collect_verified_body(ByteStream::from_static(bytes), &digest, 1, 1)
+            .await
+            .unwrap_err();
+        assert!(matches!(over_limit, WormArchiveError::Verification));
+
+        let wrong_digest = collect_verified_body(
+            ByteStream::from_static(bytes),
+            &"0".repeat(64),
+            u64::try_from(bytes.len()).unwrap(),
+            u64::try_from(bytes.len()).unwrap(),
+        )
+        .await
+        .unwrap_err();
+        assert!(matches!(wrong_digest, WormArchiveError::Verification));
     }
 }

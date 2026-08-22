@@ -38,6 +38,10 @@ implementation evidence remains in
   mail content are minimized or excluded from public responses and audit data.
 - Immutable evidence tables and migration/readiness gates detect disabled or
   missing enforcement controls.
+- Audit-export downloads now require an active Human Principal, verify the
+  exact object version in bounded chunks before returning bytes, distinguish
+  integrity conflicts from transient object-store failures, and record each
+  verified retrieval in the immutable audit/outbox chain.
 - The Web build chain pins patched `nanoid` 3.3.18, resolving
   GHSA-2v37-7h3g-55p8 in the prior transitive dependency.
 
@@ -46,8 +50,10 @@ implementation evidence remains in
 - Enterprise IdP interoperability, real-domain public mail delivery, anti-spam
   and malware integration, HA, capacity, disaster recovery, and security
   acceptance remain open.
-- The Ubuntu WSL Pilot requires offline VHD repair and complete revalidation
-  before it can be considered reliable.
+- The legacy Ubuntu WSL Pilot is no longer a validation dependency because of
+  recurring I/O risk. Any future runtime test requires a separately approved,
+  isolated Linux Docker environment; a shared NixOS host currently holds only
+  the development snapshot and offline checks.
 
 ## [0.1.0-prototype]
 

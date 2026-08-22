@@ -701,6 +701,15 @@ paths:
             X-CopilotMail-Artifact-SHA256:
               description: Lowercase hex SHA-256 of the returned bytes.
               schema: { type: string, pattern: "^[0-9a-f]{64}$" }
+            Content-Length:
+              description: Exact decimal byte length of the verified artifact.
+              schema: { type: integer, format: int64, minimum: 1 }
+            Content-Disposition:
+              description: Attachment filename derived only from the export grant and artifact kind.
+              schema: { type: string }
+            Cache-Control:
+              description: Always `no-store`; export bytes must not be retained by intermediaries.
+              schema: { type: string, enum: [no-store] }
           content:
             application/octet-stream:
               schema: { type: string, format: binary }

@@ -155,7 +155,8 @@ use copilotmail_mail_engine::{
     MailEngineWebhookError, StalwartJmapClient, StalwartJmapConfig, StalwartWebhookParser,
 };
 use copilotmail_object_store::{
-    ArchivedObjectEvidence, S3WormArchive, S3WormArchiveConfig, WormObjectSource, WormRetentionMode,
+    ArchivedObjectEvidence, S3WormArchive, S3WormArchiveConfig, WormArchiveError, WormObjectSource,
+    WormRetentionMode,
 };
 use copilotmail_oidc::{
     OidcAuthenticator, OidcAuthorizationResponse, OidcAuthorizationTransaction, OidcConfig,
@@ -9816,7 +9817,7 @@ async fn download_audit_export_artifact(
             MAX_AUDIT_EXPORT_ARTIFACT_BYTES,
         )
         .await
-        .map_err(|_| audit_export_object_store_unavailable(&request_id))?;
+        .map_err(|error| audit_export_object_store_error(error, &request_id))?;
 
     service
         .record(RecordAuditExportDownloadCommand {
@@ -9867,6 +9868,7 @@ async fn authenticate_audit_export_request(
 ) -> Result<(AuthenticatedIdentity, AuthorizationContext), Response> {
     let (identity, authorization) =
         authenticate_api_request(state, headers, connection, request_id).await?;
+    enforce_audit_export_human_principal(&identity, request_id)?;
     enforce_permission_and_scope(
         &identity,
         &authorization,
@@ -9892,6 +9894,23 @@ async fn authenticate_audit_export_request(
         ));
     }
     Ok((identity, authorization))
+}
+
+#[allow(clippy::result_large_err)]
+fn enforce_audit_export_human_principal(
+    identity: &AuthenticatedIdentity,
+    request_id: &str,
+) -> Result<(), Response> {
+    if identity.principal_kind == AuthenticatedPrincipalKind::Human {
+        return Ok(());
+    }
+    Err(api_error(
+        StatusCode::FORBIDDEN,
+        "human_principal_required",
+        "audit export authorization requires an active Human Principal",
+        false,
+        request_id,
+    ))
 }
 
 async fn create_retention_policy(
@@ -10635,6 +10654,24 @@ fn audit_export_object_store_unavailable(request_id: &str) -> Response {
         true,
         request_id,
     )
+}
+
+fn audit_export_object_store_error(error: WormArchiveError, request_id: &str) -> Response {
+    match error {
+        WormArchiveError::Verification
+        | WormArchiveError::InvalidObject
+        | WormArchiveError::BucketNotImmutable
+        | WormArchiveError::Conflict => api_error(
+            StatusCode::CONFLICT,
+            "audit_export_object_verification_failed",
+            "the immutable archive object does not match its recorded evidence",
+            false,
+            request_id,
+        ),
+        WormArchiveError::Remote | WormArchiveError::InvalidConfiguration => {
+            audit_export_object_store_unavailable(request_id)
+        }
+    }
 }
 
 fn audit_export_store_unavailable(request_id: &str) -> Response {
@@ -14854,6 +14891,45 @@ mod tests {
             .unwrap()
             .insert(Permission::AgentOperate);
         assert!(enforce_mail_submission_scopes(&identity, &authorization, "request").is_ok());
+    }
+
+    #[test]
+    fn audit_export_rejects_agent_principals_before_authorization_store_access() {
+        let agent = AuthenticatedIdentity {
+            principal_id: PrincipalId::new(),
+            principal_kind: AuthenticatedPrincipalKind::Agent,
+            credential_id: Some("agent-credential".into()),
+            scope_restriction: Some([Permission::AuditExport].into_iter().collect()),
+        };
+        assert_eq!(
+            enforce_audit_export_human_principal(&agent, "request")
+                .expect_err("Agents must never use the Human audit export path")
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+
+        let human = AuthenticatedIdentity {
+            principal_kind: AuthenticatedPrincipalKind::Human,
+            ..agent
+        };
+        assert!(enforce_audit_export_human_principal(&human, "request").is_ok());
+    }
+
+    #[tokio::test]
+    async fn audit_export_object_verification_failures_are_non_retryable_conflicts() {
+        let response = audit_export_object_store_error(WormArchiveError::Verification, "request");
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        let body = to_bytes(response.into_body(), 16 * 1024).await.unwrap();
+        let error: ErrorResponse = serde_json::from_slice(&body).unwrap();
+        assert_eq!(error.code, "audit_export_object_verification_failed");
+        assert!(!error.retryable);
+
+        let response = audit_export_object_store_error(WormArchiveError::Remote, "request");
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let body = to_bytes(response.into_body(), 16 * 1024).await.unwrap();
+        let error: ErrorResponse = serde_json::from_slice(&body).unwrap();
+        assert_eq!(error.code, "audit_export_object_store_unavailable");
+        assert!(error.retryable);
     }
 
     #[tokio::test]
