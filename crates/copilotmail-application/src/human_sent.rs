@@ -233,6 +233,7 @@ where
             }),
             command.now,
         )
+        .and_then(|event| event.correlate_human_session(command.context.authentication.as_ref()))
         .map_err(|_| HumanSentError::Unavailable)?;
         let event = PendingEvent::new(
             "mail.submissions.queried.v1",
@@ -348,8 +349,9 @@ mod tests {
     };
     use async_trait::async_trait;
     use copilotmail_domain::{
-        MailboxAccessSnapshot, MailboxMembershipRole, Organization, OrganizationId,
-        OrganizationSlug, Principal, PrincipalId, Role, RoleAssignment,
+        AuthenticationBinding, HumanSessionId, MailboxAccessSnapshot, MailboxMembershipRole,
+        Organization, OrganizationId, OrganizationSlug, Principal, PrincipalId, Role,
+        RoleAssignment,
     };
     use std::sync::{
         Arc, Mutex,
@@ -361,6 +363,7 @@ mod tests {
         audits: Vec<String>,
         events: Vec<String>,
         serialized: Vec<String>,
+        session_ids: Vec<Option<String>>,
         commits: usize,
         rechecks: Vec<HumanSentListRecheck>,
     }
@@ -404,6 +407,13 @@ mod tests {
 
     #[async_trait]
     impl ControlPlaneTransaction for Transaction {
+        async fn bind_request_authentication(
+            &mut self,
+            _: &AuthorizationContext,
+        ) -> Result<(), StoreError> {
+            Ok(())
+        }
+
         async fn find_organization_bootstrap(
             &mut self,
             _: &OrganizationSlug,
@@ -448,6 +458,7 @@ mod tests {
             let mut evidence = self.evidence.lock().unwrap();
             evidence.audits.push(event.action.clone());
             evidence.serialized.push(event.details.to_string());
+            evidence.session_ids.push(event.context.session_id.clone());
             Ok(())
         }
 
@@ -600,12 +611,30 @@ mod tests {
             newest
         );
         assert_eq!(evidence.audits, ["mail.submissions.queried"]);
+        assert_eq!(evidence.session_ids, vec![None]);
         assert_eq!(evidence.events, ["mail.submissions.queried.v1"]);
         assert_eq!(evidence.commits, 1);
         let serialized = evidence.serialized.join(" ");
         for secret in ["recipient@example.test", "provider-secret", "smtp"] {
             assert!(!serialized.contains(secret));
         }
+    }
+
+    #[tokio::test]
+    async fn human_browser_session_is_bound_onto_the_query_audit() {
+        let mut fixture = fixture();
+        let session_id = HumanSessionId::from_uuid(Uuid::from_u128(0x5155));
+        fixture.context.authentication = Some(AuthenticationBinding::HumanSession { session_id });
+        let evidence = Arc::new(Mutex::new(Evidence::default()));
+        HumanSentService::new(store(&fixture, empty_batch(&fixture), evidence.clone()))
+            .list(command(&fixture))
+            .await
+            .unwrap();
+        let evidence = evidence.lock().unwrap();
+        assert_eq!(evidence.session_ids, vec![Some(session_id.to_string())]);
+        let serialized = evidence.serialized.join(" ");
+        assert!(!serialized.contains(&session_id.to_string()));
+        assert!(!serialized.contains("session_token"));
     }
 
     #[tokio::test]

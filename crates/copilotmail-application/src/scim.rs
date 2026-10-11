@@ -703,7 +703,10 @@ fn lifecycle_records(
             "credential_label": credential.label,
         }),
         now,
-    )?;
+    )?
+    .correlate_human_session(Some(&AuthenticationBinding::ScimToken {
+        token_id: credential.token_id,
+    }))?;
     let event = PendingEvent::new(
         event_type,
         "identity.scim_user",
@@ -743,7 +746,10 @@ fn group_lifecycle_records(
             "credential_label": credential.label,
         }),
         now,
-    )?;
+    )?
+    .correlate_human_session(Some(&AuthenticationBinding::ScimToken {
+        token_id: credential.token_id,
+    }))?;
     let event = PendingEvent::new(
         event_type,
         "identity.scim_group",

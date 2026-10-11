@@ -265,6 +265,7 @@ where
         )
         .map_err(|_| AgentInspectorError::Unavailable)?
         .with_context(audit_context)
+        .and_then(|event| event.correlate_human_session(command.context.authentication.as_ref()))
         .map_err(|_| AgentInspectorError::Unavailable)?;
         let event = PendingEvent::new(
             "identity.agent.queried.v1",

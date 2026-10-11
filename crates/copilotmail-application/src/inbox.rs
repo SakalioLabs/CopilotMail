@@ -402,6 +402,7 @@ where
             }),
             now,
         )
+        .and_then(|event| event.correlate_human_session(context.authentication.as_ref()))
         .map_err(|_| InboxError::Unavailable)?;
         let event = PendingEvent::new(
             "mail.messages.queried.v1",
@@ -463,6 +464,7 @@ where
             }),
             command.now,
         )
+        .and_then(|event| event.correlate_human_session(context.authentication.as_ref()))
         .map_err(|_| InboxError::Unavailable)?;
         let event = PendingEvent::new(
             "mail.message.read.v1",

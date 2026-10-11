@@ -395,7 +395,8 @@ impl<S: ControlPlaneStore> ApprovalWorkflowService<S> {
             }),
             command.now,
         )?
-        .with_context(audit_context)?;
+        .with_context(audit_context)?
+        .correlate_human_session(command.context.authentication.as_ref())?;
         let event = PendingEvent::new(
             "authorization.approval.requested.v1",
             "authorization.approval_request",
@@ -475,7 +476,8 @@ impl<S: ControlPlaneStore> ApprovalWorkflowService<S> {
             }),
             command.now,
         )?
-        .with_context(audit_context)?;
+        .with_context(audit_context)?
+        .correlate_human_session(command.context.authentication.as_ref())?;
         let event = PendingEvent::new(
             "authorization.approval.decided.v1",
             "authorization.approval_request",
@@ -703,7 +705,8 @@ impl<S: ControlPlaneStore + ApprovalQueryStore> ApprovalWorkflowService<S> {
             }),
             command.now,
         )?
-        .with_context(audit_context)?;
+        .with_context(audit_context)?
+        .correlate_human_session(command.context.authentication.as_ref())?;
         let event = PendingEvent::new(
             "authorization.approval.cancelled.v1",
             "authorization.approval_request",
@@ -771,7 +774,8 @@ async fn append_approval_read_evidence(
         details,
         now,
     )?
-    .with_context(audit_context)?;
+    .with_context(audit_context)?
+    .correlate_human_session(context.authentication.as_ref())?;
     transaction.append_audit_event(&audit).await?;
     transaction
         .enqueue_event(&PendingEvent::new(

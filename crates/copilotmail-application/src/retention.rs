@@ -342,7 +342,8 @@ where
             let mut context = AuditContext::for_request(command.trace_id)?;
             context.subject_principal_id = Some(command.context.principal_id);
             context
-        })?;
+        })?
+        .correlate_human_session(command.context.authentication.as_ref())?;
         ensure_retention_manager(&mut transaction, &command.context).await?;
         transaction.append_audit_event(&audit).await?;
         let event = PendingEvent::new(
@@ -450,7 +451,8 @@ async fn append_governance_evidence(
         }),
         now,
     )?
-    .with_context(audit_context)?;
+    .with_context(audit_context)?
+    .correlate_human_session(context.authentication.as_ref())?;
     let event = PendingEvent::new(
         format!("{action}.v1"),
         "compliance.retention_policy",

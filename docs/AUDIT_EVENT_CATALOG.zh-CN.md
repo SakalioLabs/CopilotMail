@@ -117,6 +117,12 @@
 - Approval Request、工单；
 - 环境与区域。
 
+请求级 Human 浏览器会话在 `begin_authorized` 事务的审计事件上写入该会话的
+不可变 ID。这个字段不是 Cookie、OIDC Access Token 或 JTI。没有浏览器会话的
+Agent 凭据、SCIM Token、旧 Bearer 和本地维护路径保持为空。若生产者已经写入
+Session ID，它必须与本次认证绑定相同，否则持久化前拒绝。会话创建和撤销仍在
+事件上显式记录 Session ID，并在当时保存已验证的 `token_jti`。
+
 Actor、subject、on-behalf-of、Policy 和 Approval 均通过 PostgreSQL 复合外键绑定同一租户。
 
 ## 数据最小化

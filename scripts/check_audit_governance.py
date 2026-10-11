@@ -102,6 +102,65 @@ def transaction_coverage_errors(source: Path, raw: str) -> list[str]:
     return errors
 
 
+def session_correlation_errors(source: Path, raw: str) -> list[str]:
+    """Request-authorized audits must consider the verified browser session.
+
+    `begin()` maintenance paths have no browser session and are exempt. A
+    helper that builds the event still has to call `correlate_human_session`;
+    a comment or string cannot satisfy the check.
+    """
+    production = production_source(raw)
+    code = masked(production)
+    scopes = functions(code)
+    bodies = {item.name: code[item.body_start:item.end] for item in scopes}
+    starts = {item.name: item.start for item in scopes}
+
+    def calls(body: str) -> list[str]:
+        found = []
+        for call in re.finditer(r"\b([A-Za-z_]\w*)\s*\(", body):
+            if body[: call.start()].rstrip().endswith((".", ":")):
+                continue
+            found.append(call[1])
+        return found
+
+    def builds_audit(name: str, seen: frozenset[str] = frozenset()) -> bool:
+        if name in seen or name not in bodies:
+            return False
+        body = bodies[name]
+        if "AuditEvent::new" in body:
+            return True
+        return any(builds_audit(callee, seen | {name}) for callee in calls(body))
+
+    errors = []
+    reported = set()
+    for item in scopes:
+        if "begin_authorized" not in bodies[item.name]:
+            continue
+        stack = [item.name]
+        visited = set()
+        while stack:
+            name = stack.pop()
+            if name in visited or name not in bodies:
+                continue
+            visited.add(name)
+            body = bodies[name]
+            if (
+                "AuditEvent::new" in body
+                and "correlate_human_session" not in body
+                and name not in reported
+            ):
+                reported.add(name)
+                line = raw.count("\n", 0, starts[name]) + 1
+                errors.append(
+                    f"{source}:{line} {name} appends a request-authorized audit "
+                    "without correlate_human_session"
+                )
+            for callee in calls(body):
+                if builds_audit(callee, frozenset({name})):
+                    stack.append(callee)
+    return errors
+
+
 def fail(messages: list[str]) -> None:
     for message in messages:
         print(f"audit-governance: {message}", file=sys.stderr)
@@ -180,6 +239,7 @@ def main() -> None:
             match["action"] for match in ACTION_LITERAL_PATTERN.finditer(visible)
         )
         errors.extend(transaction_coverage_errors(source.relative_to(ROOT), text))
+        errors.extend(session_correlation_errors(source.relative_to(ROOT), text))
 
     domain_actions = {row[0] for row in domain_rows}
     if application_actions != domain_actions:

@@ -3,10 +3,10 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use copilotmail_domain::{
-    AuditActor, AuditEvent, AuditOutcome, AuditResource, AuthorizationContext, DelegationId,
-    DomainError, Mailbox, MailboxAddress, MailboxAuthorizationDecision, MailboxCapability,
-    MailboxDelegation, MailboxId, MailboxKind, MailboxMembership, MailboxMembershipRole,
-    OrganizationId, Permission, PrincipalId,
+    AuditActor, AuditEvent, AuditOutcome, AuditResource, AuthenticationBinding,
+    AuthorizationContext, DelegationId, DomainError, Mailbox, MailboxAddress,
+    MailboxAuthorizationDecision, MailboxCapability, MailboxDelegation, MailboxId, MailboxKind,
+    MailboxMembership, MailboxMembershipRole, OrganizationId, Permission, PrincipalId,
 };
 use serde_json::json;
 use std::collections::BTreeSet;
@@ -86,7 +86,7 @@ impl<S: ControlPlaneStore> MailboxManagementService<S> {
             .find_oidc_owner_binding(command.organization_id)
             .await?
             .ok_or(StoreError::MissingReference)?;
-        persist_mailbox(transaction, command, owner.principal_id).await
+        persist_mailbox(transaction, command, owner.principal_id, None).await
     }
 
     pub async fn create_authorized(
@@ -104,7 +104,13 @@ impl<S: ControlPlaneStore> MailboxManagementService<S> {
         {
             return Err(MailboxAuthorizationError::Forbidden);
         }
-        persist_mailbox(transaction, command, context.principal_id).await
+        persist_mailbox(
+            transaction,
+            command,
+            context.principal_id,
+            context.authentication.as_ref(),
+        )
+        .await
     }
 }
 
@@ -112,6 +118,7 @@ async fn persist_mailbox(
     mut transaction: Box<dyn ControlPlaneTransaction>,
     command: CreateMailboxCommand,
     actor: PrincipalId,
+    authentication: Option<&AuthenticationBinding>,
 ) -> Result<CreateMailboxResult, MailboxAuthorizationError> {
     let address = MailboxAddress::parse(&command.primary_address)?;
     let mailbox = Mailbox::new(command.organization_id, command.kind, address, command.now);
@@ -140,7 +147,8 @@ async fn persist_mailbox(
         command.trace_id,
         json!({"kind": mailbox.kind, "primary_address": mailbox.primary_address}),
         command.now,
-    )?;
+    )?
+    .correlate_human_session(authentication)?;
     let event = PendingEvent::new(
         "mailbox.created.v1",
         "mailbox",
@@ -258,7 +266,8 @@ impl<S: ControlPlaneStore> MailboxDelegationService<S> {
                 "reason": delegation.reason(),
             }),
             command.now,
-        )?;
+        )?
+        .correlate_human_session(context.and_then(|item| item.authentication.as_ref()))?;
         let event = PendingEvent::new(
             "authorization.mailbox_delegation.granted.v1",
             "authorization.mailbox_delegation",
@@ -351,7 +360,8 @@ impl<S: ControlPlaneStore> MailboxDelegationService<S> {
             command.trace_id,
             json!({}),
             command.now,
-        )?;
+        )?
+        .correlate_human_session(context.and_then(|item| item.authentication.as_ref()))?;
         let event = PendingEvent::new(
             "authorization.mailbox_delegation.revoked.v1",
             "authorization.mailbox_delegation",

@@ -217,7 +217,8 @@ impl<S: ControlPlaneStore> MailEngineMailboxBindingService<S> {
                 "version": binding.version,
             }),
             command.now,
-        )?;
+        )?
+        .correlate_human_session(context.authentication.as_ref())?;
         // Keep the published v1 schema stable for rolling consumers. The v2
         // event introduces the provider-neutral typed identity.
         let compatibility_event = PendingEvent::for_mail_data_plane(

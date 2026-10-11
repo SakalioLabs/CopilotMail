@@ -139,7 +139,8 @@ where
                 "untrusted_external_content": true,
             }),
             command.now,
-        )?;
+        )?
+        .correlate_human_session(context.authentication.as_ref())?;
         let event = PendingEvent::new(
             "agent.mail_content.read.v1",
             "mail.message",

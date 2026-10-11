@@ -142,7 +142,8 @@ where
                 "max_auto_replies_per_thread_per_day": record.policy.max_auto_replies_per_thread_per_day(),
             }),
             command.now,
-        )?;
+        )?
+        .correlate_human_session(command.context.authentication.as_ref())?;
         transaction.append_audit_event(&audit).await?;
         transaction
             .enqueue_event(&PendingEvent::new(
@@ -211,7 +212,8 @@ where
                 "version": record.policy.version(),
             }),
             command.now,
-        )?;
+        )?
+        .correlate_human_session(command.context.authentication.as_ref())?;
         transaction.append_audit_event(&audit).await?;
         transaction
             .enqueue_event(&PendingEvent::new(
@@ -327,7 +329,8 @@ where
             }),
             command.now,
         )?
-        .with_context(audit_context)?;
+        .with_context(audit_context)?
+        .correlate_human_session(command.context.authentication.as_ref())?;
         transaction.append_audit_event(&audit).await?;
         transaction
             .enqueue_event(&PendingEvent::new(

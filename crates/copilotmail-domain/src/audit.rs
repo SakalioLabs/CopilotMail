@@ -1,6 +1,6 @@
 use crate::{
-    ApprovalRequestId, AuditEventId, DomainError, OrganizationId, PolicyId, PolicyVersionId,
-    PrincipalId,
+    ApprovalRequestId, AuditEventId, AuthenticationBinding, DomainError, OrganizationId, PolicyId,
+    PolicyVersionId, PrincipalId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -500,6 +500,30 @@ impl AuditContext {
         }
         Ok(())
     }
+
+    /// Records the verified Human browser session when the caller did not.
+    ///
+    /// Only `AuthenticationBinding::HumanSession` is a browser session. Agent
+    /// credentials, SCIM tokens, legacy bearer tokens, and trusted local work
+    /// stay unset. An explicit session must already equal the bound session;
+    /// the cookie and upstream token are never accepted here.
+    pub fn correlate_human_session(
+        &mut self,
+        authentication: Option<&AuthenticationBinding>,
+    ) -> Result<(), DomainError> {
+        let Some(AuthenticationBinding::HumanSession { session_id }) = authentication else {
+            return Ok(());
+        };
+        let bound = session_id.to_string();
+        if let Some(existing) = &self.session_id {
+            if existing != &bound {
+                return Err(DomainError::InvalidAuditContext);
+            }
+            return Ok(());
+        }
+        self.session_id = Some(bound);
+        self.validate()
+    }
 }
 
 /// Identity and delegation context responsible for an audited action.
@@ -609,6 +633,15 @@ impl AuditEvent {
     pub fn with_context(mut self, context: AuditContext) -> Result<Self, DomainError> {
         context.validate()?;
         self.context = context;
+        Ok(self)
+    }
+
+    /// Applies [`AuditContext::correlate_human_session`] after the event exists.
+    pub fn correlate_human_session(
+        mut self,
+        authentication: Option<&AuthenticationBinding>,
+    ) -> Result<Self, DomainError> {
+        self.context.correlate_human_session(authentication)?;
         Ok(self)
     }
 }
@@ -733,5 +766,91 @@ mod tests {
             Utc::now(),
         );
         assert_eq!(result.unwrap_err(), DomainError::InvalidAuditDetails);
+    }
+
+    fn sample_event() -> AuditEvent {
+        AuditEvent::new(
+            OrganizationId::new(),
+            AuditActor {
+                principal_id: PrincipalId::new(),
+                on_behalf_of: None,
+                credential_id: None,
+            },
+            "identity.principal.created",
+            AuditResource {
+                kind: "identity.principal".into(),
+                id: "principal".into(),
+            },
+            AuditOutcome::Success,
+            "trace",
+            serde_json::json!({}),
+            Utc::now(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn human_session_binding_fills_only_the_non_secret_session_id() {
+        let session_id = crate::HumanSessionId::from_uuid(uuid::Uuid::from_u128(0x11));
+        let event = sample_event()
+            .correlate_human_session(Some(&AuthenticationBinding::HumanSession { session_id }))
+            .unwrap();
+        let expected = session_id.to_string();
+        assert_eq!(event.context.session_id.as_deref(), Some(expected.as_str()));
+        assert!(event.context.token_jti.is_none());
+        assert!(event.actor.credential_id.is_none());
+    }
+
+    #[test]
+    fn non_browser_bindings_do_not_invent_a_session() {
+        let event = sample_event();
+        for authentication in [
+            None,
+            Some(AuthenticationBinding::HumanBearer {
+                expires_at: Utc::now(),
+            }),
+            Some(AuthenticationBinding::AgentCredential {
+                credential_id: crate::CredentialId::from_uuid(uuid::Uuid::from_u128(0x22)),
+                expires_at: Utc::now(),
+                scopes: std::collections::BTreeSet::new(),
+            }),
+            Some(AuthenticationBinding::ScimToken {
+                token_id: crate::ScimTokenId::from_uuid(uuid::Uuid::from_u128(0x33)),
+            }),
+        ] {
+            let correlated = event
+                .clone()
+                .correlate_human_session(authentication.as_ref())
+                .unwrap();
+            assert_eq!(correlated.context.session_id, None);
+        }
+    }
+
+    #[test]
+    fn mismatched_explicit_session_is_rejected() {
+        let session_id = crate::HumanSessionId::from_uuid(uuid::Uuid::from_u128(0x44));
+        let mut context = AuditContext::for_request("trace").unwrap();
+        context.session_id = Some("01900000-0000-7000-8000-000000000099".into());
+        let event = sample_event().with_context(context).unwrap();
+        assert_eq!(
+            event
+                .correlate_human_session(Some(&AuthenticationBinding::HumanSession { session_id }))
+                .unwrap_err(),
+            DomainError::InvalidAuditContext
+        );
+    }
+
+    #[test]
+    fn matching_explicit_session_is_preserved() {
+        let session_id = crate::HumanSessionId::from_uuid(uuid::Uuid::from_u128(0x55));
+        let mut context = AuditContext::for_request("trace").unwrap();
+        context.session_id = Some(session_id.to_string());
+        let event = sample_event()
+            .with_context(context)
+            .unwrap()
+            .correlate_human_session(Some(&AuthenticationBinding::HumanSession { session_id }))
+            .unwrap();
+        let expected = session_id.to_string();
+        assert_eq!(event.context.session_id.as_deref(), Some(expected.as_str()));
     }
 }

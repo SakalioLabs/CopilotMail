@@ -206,7 +206,8 @@ where
             }),
             command.now,
         )?
-        .with_context(audit_context)?;
+        .with_context(audit_context)?
+        .correlate_human_session(command.context.authentication.as_ref())?;
         transaction.append_audit_event(&audit).await?;
         transaction
             .enqueue_event(&PendingEvent::new(
@@ -281,7 +282,8 @@ where
             }),
             command.now,
         )?
-        .with_context(audit_context)?;
+        .with_context(audit_context)?
+        .correlate_human_session(command.context.authentication.as_ref())?;
         transaction.append_audit_event(&audit).await?;
         transaction
             .enqueue_event(&PendingEvent::new(
@@ -462,7 +464,8 @@ where
         details,
         now,
     )?
-    .with_context(audit_context)?;
+    .with_context(audit_context)?
+    .correlate_human_session(context.authentication.as_ref())?;
     transaction.append_audit_event(&audit).await?;
     transaction
         .enqueue_event(&PendingEvent::new(

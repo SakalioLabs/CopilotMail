@@ -156,7 +156,8 @@ where
                     "has_more": has_more,
                 }),
                 command.now,
-            )?;
+            )?
+            .correlate_human_session(context.authentication.as_ref())?;
             let event = PendingEvent::new(
                 "agent.event_cursor.read.v1",
                 "agent.event_cursor",
@@ -265,7 +266,8 @@ where
                 "principal_connection_limit": command.principal_connection_limit,
             }),
             command.now,
-        )?;
+        )?
+        .correlate_human_session(context.authentication.as_ref())?;
         let event = PendingEvent::new(
             "agent.event_stream.opened.v1",
             "agent.event_stream",

@@ -847,7 +847,8 @@ async fn append_processing_evidence(
         trace_id,
         payload.clone(),
         now,
-    )?;
+    )?
+    .correlate_human_session(context.authentication.as_ref())?;
     let event = PendingEvent::new(event_type, resource_kind, resource_id, payload, now);
     transaction
         .append_audit_event(&audit)

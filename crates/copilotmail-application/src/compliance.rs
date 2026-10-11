@@ -449,7 +449,8 @@ async fn append_governance_evidence(
         details,
         now,
     )?
-    .with_context(audit_context)?;
+    .with_context(audit_context)?
+    .correlate_human_session(context.authentication.as_ref())?;
     let event = PendingEvent::new(
         format!("{action}.v1"),
         resource_kind,

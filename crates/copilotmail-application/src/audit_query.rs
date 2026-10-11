@@ -163,7 +163,8 @@ where
             command.trace_id,
             details,
             command.now,
-        )?;
+        )?
+        .correlate_human_session(context.authentication.as_ref())?;
         let event = PendingEvent::new(
             "audit.events.queried.v1",
             "audit.query",

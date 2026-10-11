@@ -116,6 +116,26 @@ Compose 长状态继续完整换行；D4E 把登录入口、已认证目录准�
 
 ## 本轮已落地
 
+- 请求级 Human 浏览器会话 ID 进入业务审计：`AuditContext::correlate_human_session`
+  只接受 `AuthenticationBinding::HumanSession` 的不可变会话 UUID，不接受
+  Cookie、OIDC Token 或 JTI。所有 `begin_authorized` 路径上构造的审计事件
+  （含经 helper 构造的事件）在 `with_context` 之后调用该关联；Agent 凭据、
+  SCIM Token、旧 Bearer 和受信本地 `begin()` 不发明浏览器会话。已写入的
+  Session ID 若与绑定不一致则返回 `InvalidAuditContext`。审计治理脚本拒绝
+  漏掉关联的请求级生产者，注释和字符串不能冒充调用。领域单测覆盖填充、
+  非浏览器绑定、匹配保留和冲突拒绝；`human_sent` 的内存夹具显式接受请求绑定，
+  只证明查询审计记下会话 ID 且 details 不含该 ID，不代替 PostgreSQL 围栏。
+  创建/撤销会话仍显式记录 Session ID 与 `token_jti`。这不实现 Back-Channel
+  Logout、Step-up 或全设备注销。2026-10-12 在 Rust 1.97.1 实跑
+  `cargo fmt --all --check`、`CARGO_BUILD_JOBS=4 cargo clippy --workspace --all-targets --locked -- -D warnings`
+  与 `CARGO_BUILD_JOBS=4 cargo test --workspace --locked`：394 passed、0 failed、
+  43 ignored。未执行的 ignored 为 `postgres_integration.rs` 37 个 disposable
+  PostgreSQL 场景（同文件的数据库目标守卫测试通过）、控制面 2 个 HTTP 场景
+  （Agent Inspector 与 submission evidence POST）和 4 个 MinIO Object Lock 场景。
+  `python3 -m unittest discover -s scripts -p test_audit_governance.py` 为 17 项通过，
+  `python3 scripts/check_audit_governance.py` 为 85 个事件、85 个生产者动作。
+  未改 `web/`，因此未跑 npm。没有改写能力矩阵的 `not_run`，也没有重跑历史
+  PostgreSQL 集成记录。
 - 接通请求级认证代次围栏（authentication fencing）：`authenticate_api_request` 将
   `AuthenticatedIdentity.authentication` 合并进 `AuthorizationContext`；全部请求级写路径
   （约 50 处，含 SCIM 写路径由 `ScimCredential` 合成 `ScimToken` 绑定上下文）改用
@@ -702,6 +722,7 @@ Chromium 与 103 张 PNG。环境依赖集成项仍按 ignored/实际执行状�
 
 | 验证项 | 结果 |
 |---|---|
+| 2026-10-12 请求级浏览器会话审计 | Rust 1.97.1：`cargo fmt --all --check` 通过；`CARGO_BUILD_JOBS=4 cargo clippy --workspace --all-targets --locked -- -D warnings` 通过；`CARGO_BUILD_JOBS=4 cargo test --workspace --locked` 为 394 passed、0 failed、43 ignored。ignored 未执行：PostgreSQL 集成 37、控制面 HTTP 2、MinIO Object Lock 4。审计治理脚本 17 项自测通过，目录仍为 85 个事件。未改 Web，未跑 npm。 |
 | `cargo fmt --all --check` | 通过 |
 | `cargo check` | V1 根包、V2 workspace 与最终控制平面依赖组合分拆检查通过 |
 | `python scripts/check_architecture.py --self-test` | 通过；Domain、Audit、Application 三个权威 package-id 根均按分层允许集检查解析后的 all-features 完整依赖图，覆盖根 dev/全部 target、workspace 别名、非 workspace 中转和后续 build 边；Mail Engine 全 Rust 源码 corpus 只能恰好一次私有导入 Application ports，并拒绝子模块重导出、名称遮蔽、raw identifier 与 `extern crate` alias 反例 |

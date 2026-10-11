@@ -151,8 +151,11 @@ Secrets Manager 或编排器提供，轮换需使所有 BFF 实例原子切换�
   Step-up；企业 Pilot 前不能宣称达到公司指定 AAL。
 - 匿名失败登录的独立安全账本、设备列表和全设备注销仍待后续增量；不得把
   原始 OAuth 参数写入普通审计详情作为替代。
-- 整个业务审计链对 Session ID 的统一传播仍需继续补齐；当前已覆盖 Session
-  创建和撤销本身。
+- 请求级 `begin_authorized` 审计现在写入已验证 Human 浏览器会话的不可变
+  Session ID，不写入 Cookie、OIDC Access Token 或 JTI。Agent 凭据、SCIM
+  Token、旧 Bearer 和受信本地 `begin()` 维护路径不会被记成浏览器会话；生产者
+  已写入的 Session ID 必须与本次绑定相同，否则拒绝。创建和撤销会话本身仍在
+  各自事件上显式记录 Session ID 与已验证的 `token_jti`。
 
 相关决策见 [ADR 0035](adr/0035-human-oidc-bff-session.md)，接口见
 [OpenAPI V2](openapi-v2.yaml)，整体剩余风险见

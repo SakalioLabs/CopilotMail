@@ -98,7 +98,8 @@ impl<S: ControlPlaneStore> WebhookDeadLetterService<S> {
                 "reason_code": "manual_replay_requested",
             }),
             command.now,
-        )?;
+        )?
+        .correlate_human_session(context.authentication.as_ref())?;
         let event = PendingEvent::new(
             "agent.webhook_delivery.replayed.v1",
             "agent.webhook_delivery",

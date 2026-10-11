@@ -373,6 +373,7 @@ where
             }),
             command.now,
         )
+        .and_then(|event| event.correlate_human_session(command.context.authentication.as_ref()))
         .map_err(|_| HumanDraftError::Unavailable)?;
         let event = PendingEvent::new(
             "mail.drafts.queried.v1",
@@ -444,6 +445,7 @@ where
             }),
             command.now,
         )
+        .and_then(|event| event.correlate_human_session(command.context.authentication.as_ref()))
         .map_err(|_| HumanDraftError::Unavailable)?;
         let event = PendingEvent::new(
             "mail.draft.read.v1",

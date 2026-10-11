@@ -3,10 +3,10 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use copilotmail_domain::{
-    AuditActor, AuditEvent, AuditOutcome, AuditResource, AuthorizationContext,
-    DnsVerificationEvidence, DomainError, MailDataPlaneId, MailDomain, MailDomainId,
-    MailDomainName, MailDomainRoute, MailDomainRouteMode, MailDomainStatus, OrganizationId,
-    Permission, PrincipalId,
+    AuditActor, AuditEvent, AuditOutcome, AuditResource, AuthenticationBinding,
+    AuthorizationContext, DnsVerificationEvidence, DomainError, MailDataPlaneId, MailDomain,
+    MailDomainId, MailDomainName, MailDomainRoute, MailDomainRouteMode, MailDomainStatus,
+    OrganizationId, Permission, PrincipalId,
 };
 use serde_json::{Value, json};
 
@@ -156,6 +156,7 @@ impl<S: ControlPlaneStore> MailDomainGovernanceService<S> {
                 "status": domain.status,
             }),
             command.now,
+            context.authentication.as_ref(),
         )?;
         let event = PendingEvent::new(
             "mail_domain.registered.v1",
@@ -222,6 +223,7 @@ impl<S: ControlPlaneStore> MailDomainGovernanceService<S> {
                 "status": domain.status,
             }),
             command.now,
+            context.authentication.as_ref(),
         )?;
         let event = PendingEvent::new(
             "mail_domain.challenge_rotated.v1",
@@ -307,6 +309,7 @@ impl<S: ControlPlaneStore> MailDomainGovernanceService<S> {
                 "failure_codes": command.failure_codes,
             }),
             command.now,
+            context.authentication.as_ref(),
         )?;
         let event = PendingEvent::new(
             if transitioned_to_verified {
@@ -371,6 +374,7 @@ impl<S: ControlPlaneStore> MailDomainGovernanceService<S> {
             command.trace_id,
             json!({"status": domain.status, "activated_at": domain.activated_at}),
             command.now,
+            context.authentication.as_ref(),
         )?;
         let event = PendingEvent::for_mail_data_plane(
             command.data_plane_id,
@@ -446,6 +450,7 @@ impl<S: ControlPlaneStore> MailDomainGovernanceService<S> {
                 "routes_disabled": true,
             }),
             command.now,
+            context.authentication.as_ref(),
         )?;
         let event = PendingEvent::for_mail_data_plane(
             data_plane_id,
@@ -517,6 +522,7 @@ impl<S: ControlPlaneStore> MailDomainGovernanceService<S> {
                 "dkim_key_configured": route.dkim_key_ref.is_some(),
             }),
             command.now,
+            context.authentication.as_ref(),
         )?;
         let event = PendingEvent::new(
             "mail_domain.route_updated.v1",
@@ -598,6 +604,7 @@ fn validate_reason_code(value: &str) -> Result<(), MailDomainGovernanceError> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn audit(
     organization_id: OrganizationId,
     actor: PrincipalId,
@@ -606,6 +613,7 @@ fn audit(
     trace_id: String,
     details: Value,
     now: DateTime<Utc>,
+    authentication: Option<&AuthenticationBinding>,
 ) -> Result<AuditEvent, DomainError> {
     AuditEvent::new(
         organization_id,
@@ -623,7 +631,8 @@ fn audit(
         trace_id,
         details,
         now,
-    )
+    )?
+    .correlate_human_session(authentication)
 }
 
 #[cfg(test)]

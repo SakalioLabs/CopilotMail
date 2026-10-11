@@ -167,7 +167,8 @@ where
             // which is also the source used by immutable production
             // admission evidence. Keep this request fact on that timeline.
             creation.intent.created_at,
-        )?;
+        )?
+        .correlate_human_session(context.authentication.as_ref())?;
         let event = PendingEvent::for_mail_data_plane(
             creation.intent.data_plane_id,
             "mail.submission.requested.v1",
@@ -223,7 +224,8 @@ where
                 // application clock so evidence reads can prove causality.
                 admission.admitted_at,
             )?
-            .with_context(audit_context)?;
+            .with_context(audit_context)?
+            .correlate_human_session(context.authentication.as_ref())?;
             let admission_event = PendingEvent::for_mail_data_plane(
                 creation.intent.data_plane_id,
                 "agent.mail.admitted.v1",

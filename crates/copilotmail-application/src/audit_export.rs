@@ -175,7 +175,8 @@ where
                 }),
                 grant.created_at(),
             )?
-            .with_context(audit_context)?;
+            .with_context(audit_context)?
+            .correlate_human_session(command.context.authentication.as_ref())?;
             transaction.append_audit_event(&audit).await?;
             transaction
                 .enqueue_event(&PendingEvent::new(
@@ -397,7 +398,8 @@ where
             }),
             download.downloaded_at,
         )?
-        .with_context(audit_context)?;
+        .with_context(audit_context)?
+        .correlate_human_session(command.context.authentication.as_ref())?;
         transaction.append_audit_event(&audit).await?;
         transaction
             .enqueue_event(&PendingEvent::new(

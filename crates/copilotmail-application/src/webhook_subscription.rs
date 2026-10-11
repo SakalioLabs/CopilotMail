@@ -1,9 +1,9 @@
 use crate::{ControlPlaneStore, ControlPlaneTransaction, PendingEvent, StoreError};
 use chrono::{DateTime, Utc};
 use copilotmail_domain::{
-    AuditActor, AuditEvent, AuditOutcome, AuditResource, AuthorizationContext, DomainError,
-    OrganizationId, Permission, PrincipalId, WebhookEventType, WebhookSubscription,
-    WebhookSubscriptionId,
+    AuditActor, AuditEvent, AuditOutcome, AuditResource, AuthenticationBinding,
+    AuthorizationContext, DomainError, OrganizationId, Permission, PrincipalId, WebhookEventType,
+    WebhookSubscription, WebhookSubscriptionId,
 };
 use serde_json::json;
 use std::collections::BTreeSet;
@@ -100,6 +100,7 @@ impl<S: ControlPlaneStore> WebhookSubscriptionService<S> {
                 "version": subscription.version,
             }),
             command.now,
+            context.authentication.as_ref(),
         )?;
         let event = subscription_event(
             "agent.webhook_subscription.created.v1",
@@ -162,6 +163,7 @@ impl<S: ControlPlaneStore> WebhookSubscriptionService<S> {
                 "version": subscription.version,
             }),
             command.now,
+            context.authentication.as_ref(),
         )?;
         let event = subscription_event(
             if disabled {
@@ -242,6 +244,7 @@ fn subscription_audit(
     trace_id: String,
     details: serde_json::Value,
     now: DateTime<Utc>,
+    authentication: Option<&AuthenticationBinding>,
 ) -> Result<AuditEvent, DomainError> {
     AuditEvent::new(
         subscription.organization_id,
@@ -259,7 +262,8 @@ fn subscription_audit(
         trace_id,
         details,
         now,
-    )
+    )?
+    .correlate_human_session(authentication)
 }
 
 fn subscription_event(

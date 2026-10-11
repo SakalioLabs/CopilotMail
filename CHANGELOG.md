@@ -35,6 +35,9 @@ implementation evidence remains in
 
 ### Security
 
+- Request-authorized audit events now record the verified Human browser
+  session id. Agent, SCIM, legacy bearer, and trusted local maintenance paths
+  do not receive an invented browser session.
 - Privileged operations fail closed when live authorization or audit evidence
   cannot be established.
 - Browser and Agent credentials, provider identifiers, recipient evidence, and

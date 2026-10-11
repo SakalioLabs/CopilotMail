@@ -152,6 +152,7 @@ where
             }),
             command.now,
         )
+        .and_then(|event| event.correlate_human_session(context.authentication.as_ref()))
         .map_err(map_domain_error)?;
         let event = PendingEvent::new(
             "agent.mail_sandbox.captured.v1",

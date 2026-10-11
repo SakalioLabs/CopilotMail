@@ -2,7 +2,7 @@
 from pathlib import Path
 import unittest
 
-from check_audit_governance import transaction_coverage_errors
+from check_audit_governance import session_correlation_errors, transaction_coverage_errors
 from rust_source import functions, masked, production_source
 
 
@@ -115,6 +115,67 @@ class AuditSourceTests(unittest.TestCase):
             async fn child() { transaction.commit().await?; }
         }"""
         self.assertEqual(len(self.errors(source)), 1)
+
+    def session_errors(self, source, name="use_case.rs"):
+        return session_correlation_errors(Path(name), source)
+
+    def test_request_authorized_audit_must_correlate_the_browser_session(self):
+        missing = """
+        async fn write() {
+            store.begin_authorized(context).await?;
+            let audit = AuditEvent::new(action);
+            transaction.append_audit_event(&audit).await?;
+            transaction.enqueue_event(&event).await?;
+            transaction.commit().await?;
+        }
+        """
+        self.assertEqual(len(self.session_errors(missing)), 1)
+        present = missing.replace(
+            "AuditEvent::new(action);",
+            "AuditEvent::new(action).correlate_human_session(context.authentication.as_ref())?;",
+        )
+        self.assertEqual(self.session_errors(present), [])
+
+    def test_helper_that_builds_a_request_audit_must_correlate(self):
+        code = """
+        async fn write() {
+            store.begin_authorized(context).await?;
+            let audit = evidence();
+            transaction.append_audit_event(&audit).await?;
+            transaction.enqueue_event(&event).await?;
+            transaction.commit().await?;
+        }
+        fn evidence() { AuditEvent::new(action) }
+        """
+        self.assertEqual(len(self.session_errors(code)), 1)
+        correlated = code.replace(
+            "AuditEvent::new(action)",
+            "AuditEvent::new(action).correlate_human_session(authentication)",
+        )
+        self.assertEqual(self.session_errors(correlated), [])
+
+    def test_local_begin_and_comments_do_not_require_or_fake_correlation(self):
+        local = """
+        async fn maintain() {
+            store.begin().await?;
+            let audit = AuditEvent::new(action);
+            transaction.append_audit_event(&audit).await?;
+            transaction.enqueue_event(&event).await?;
+            transaction.commit().await?;
+        }
+        """
+        self.assertEqual(self.session_errors(local), [])
+        commented = """
+        async fn write() {
+            store.begin_authorized(context).await?;
+            // correlate_human_session is not a call
+            let audit = AuditEvent::new(action);
+            transaction.append_audit_event(&audit).await?;
+            transaction.enqueue_event(&event).await?;
+            transaction.commit().await?;
+        }
+        """
+        self.assertEqual(len(self.session_errors(commented)), 1)
 
     def test_unterminated_source_fails_instead_of_skipping_the_file(self):
         for source in ('fn f() { let s = "unfinished;', '/* unfinished', 'fn f() { let s = r#"unfinished;'):
