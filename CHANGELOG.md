@@ -35,6 +35,12 @@ implementation evidence remains in
 
 ### Security
 
+- The P1 “request id on every error and worker log” remainder was rechecked
+  against the V2 control plane and closed without a new correlation field.
+  `ErrorResponse` still carries `request_id` and `trace_id`, and the router
+  still propagates `x-request-id`. OAuth and SCIM error bodies stay on their
+  protocol schemas. Outbox and audit-maintenance workers keep `worker_id`,
+  `event_id`, `cycle_id`, and the stable maintenance `trace_id`.
 - Request-authorized audit events now record the verified Human browser
   session id. Agent, SCIM, legacy bearer, and trusted local maintenance paths
   do not receive an invented browser session.

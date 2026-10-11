@@ -98,7 +98,7 @@ Compose 长状态继续完整换行；D4E 把登录入口、已认证目录准�
 | 阶段 | 状态 | 已有证据 | 主要未完成项 |
 |---|---|---|---|
 | P0 产品、架构与邮件 PoC | 进行中 | 总体实施计划；控制平面 ADR；邮件数据平面边界 ADR；企业威胁模型及可追踪威胁/控制/验证矩阵；可签字的公司输入、容量、IdP、域名、合规、SLO/RPO/RTO 与运维依赖清单；邮箱资源授权矩阵；可机检审计事件目录 | 公司完成输入与风险签字、Stalwart 对比 PoC 与数据平面选型签字 |
-| P1 工程底座 | 进行中 | Cargo Workspace；领域/应用/契约/平台/PG 与 S3 Object Lock adapter；邮件引擎无关的 DTO、错误和 port traits 归 `copilotmail-application` 所有，`copilotmail-mail-engine` 仅作为 Stalwart adapter 实现这些 ports；稳定 UUID `MailDataPlaneId` 区分独立远端引用命名空间且不等同 vendor，binding/ingress 由服务端注入 ID，Application 在网络调用前校验 adapter 来源亲和；从 Domain、Audit、Application 三个权威包根解析全特性依赖图、按层拒绝直接/传递/别名/目标特定向外依赖并扫描 Mail Engine 全 Rust 源码的 CI 架构门禁；migration 及 CI 重复执行无操作验证；API/Worker/Migrate/Check；Docker 开发栈；Ubuntu WSL Base Pilot 容器实跑、健康检查和持久化重启；结构化 JSON 日志；可选 OTLP/HTTP Span exporter、W3C Trace Context 与 Collector/Tempo/Prometheus/Grafana 覆盖层；CI 门禁 | migration rollback、PostgreSQL 17 同版本原生恢复、生产 Collector/Trace 告警演练、统一错误与请求 ID 全链路 |
+| P1 工程底座 | 进行中 | Cargo Workspace；领域/应用/契约/平台/PG 与 S3 Object Lock adapter；邮件引擎无关的 DTO、错误和 port traits 归 `copilotmail-application` 所有，`copilotmail-mail-engine` 仅作为 Stalwart adapter 实现这些 ports；稳定 UUID `MailDataPlaneId` 区分独立远端引用命名空间且不等同 vendor，binding/ingress 由服务端注入 ID，Application 在网络调用前校验 adapter 来源亲和；从 Domain、Audit、Application 三个权威包根解析全特性依赖图、按层拒绝直接/传递/别名/目标特定向外依赖并扫描 Mail Engine 全 Rust 源码的 CI 架构门禁；migration 及 CI 重复执行无操作验证；API/Worker/Migrate/Check；Docker 开发栈；Ubuntu WSL Base Pilot 容器实跑、健康检查和持久化重启；结构化 JSON 日志；可选 OTLP/HTTP Span exporter、W3C Trace Context 与 Collector/Tempo/Prometheus/Grafana 覆盖层；CI 门禁；2026-10-12 实读核对后，V2 对外错误与 Worker 关联不再列为请求 ID 缺口：`apps/copilotmail-control/src/web_errors.rs` 的 `api_error` 与 `web_router.rs` 的 `not_found` 把 `request_id`、`trace_id` 写入 `ErrorResponse`，`web_router.rs` 的 `SetRequestIdLayer` 与 `PropagateRequestIdLayer` 对整份路由（含 OAuth、SCIM、`/healthz`、`/readyz`）传播 `x-request-id`；`serve.rs` 的 Outbox 日志带 `worker_id` 与 `event_id`，`audit_maintenance.rs` 带 `cycle_id` 与稳定 `trace_id`。OAuth RFC 6749 与 SCIM RFC 7644 错误正文保持协议形状；Worker 没有 HTTP 请求，不为它们再造一层 request id | migration rollback、PostgreSQL 17 同版本原生恢复、生产 Collector/Trace 告警演练 |
 | P2 身份与组织 | 进行中 | `Organization`/`Principal`；Bootstrap；默认拒绝 RBAC；九内置角色权威目录和既有租户回填；Active Human 限时角色授予/撤销、自审计有界读模型、精确双人权限提升审批、最后有效 Owner 保护和中英双语角色治理 UI；严格 OIDC Discovery/JWKS/JWT；服务端 Authorization Code + S256 PKCE BFF、只保存摘要/密文的 PostgreSQL Human Session、Admin/Mail Host-only HttpOnly Secure Cookie 与路由隔离、精确 Origin CSRF、跨副本登录限流和不可变创建/撤销证据；可审计的首位 Human Owner 接管；SCIM Users/Groups 生命周期与令牌轮换；Agent OAuth2 `private_key_jwt` 与原生 mTLS 证书绑定 Token、重叠轮换与立即撤销；邮箱成员关系与显式时限委托 ABAC；不可变策略版本和双人审批上下文；请求人/待办隔离的审批读模型、Active Human 决策、请求人取消与中英双语审批中心；受保护 Organization 查询；合规案件与审计归档 Legal Hold 状态机 | 真实企业 IdP/SCIM 互操作与停用 SLA、上游会话撤销/Back-channel Logout、Step-up/AAL、Agent 工作负载身份联邦、审批人组/规则执行器、自定义角色与权限编辑 |
 | P3 邮件数据平面 | 进行中 | 独立 `copilotmail-mail-engine` 与 `copilotmail-dns` 边界；显式数据平面 UUID + canonical origin 配置，管理/Content/Compose/Submission 跨源启动拒绝；带 ID 亲和的 Stalwart JMAP 管理面安全探测与可靠域名投影；真实 DNS 安全预检；域名生命周期、投影状态与路由治理应用事务；中英双语 Admin 域名工作台以列表—详情呈现一次性 ownership token、DNS 验证、`verified` 后显式激活、路由 CAS 与独立投影状态，未知写结果冻结写操作并只读对账；双凭据 Stalwart 入站/队列事件验证、租户邮箱绑定、追加式来源回执、最小化 `message.received.v1` 与独立队列运维证据；精确 JMAP Submission 收件人投递状态对账；可选 readiness 硬依赖；固定版本 Docker PoC 覆盖层与 bootstrap runbook；普通账号声明式 upsert、SMTP/IMAP/JMAP/非开放中继及两阶段重启持久性自动验收程序；V1 SMTP 继续用于回归 | 在真实 Stalwart 执行 PG/S3/重启/升级和普通账号互操作证据；真实队列 WebHook/DSN 演练、TLS、反垃圾、可靠投递队列 |
 | P4A 人类邮件体验 | 进行中 | 独立 React/TypeScript 邮件端与 Human-only 收件箱：浏览器只使用同源 BFF Session，不执行 Discovery/PKCE/Token 交换、不保存或发送 Provider Token；Admin/Mail 客户端与 Cookie 完全分区；Mail Session-only 的 `GET /api/v2/mailboxes` 在查询前拒绝 Admin Cookie 与 Bearer，并要求 Active Human、`mailbox.use`、current data-plane binding 和资源级 `Read(None)`；目录仅返回邮箱 UUID、kind、主地址与由 `Send(None)` 推导的 `can_send`，canonical Cursor 绑定仍可见锚点，`SendAs`-only 邮箱保持只读；可选 `mailboxId` 仅作初始偏好，桌面/移动端按 Human/Agent/Shared/Group 四类 `optgroup` 切换授权邮箱，切换到 Agent 后身份与请求精确绑定所选 UUID，切换时作废异步请求并清空搜索、列表、详情、选择与写信草稿；写信框明确显示不可编辑 From，只读邮箱禁用写信、回复、草稿和发送；实时 RBAC/Scope、邮箱 Read/Send ABAC、精确租户 JMAP Account 绑定及永久 Account 所有权；列表/搜索必须先解析唯一可读 `role=inbox`，每项只使用既有入站投影的安全 UUID，原始 JMAP Account/Email/Thread/Query State 不进入响应或 Cursor；POST 请求体内的隐私优先有界搜索，查询词不进入 URL、Cursor、审计或 Outbox，搜索 Cursor 绑定邮箱与查询摘要；信封及详情正文分别只有在最小化 Audit/Outbox 原子提交后才披露；详情只取有界 `text/plain`，不渲染 HTML、不暴露 Blob ID；Human 邮件响应统一 `no-store`，前端快速切换会中止并丢弃过期详情响应且状态更新不重复 GET 正文；搜索无命中使用专用空状态，详情 `503` 保留所选上下文并原位重试；应用固定文案使用类型安全的简中/英文词典，按持久化值、文档和浏览器语言确定 Locale，无刷新切换并同步 `<html lang>`，日期、数量和附件大小按 Locale 格式化；不超过 900 px 时使用单列列表—详情，打开后聚焦详情标题、返回恢复原邮件焦点，移动工具栏保留写信、语言和退出；写信对话框具备 Modal 语义、背景 `inert`、初始焦点、Tab 环绕、发送中禁止关闭和触发器焦点恢复；一次操作打开并标记已读、切换星标；内容、草稿与提交 OAuth 凭据物理隔离；写信请求不能选择 From，纯文本草稿严格串行自动保存；控制平面 Draft UUID、摘要和 CAS 隐藏远端 ID；本人 active 草稿目录只返回最小元数据，Shared Mailbox 不共享其他人的草稿；恢复前保护现有编辑并要求覆盖确认，恢复仅按 PG 证明的单 ID 读取，复核 Drafts/$draft/From/Thread 与内容证据；`409` 后刷新服务端最新 metadata 并只对该精确版本执行 CAS 重试，在最终授权/版本复核及 Audit+Outbox 提交后披露正文；本人已发送目录只列 durable accepted/sent 记录及可选投递聚合，并在最终 Read/Send/所有权/快照复核与 `mail.submissions.queried` Audit/Outbox 原子提交后披露；已提交入站投影提供安全回复 UUID，回复按钮不接受原始 Header/JMAP ID，服务端验证并生成 `In-Reply-To`/`References`；点击发送在首个异步等待前同步锁定快照，保存最新版本后以 Header-only Idempotency Key 冻结 Draft 并创建 durable Intent，可能出网后持续锁定且不静默复制 Draft；Worker 以已提交租约执行 Identity 唯一解析、EmailSubmission 查询优先对账、歧义人工复核及终态原子审计/Outbox；接受后继续读取精确 Submission 的收件人级状态，UI 区分服务端接受、排队、对端接收和永久失败；响应未知不会盲目重发；Human JMAP 关键词与 Agent Ack/Lease 状态严格隔离 | 真实 IdP 与公网延迟/退信/DSN 演练、附件、线程、孤儿草稿检测/受治理清理、共享协作编辑；更多 Admin/邮件工作流，真实触屏、屏幕阅读器、完整 WCAG 2.2 AA，以及真实依赖下的目录授权、租户隔离与后端 CAS 验收 |
@@ -116,6 +116,30 @@ Compose 长状态继续完整换行；D4E 把登录入口、已认证目录准�
 
 ## 本轮已落地
 
+- 核对 P1「统一错误与请求 ID 全链路」后，阶段表不再把它列为未完成。V2
+  `ErrorResponse` 只由 `api_error` / `api_error_with_details`
+  （`apps/copilotmail-control/src/web_errors.rs`）和 `not_found`
+  （`web_router.rs`）构造，两者都写入 `request_id` 与 `trace_id`。
+  `router_with_state` 先 `SetRequestIdLayer`、再 `PropagateRequestIdLayer`，
+  HTTP Span 使用 `request.id`。`http/*.rs` 里返回 `Response` 的错误 helper
+  都把该 ID 传入 `api_error`。测试
+  `errors_include_and_propagate_request_id` 覆盖未匹配路由的响应头与正文。
+  OAuth `oauth_error`（`web_token.rs`）保持 RFC 6749 的 `error` /
+  `error_description`，SCIM `scim_error`（`crates/copilotmail-scim/src/lib.rs`）
+  保持 RFC 7644 错误 schema；二者都不在正文里增加 `request_id`，响应头仍由
+  上述层传播。`/healthz`、`/readyz`、`/api/v2/system/info` 返回状态文档，
+  不是 `ErrorResponse`。Outbox Worker（`serve.rs`）没有 HTTP 请求，日志使用
+  已有的 `worker_id` 与 `event_id`；审计维护 Worker（`audit_maintenance.rs`）
+  使用 `cycle_id` 与 ADR 0025 的稳定 `trace_id`。Outbox 行没有 request id 列。
+  遗留 V1 `src/api.rs` 仍返回 `(StatusCode, String)`，它不是这条 V2 控制面
+  阶段项，本次不给它加一层 request id。2026-10-12 在 Rust 1.97.1 实跑
+  `cargo fmt --all --check`、`CARGO_BUILD_JOBS=4 cargo clippy --workspace --all-targets --locked -- -D warnings`
+  与 `CARGO_BUILD_JOBS=4 cargo test --workspace --locked`：394 passed、0 failed、
+  43 ignored。未改 Rust，计数与上一批相同。未执行 ignored 的 PostgreSQL、
+  控制面 HTTP 与 MinIO 场景。`python3 scripts/check_documentation.py` 通过；
+  `python3 scripts/check_audit_governance.py` 仍为 85 个事件、85 个生产者动作；
+  `python3 -m unittest discover -s scripts -p test_audit_governance.py` 为 17 项通过。
+  未改 `web/`，因此未跑 npm。
 - 请求级 Human 浏览器会话 ID 进入业务审计：`AuditContext::correlate_human_session`
   只接受 `AuthenticationBinding::HumanSession` 的不可变会话 UUID，不接受
   Cookie、OIDC Token 或 JTI。所有 `begin_authorized` 路径上构造的审计事件
