@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use copilotmail_domain::{Permission, PrincipalId};
+use copilotmail_domain::{AuthenticationBinding, Permission, PrincipalId};
 use std::collections::BTreeSet;
 
 /// Credential family established by the cryptographic adapter.
@@ -20,6 +20,8 @@ pub struct AuthenticatedIdentity {
     pub credential_id: Option<String>,
     /// Optional machine-token ceiling applied in addition to live RBAC.
     pub scope_restriction: Option<BTreeSet<Permission>>,
+    /// Verified credential generation/lifetime, propagated to write commits.
+    pub authentication: AuthenticationBinding,
 }
 
 /// Cryptographically established transport proof available to an

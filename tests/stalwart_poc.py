@@ -28,6 +28,10 @@ import urllib.request
 import uuid
 from email.message import EmailMessage
 from typing import Any
+from mail_client_transport import (
+    MailTransportError as SmokeFailure, TlsMode, close_imap,
+    connect_imap, connect_smtp, validate_endpoint,
+)
 
 
 JMAP_CORE = "urn:ietf:params:jmap:core"
@@ -47,10 +51,6 @@ ADDRESS_PATTERN = re.compile(
     r"(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+"
     r"[A-Za-z]{2,63}$"
 )
-
-
-class SmokeFailure(RuntimeError):
-    pass
 
 
 def env_bool(name: str, default: bool = False) -> bool:
@@ -97,27 +97,35 @@ class SmokeConfig:
     imap_port: int
     jmap_url: str
     sender_address: str
-    sender_password: str
+    sender_password: str = dataclasses.field(repr=False)
     recipient_address: str
-    recipient_password: str
+    recipient_password: str = dataclasses.field(repr=False)
     timeout_seconds: int
     poll_seconds: int
     allow_insecure_tls: bool
     allow_insecure_http: bool
     ca_file: str | None
+    submission_tls_mode: TlsMode = TlsMode.STARTTLS
+    imap_tls_mode: TlsMode = TlsMode.STARTTLS
 
     @classmethod
     def from_environment(cls) -> "SmokeConfig":
+        submission_mode = TlsMode.parse(os.environ.get(
+            "COPILOTMAIL_STALWART_SMOKE_SUBMISSION_TLS_MODE", "starttls"))
+        imap_mode = TlsMode.parse(os.environ.get(
+            "COPILOTMAIL_STALWART_SMOKE_IMAP_TLS_MODE", "starttls"))
         config = cls(
             host=required_env("COPILOTMAIL_STALWART_SMOKE_HOST"),
             relay_port=env_int(
                 "COPILOTMAIL_STALWART_SMOKE_RELAY_PORT", 2525, 1, 65535
             ),
             submission_port=env_int(
-                "COPILOTMAIL_STALWART_SMOKE_SUBMISSION_PORT", 2587, 1, 65535
+                "COPILOTMAIL_STALWART_SMOKE_SUBMISSION_PORT",
+                2465 if submission_mode is TlsMode.IMPLICIT_TLS else 2587, 1, 65535
             ),
             imap_port=env_int(
-                "COPILOTMAIL_STALWART_SMOKE_IMAP_PORT", 2143, 1, 65535
+                "COPILOTMAIL_STALWART_SMOKE_IMAP_PORT",
+                2993 if imap_mode is TlsMode.IMPLICIT_TLS else 2143, 1, 65535
             ),
             jmap_url=required_env("COPILOTMAIL_STALWART_SMOKE_JMAP_URL"),
             sender_address=validated_address(
@@ -145,13 +153,16 @@ class SmokeConfig:
                 "COPILOTMAIL_STALWART_SMOKE_ALLOW_INSECURE_HTTP"
             ),
             ca_file=os.environ.get("COPILOTMAIL_STALWART_SMOKE_CA_FILE") or None,
+            submission_tls_mode=submission_mode,
+            imap_tls_mode=imap_mode,
         )
         config.validate()
         return config
 
     def validate(self) -> None:
-        if not self.host or self.host != self.host.strip():
-            raise SmokeFailure("smoke host is invalid")
+        validate_endpoint(self.host, self.relay_port, self.timeout_seconds, TlsMode.STARTTLS)
+        validate_endpoint(self.host, self.submission_port, self.timeout_seconds, self.submission_tls_mode)
+        validate_endpoint(self.host, self.imap_port, self.timeout_seconds, self.imap_tls_mode)
         if len({self.relay_port, self.submission_port, self.imap_port}) != 3:
             raise SmokeFailure("relay, submission, and IMAP ports must be distinct")
         parsed = urllib.parse.urlsplit(self.jmap_url)
@@ -170,6 +181,7 @@ class SmokeConfig:
 
 def tls_context(config: SmokeConfig) -> ssl.SSLContext:
     context = ssl.create_default_context(cafile=config.ca_file)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     if config.allow_insecure_tls:
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
@@ -193,27 +205,24 @@ def normalized_http_origin(url: str) -> tuple[str, str, int]:
     return parsed.scheme, parsed.hostname.casefold(), port
 
 
-def smtp_connection(config: SmokeConfig, port: int) -> smtplib.SMTP:
-    smtp = smtplib.SMTP(config.host, port, timeout=config.timeout_seconds)
-    smtp.ehlo_or_helo_if_needed()
-    if not smtp.has_extn("starttls"):
-        smtp.close()
-        raise SmokeFailure(f"SMTP port {port} does not advertise STARTTLS")
-    smtp.starttls(context=tls_context(config))
-    code, _ = smtp.ehlo()
-    if code != 250:
-        smtp.close()
-        raise SmokeFailure(f"SMTP port {port} rejected EHLO after STARTTLS")
-    return smtp
+def smtp_connection(
+    config: SmokeConfig, port: int, mode: TlsMode = TlsMode.STARTTLS,
+) -> smtplib.SMTP:
+    return connect_smtp(config.host, port, config.timeout_seconds, tls_context(config), mode)
+
+
+def imap_connection(config: SmokeConfig) -> imaplib.IMAP4:
+    return connect_imap(config.host, config.imap_port, config.timeout_seconds,
+                        tls_context(config), config.imap_tls_mode)
 
 
 def assert_protocol_separation(config: SmokeConfig) -> None:
     with smtp_connection(config, config.relay_port) as relay:
         if relay.has_extn("auth"):
             raise SmokeFailure("public relay listener unexpectedly advertises AUTH")
-    with smtp_connection(config, config.submission_port) as submission:
+    with smtp_connection(config, config.submission_port, config.submission_tls_mode) as submission:
         if not submission.has_extn("auth"):
-            raise SmokeFailure("submission listener does not advertise AUTH after STARTTLS")
+            raise SmokeFailure("submission listener does not advertise AUTH after TLS")
 
 
 def assert_not_open_relay(config: SmokeConfig) -> None:
@@ -228,20 +237,8 @@ def assert_not_open_relay(config: SmokeConfig) -> None:
             )
 
 
-def assert_imap_starttls(config: SmokeConfig) -> None:
-    imap = imaplib.IMAP4(config.host, config.imap_port, timeout=config.timeout_seconds)
-    try:
-        capabilities = {item.upper() for item in imap.capabilities}
-        if b"STARTTLS" not in capabilities:
-            raise SmokeFailure("IMAP listener does not advertise STARTTLS")
-        status, _ = imap.starttls(ssl_context=tls_context(config))
-        if status != "OK":
-            raise SmokeFailure("IMAP STARTTLS failed")
-    finally:
-        try:
-            imap.logout()
-        except (imaplib.IMAP4.error, OSError):
-            imap.shutdown()
+def assert_imap_tls(config: SmokeConfig) -> None:
+    close_imap(imap_connection(config))
 
 
 def build_message(config: SmokeConfig) -> tuple[EmailMessage, dict[str, str]]:
@@ -268,7 +265,7 @@ def build_message(config: SmokeConfig) -> tuple[EmailMessage, dict[str, str]]:
 
 def submit_message(config: SmokeConfig) -> dict[str, str]:
     message, receipt = build_message(config)
-    with smtp_connection(config, config.submission_port) as submission:
+    with smtp_connection(config, config.submission_port, config.submission_tls_mode) as submission:
         submission.login(config.sender_address, config.sender_password)
         refused = submission.send_message(
             message,
@@ -281,20 +278,11 @@ def submit_message(config: SmokeConfig) -> dict[str, str]:
 
 
 def imap_find_message(config: SmokeConfig, receipt: dict[str, str]) -> bool:
-    message_id = receipt.get("message_id", "")
-    marker = receipt.get("marker", "")
-    if (
-        not message_id.startswith("<")
-        or not message_id.endswith(">")
-        or not marker.startswith("copilotmail-poc-")
-        or len(message_id) > 998
-    ):
-        raise SmokeFailure("receipt contains invalid message identity")
-    imap = imaplib.IMAP4(config.host, config.imap_port, timeout=config.timeout_seconds)
+    validate_receipt(config, receipt)
+    message_id = receipt["message_id"]
+    marker = receipt["marker"]
+    imap = imap_connection(config)
     try:
-        status, _ = imap.starttls(ssl_context=tls_context(config))
-        if status != "OK":
-            raise SmokeFailure("IMAP STARTTLS failed")
         imap.login(config.recipient_address, config.recipient_password)
         status, _ = imap.select("INBOX", readonly=True)
         if status != "OK":
@@ -317,10 +305,7 @@ def imap_find_message(config: SmokeConfig, receipt: dict[str, str]) -> bool:
             raise SmokeFailure("IMAP result does not contain the exact probe marker")
         return True
     finally:
-        try:
-            imap.logout()
-        except (imaplib.IMAP4.error, OSError):
-            imap.shutdown()
+        close_imap(imap)
 
 
 def wait_for_message(config: SmokeConfig, receipt: dict[str, str]) -> None:
@@ -333,10 +318,20 @@ def wait_for_message(config: SmokeConfig, receipt: dict[str, str]) -> None:
         time.sleep(min(2, max(0.1, deadline - time.monotonic())))
 
 
+class NoJmapRedirect(urllib.request.HTTPRedirectHandler):
+    """Reject before urllib can forward the ordinary account's Authorization."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise SmokeFailure("JMAP redirects are not permitted")
+
+
 def bounded_json_response(
     request: urllib.request.Request, context: ssl.SSLContext, timeout: int
 ) -> dict[str, Any]:
-    with urllib.request.urlopen(request, timeout=timeout, context=context) as response:
+    opener = urllib.request.build_opener(
+        urllib.request.HTTPSHandler(context=context), NoJmapRedirect(),
+    )
+    with opener.open(request, timeout=timeout) as response:
         if normalized_http_origin(request.full_url) != normalized_http_origin(
             response.geturl()
         ):
@@ -354,7 +349,7 @@ def bounded_json_response(
         raise SmokeFailure("JMAP response exceeds the safety bound")
     try:
         value = json.loads(body)
-    except json.JSONDecodeError as error:
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
         raise SmokeFailure("JMAP returned invalid JSON") from error
     if not isinstance(value, dict):
         raise SmokeFailure("JMAP response must be an object")
@@ -445,6 +440,14 @@ def validate_receipt(config: SmokeConfig, value: dict[str, str]) -> None:
         raise SmokeFailure("receipt sender does not match configured account")
     if value["recipient"] != config.recipient_address:
         raise SmokeFailure("receipt recipient does not match configured account")
+    marker = value["marker"]
+    try:
+        marker_id = uuid.UUID(marker.removeprefix("copilotmail-poc-"))
+    except (ValueError, TypeError, AttributeError) as error:
+        raise SmokeFailure("receipt contains invalid probe identity") from error
+    if (marker != f"copilotmail-poc-{marker_id}" or marker_id.version != 4
+            or value["message_id"] != f"<{marker}@{config.sender_address.rsplit('@', 1)[1]}>"):
+        raise SmokeFailure("receipt contains invalid probe identity")
     try:
         sent_at = dt.datetime.fromisoformat(value["sent_at"])
     except ValueError as error:
@@ -465,8 +468,8 @@ def read_receipt(path: pathlib.Path, config: SmokeConfig) -> dict[str, str]:
 
 
 def self_test() -> None:
-    message_id = "<copilotmail-poc-test@example.test>"
-    marker = "copilotmail-poc-test"
+    marker = "copilotmail-poc-40000000-0000-4000-8000-000000000001"
+    message_id = f"<{marker}@example.test>"
     receipt = {
         "version": "1",
         "message_id": message_id,
@@ -560,17 +563,18 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
     if args.command == "preflight":
         assert_protocol_separation(config)
         assert_not_open_relay(config)
-        assert_imap_starttls(config)
+        assert_imap_tls(config)
         assert_jmap_mail(config)
         return {
             "status": "ok",
             "checks": [
                 "listener_separation",
-                "starttls",
+                "mail_client_tls",
                 "not_open_relay",
                 "imap",
                 "jmap_mail",
             ],
+            "transport_modes": transport_modes(config),
         }
     if args.command == "send":
         receipt = submit_message(config)
@@ -591,7 +595,7 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
         }
     assert_protocol_separation(config)
     assert_not_open_relay(config)
-    assert_imap_starttls(config)
+    assert_imap_tls(config)
     assert_jmap_mail(config)
     receipt = submit_message(config)
     if args.receipt:
@@ -602,13 +606,27 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
         "message_id": receipt["message_id"],
         "checks": [
             "listener_separation",
-            "starttls",
+            "mail_client_tls",
             "not_open_relay",
             "smtp_submission",
             "imap_delivery",
             "jmap_mail",
         ],
+        "transport_modes": transport_modes(config),
     }
+
+
+def transport_modes(config: SmokeConfig) -> dict[str, str]:
+    return {"smtp_submission": config.submission_tls_mode.value,
+            "imap": config.imap_tls_mode.value}
+
+
+def safe_failure_message(error: Exception) -> str:
+    # SMTP/IMAP/HTTP errors may echo passwords or message contents chosen by a
+    # server. Only our own bounded validation messages may reach output.
+    if isinstance(error, SmokeFailure):
+        return str(error)
+    return "mail interoperability dependency failed"
 
 
 def main() -> None:
@@ -617,7 +635,7 @@ def main() -> None:
     except (SmokeFailure, OSError, smtplib.SMTPException, imaplib.IMAP4.error) as error:
         print(
             json.dumps(
-                {"status": "failed", "error": str(error)},
+                {"status": "failed", "error": safe_failure_message(error)},
                 ensure_ascii=False,
             ),
             file=sys.stderr,

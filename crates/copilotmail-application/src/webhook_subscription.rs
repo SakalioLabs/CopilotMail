@@ -69,7 +69,7 @@ impl<S: ControlPlaneStore> WebhookSubscriptionService<S> {
         context: &AuthorizationContext,
         command: CreateWebhookSubscriptionCommand,
     ) -> Result<WebhookSubscriptionMutationResult, WebhookSubscriptionError> {
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(context).await?;
         authorize_actor(&mut *transaction, context, command.organization_id).await?;
         authorize_owner(
             &mut *transaction,
@@ -120,7 +120,7 @@ impl<S: ControlPlaneStore> WebhookSubscriptionService<S> {
         context: &AuthorizationContext,
         command: UpdateWebhookSubscriptionCommand,
     ) -> Result<WebhookSubscriptionMutationResult, WebhookSubscriptionError> {
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(context).await?;
         authorize_actor(&mut *transaction, context, command.organization_id).await?;
         let mut subscription = transaction
             .find_webhook_subscription_for_update(command.organization_id, command.subscription_id)
@@ -451,6 +451,7 @@ mod tests {
             principal_id,
             organization_id,
             permissions,
+            authentication: None,
         }
     }
 

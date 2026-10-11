@@ -242,6 +242,7 @@ mod tests {
             principal_id: actor_principal_id,
             organization_id,
             permissions: [Permission::AuditExport].into_iter().collect(),
+            authentication: None,
         };
         assert!(authorize(&permitted, &command).is_ok());
 
@@ -249,6 +250,7 @@ mod tests {
             principal_id: actor_principal_id,
             organization_id,
             permissions: BTreeSet::new(),
+            authentication: None,
         };
         assert!(authorize(&denied, &command).is_err());
 
@@ -256,6 +258,7 @@ mod tests {
             principal_id: actor_principal_id,
             organization_id: OrganizationId::new(),
             permissions: [Permission::AuditExport].into_iter().collect(),
+            authentication: None,
         };
         assert!(authorize(&cross_tenant, &command).is_err());
     }

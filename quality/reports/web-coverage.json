@@ -1,0 +1,2430 @@
+{
+  "schema_version": 1,
+  "kind": "measured_v8_coverage_merged_across_workspaces",
+  "notes": [
+    "Shared components retain hits from Admin, Mail, and their own tests",
+    "Execution coverage is not assertion quality or final review approval"
+  ],
+  "inputs": [
+    {
+      "path": "quality/coverage/web-design-system/coverage-final.json",
+      "sha256": "cbfb6cd9b073edacba779ab304f44958d9a86dfb6131c28a6de51a36d3e5cdfc"
+    },
+    {
+      "path": "quality/coverage/web-admin/coverage-final.json",
+      "sha256": "10db5bd01b8fe6c0baa76759059aac593bc9892b8d996487080deb93280e9ecd"
+    },
+    {
+      "path": "quality/coverage/web-mail/coverage-final.json",
+      "sha256": "d311224f31de6388b55bf971da20796d25117430eb0c68c13b5de7cfa506536b"
+    }
+  ],
+  "totals": {
+    "lines": {
+      "total": 5406,
+      "covered": 4818,
+      "skipped": 0,
+      "pct": 89.12
+    },
+    "statements": {
+      "total": 5979,
+      "covered": 5146,
+      "skipped": 0,
+      "pct": 86.06
+    },
+    "functions": {
+      "total": 1293,
+      "covered": 1124,
+      "skipped": 0,
+      "pct": 86.92
+    },
+    "branches": {
+      "total": 5485,
+      "covered": 4438,
+      "skipped": 0,
+      "pct": 80.91
+    },
+    "branchesTrue": {
+      "total": 0,
+      "covered": 0,
+      "skipped": 0,
+      "pct": "Unknown"
+    }
+  },
+  "files": [
+    {
+      "path": "web/admin-app/src/AdminErrorNotice.tsx",
+      "source_sha256": "05aacc4c578417f1a56bad04aa2b2934dabf35205d85153eef3163a35b4bd6d9",
+      "summary": {
+        "lines": {
+          "total": 14,
+          "covered": 14,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 3,
+          "covered": 3,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 14,
+          "covered": 14,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 20,
+          "covered": 19,
+          "skipped": 0,
+          "pct": 95
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/admin-app/src/AdminListDetail.tsx",
+      "source_sha256": "6724335ece2c43a7a78ffa04ea5eea95298ef727a7a19a061cbe84de3179d760",
+      "summary": {
+        "lines": {
+          "total": 64,
+          "covered": 61,
+          "skipped": 0,
+          "pct": 95.31
+        },
+        "functions": {
+          "total": 15,
+          "covered": 14,
+          "skipped": 0,
+          "pct": 93.33
+        },
+        "statements": {
+          "total": 75,
+          "covered": 71,
+          "skipped": 0,
+          "pct": 94.66
+        },
+        "branches": {
+          "total": 65,
+          "covered": 58,
+          "skipped": 0,
+          "pct": 89.23
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_8)",
+          "line": 124
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/AdminNavIcon.tsx",
+      "source_sha256": "7191107ada2c40bfbbf8135d8aa3134aa1f367952678e98bbcc6e4a0d324ca9f",
+      "summary": {
+        "lines": {
+          "total": 2,
+          "covered": 2,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 1,
+          "covered": 1,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 2,
+          "covered": 2,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 2,
+          "covered": 2,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/admin-app/src/AgentInspectorView.tsx",
+      "source_sha256": "5b2361d33b90fa074238efbd3467395f8951386466755492a8cc94e3857c16d0",
+      "summary": {
+        "lines": {
+          "total": 112,
+          "covered": 90,
+          "skipped": 0,
+          "pct": 80.35
+        },
+        "functions": {
+          "total": 27,
+          "covered": 27,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 120,
+          "covered": 95,
+          "skipped": 0,
+          "pct": 79.16
+        },
+        "branches": {
+          "total": 103,
+          "covered": 71,
+          "skipped": 0,
+          "pct": 68.93
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/admin-app/src/AgentMailSubmissionEvidenceView.tsx",
+      "source_sha256": "bf89c6e30124b133e8e5972d0786d8379d6f44f8beced5edcb2c9ffa5ce9276c",
+      "summary": {
+        "lines": {
+          "total": 78,
+          "covered": 59,
+          "skipped": 0,
+          "pct": 75.64
+        },
+        "functions": {
+          "total": 15,
+          "covered": 14,
+          "skipped": 0,
+          "pct": 93.33
+        },
+        "statements": {
+          "total": 85,
+          "covered": 62,
+          "skipped": 0,
+          "pct": 72.94
+        },
+        "branches": {
+          "total": 70,
+          "covered": 41,
+          "skipped": 0,
+          "pct": 58.57
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_14)",
+          "line": 385
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/App.tsx",
+      "source_sha256": "81982fa430a531a03ba1962ab1000f533f2fabbadc9ea20a986d2eb1f104276a",
+      "summary": {
+        "lines": {
+          "total": 161,
+          "covered": 121,
+          "skipped": 0,
+          "pct": 75.15
+        },
+        "functions": {
+          "total": 66,
+          "covered": 43,
+          "skipped": 0,
+          "pct": 65.15
+        },
+        "statements": {
+          "total": 191,
+          "covered": 140,
+          "skipped": 0,
+          "pct": 73.29
+        },
+        "branches": {
+          "total": 92,
+          "covered": 67,
+          "skipped": 0,
+          "pct": 72.82
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_1)",
+          "line": 57
+        },
+        {
+          "name": "(anonymous_2)",
+          "line": 58
+        },
+        {
+          "name": "(anonymous_5)",
+          "line": 64
+        },
+        {
+          "name": "(anonymous_6)",
+          "line": 68
+        },
+        {
+          "name": "(anonymous_7)",
+          "line": 69
+        },
+        {
+          "name": "(anonymous_18)",
+          "line": 261
+        },
+        {
+          "name": "(anonymous_19)",
+          "line": 267
+        },
+        {
+          "name": "(anonymous_26)",
+          "line": 396
+        },
+        {
+          "name": "(anonymous_34)",
+          "line": 422
+        },
+        {
+          "name": "(anonymous_35)",
+          "line": 426
+        },
+        {
+          "name": "openHoldsForCase",
+          "line": 437
+        },
+        {
+          "name": "openCaseForHold",
+          "line": 442
+        },
+        {
+          "name": "(anonymous_39)",
+          "line": 495
+        },
+        {
+          "name": "(anonymous_40)",
+          "line": 496
+        },
+        {
+          "name": "(anonymous_41)",
+          "line": 496
+        },
+        {
+          "name": "(anonymous_42)",
+          "line": 500
+        },
+        {
+          "name": "(anonymous_44)",
+          "line": 502
+        },
+        {
+          "name": "(anonymous_50)",
+          "line": 563
+        },
+        {
+          "name": "(anonymous_58)",
+          "line": 605
+        },
+        {
+          "name": "(anonymous_60)",
+          "line": 619
+        },
+        {
+          "name": "(anonymous_61)",
+          "line": 628
+        },
+        {
+          "name": "(anonymous_62)",
+          "line": 634
+        },
+        {
+          "name": "(anonymous_63)",
+          "line": 635
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/ApprovalView.tsx",
+      "source_sha256": "4445700cf71595f92e72d16a49a075962eca80968e321fc1ebfecdf1733e5b09",
+      "summary": {
+        "lines": {
+          "total": 419,
+          "covered": 387,
+          "skipped": 0,
+          "pct": 92.36
+        },
+        "functions": {
+          "total": 91,
+          "covered": 82,
+          "skipped": 0,
+          "pct": 90.1
+        },
+        "statements": {
+          "total": 471,
+          "covered": 420,
+          "skipped": 0,
+          "pct": 89.17
+        },
+        "branches": {
+          "total": 430,
+          "covered": 360,
+          "skipped": 0,
+          "pct": 83.72
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_15)",
+          "line": 409
+        },
+        {
+          "name": "showPreviousPage",
+          "line": 973
+        },
+        {
+          "name": "(anonymous_59)",
+          "line": 979
+        },
+        {
+          "name": "showNextPage",
+          "line": 982
+        },
+        {
+          "name": "(anonymous_61)",
+          "line": 988
+        },
+        {
+          "name": "(anonymous_63)",
+          "line": 1085
+        },
+        {
+          "name": "(anonymous_64)",
+          "line": 1103
+        },
+        {
+          "name": "(anonymous_82)",
+          "line": 1410
+        },
+        {
+          "name": "(anonymous_86)",
+          "line": 1458
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/AuditView.tsx",
+      "source_sha256": "9316278f352f099f195b52235f3744b0b792d776b9b03398459aeb76064d335a",
+      "summary": {
+        "lines": {
+          "total": 218,
+          "covered": 186,
+          "skipped": 0,
+          "pct": 85.32
+        },
+        "functions": {
+          "total": 69,
+          "covered": 49,
+          "skipped": 0,
+          "pct": 71.01
+        },
+        "statements": {
+          "total": 252,
+          "covered": 201,
+          "skipped": 0,
+          "pct": 79.76
+        },
+        "branches": {
+          "total": 209,
+          "covered": 169,
+          "skipped": 0,
+          "pct": 80.86
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_20)",
+          "line": 246
+        },
+        {
+          "name": "setPreset",
+          "line": 294
+        },
+        {
+          "name": "(anonymous_28)",
+          "line": 295
+        },
+        {
+          "name": "clearOptionalFilters",
+          "line": 298
+        },
+        {
+          "name": "(anonymous_30)",
+          "line": 299
+        },
+        {
+          "name": "(anonymous_40)",
+          "line": 538
+        },
+        {
+          "name": "(anonymous_41)",
+          "line": 539
+        },
+        {
+          "name": "(anonymous_42)",
+          "line": 540
+        },
+        {
+          "name": "(anonymous_43)",
+          "line": 541
+        },
+        {
+          "name": "(anonymous_44)",
+          "line": 545
+        },
+        {
+          "name": "(anonymous_45)",
+          "line": 546
+        },
+        {
+          "name": "(anonymous_48)",
+          "line": 555
+        },
+        {
+          "name": "(anonymous_51)",
+          "line": 558
+        },
+        {
+          "name": "(anonymous_55)",
+          "line": 600
+        },
+        {
+          "name": "(anonymous_57)",
+          "line": 626
+        },
+        {
+          "name": "(anonymous_58)",
+          "line": 626
+        },
+        {
+          "name": "(anonymous_59)",
+          "line": 627
+        },
+        {
+          "name": "(anonymous_60)",
+          "line": 627
+        },
+        {
+          "name": "(anonymous_61)",
+          "line": 632
+        },
+        {
+          "name": "(anonymous_67)",
+          "line": 758
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/ComplianceViews.tsx",
+      "source_sha256": "5d5696ceeb6008bf3b26cf946c8cd3f36d5d25602b1423a89ce67ee94c749322",
+      "summary": {
+        "lines": {
+          "total": 342,
+          "covered": 314,
+          "skipped": 0,
+          "pct": 91.81
+        },
+        "functions": {
+          "total": 103,
+          "covered": 88,
+          "skipped": 0,
+          "pct": 85.43
+        },
+        "statements": {
+          "total": 395,
+          "covered": 336,
+          "skipped": 0,
+          "pct": 85.06
+        },
+        "branches": {
+          "total": 355,
+          "covered": 289,
+          "skipped": 0,
+          "pct": 81.4
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_23)",
+          "line": 361
+        },
+        {
+          "name": "(anonymous_48)",
+          "line": 817
+        },
+        {
+          "name": "(anonymous_57)",
+          "line": 862
+        },
+        {
+          "name": "(anonymous_58)",
+          "line": 862
+        },
+        {
+          "name": "(anonymous_59)",
+          "line": 863
+        },
+        {
+          "name": "(anonymous_60)",
+          "line": 863
+        },
+        {
+          "name": "(anonymous_61)",
+          "line": 876
+        },
+        {
+          "name": "(anonymous_62)",
+          "line": 891
+        },
+        {
+          "name": "(anonymous_63)",
+          "line": 906
+        },
+        {
+          "name": "(anonymous_82)",
+          "line": 1091
+        },
+        {
+          "name": "(anonymous_92)",
+          "line": 1128
+        },
+        {
+          "name": "(anonymous_93)",
+          "line": 1128
+        },
+        {
+          "name": "(anonymous_96)",
+          "line": 1141
+        },
+        {
+          "name": "(anonymous_97)",
+          "line": 1157
+        },
+        {
+          "name": "(anonymous_98)",
+          "line": 1172
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/MailDomainsView.tsx",
+      "source_sha256": "4c5ffdb24f210d5a698558790e735e9989a3d5d1ca53b0742488d5ea4a3c0bcc",
+      "summary": {
+        "lines": {
+          "total": 332,
+          "covered": 258,
+          "skipped": 0,
+          "pct": 77.71
+        },
+        "functions": {
+          "total": 89,
+          "covered": 68,
+          "skipped": 0,
+          "pct": 76.4
+        },
+        "statements": {
+          "total": 366,
+          "covered": 269,
+          "skipped": 0,
+          "pct": 73.49
+        },
+        "branches": {
+          "total": 345,
+          "covered": 240,
+          "skipped": 0,
+          "pct": 69.56
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "clearSelection",
+          "line": 403
+        },
+        {
+          "name": "rotateChallenge",
+          "line": 509
+        },
+        {
+          "name": "(anonymous_40)",
+          "line": 515
+        },
+        {
+          "name": "(anonymous_41)",
+          "line": 519
+        },
+        {
+          "name": "(anonymous_61)",
+          "line": 767
+        },
+        {
+          "name": "(anonymous_62)",
+          "line": 768
+        },
+        {
+          "name": "(anonymous_63)",
+          "line": 780
+        },
+        {
+          "name": "(anonymous_64)",
+          "line": 781
+        },
+        {
+          "name": "(anonymous_66)",
+          "line": 908
+        },
+        {
+          "name": "(anonymous_67)",
+          "line": 944
+        },
+        {
+          "name": "(anonymous_68)",
+          "line": 1026
+        },
+        {
+          "name": "(anonymous_70)",
+          "line": 1086
+        },
+        {
+          "name": "(anonymous_74)",
+          "line": 1166
+        },
+        {
+          "name": "(anonymous_75)",
+          "line": 1168
+        },
+        {
+          "name": "(anonymous_76)",
+          "line": 1177
+        },
+        {
+          "name": "(anonymous_77)",
+          "line": 1180
+        },
+        {
+          "name": "(anonymous_78)",
+          "line": 1211
+        },
+        {
+          "name": "(anonymous_83)",
+          "line": 1258
+        },
+        {
+          "name": "(anonymous_85)",
+          "line": 1289
+        },
+        {
+          "name": "(anonymous_86)",
+          "line": 1306
+        },
+        {
+          "name": "(anonymous_87)",
+          "line": 1323
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/OverviewView.tsx",
+      "source_sha256": "6dfa2e8fcc7354d7ded335f404d27ecafc6f2e7d0d0510a37067f8203244e835",
+      "summary": {
+        "lines": {
+          "total": 46,
+          "covered": 45,
+          "skipped": 0,
+          "pct": 97.82
+        },
+        "functions": {
+          "total": 11,
+          "covered": 10,
+          "skipped": 0,
+          "pct": 90.9
+        },
+        "statements": {
+          "total": 51,
+          "covered": 48,
+          "skipped": 0,
+          "pct": 94.11
+        },
+        "branches": {
+          "total": 58,
+          "covered": 54,
+          "skipped": 0,
+          "pct": 93.1
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_9)",
+          "line": 222
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/RetentionView.tsx",
+      "source_sha256": "df6452cb19a8142194be99b04e93ef4ea8218427ea3b7d15d2ab7984694c2698",
+      "summary": {
+        "lines": {
+          "total": 264,
+          "covered": 228,
+          "skipped": 0,
+          "pct": 86.36
+        },
+        "functions": {
+          "total": 59,
+          "covered": 54,
+          "skipped": 0,
+          "pct": 91.52
+        },
+        "statements": {
+          "total": 285,
+          "covered": 237,
+          "skipped": 0,
+          "pct": 83.15
+        },
+        "branches": {
+          "total": 318,
+          "covered": 262,
+          "skipped": 0,
+          "pct": 82.38
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "RetentionVersionCommandSummary",
+          "line": 392
+        },
+        {
+          "name": "reconcileUnknownWrite",
+          "line": 864
+        },
+        {
+          "name": "(anonymous_37)",
+          "line": 958
+        },
+        {
+          "name": "(anonymous_39)",
+          "line": 996
+        },
+        {
+          "name": "(anonymous_47)",
+          "line": 1199
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/RolesView.tsx",
+      "source_sha256": "a5eb72c160f7ddd8e1cb5da2b92b49e19b1203d065c6ecb59481b8f95dc57cfc",
+      "summary": {
+        "lines": {
+          "total": 157,
+          "covered": 142,
+          "skipped": 0,
+          "pct": 90.44
+        },
+        "functions": {
+          "total": 47,
+          "covered": 39,
+          "skipped": 0,
+          "pct": 82.97
+        },
+        "statements": {
+          "total": 176,
+          "covered": 154,
+          "skipped": 0,
+          "pct": 87.5
+        },
+        "branches": {
+          "total": 174,
+          "covered": 146,
+          "skipped": 0,
+          "pct": 83.9
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_9)",
+          "line": 196
+        },
+        {
+          "name": "(anonymous_25)",
+          "line": 374
+        },
+        {
+          "name": "(anonymous_29)",
+          "line": 506
+        },
+        {
+          "name": "(anonymous_31)",
+          "line": 519
+        },
+        {
+          "name": "(anonymous_36)",
+          "line": 567
+        },
+        {
+          "name": "(anonymous_39)",
+          "line": 625
+        },
+        {
+          "name": "(anonymous_40)",
+          "line": 627
+        },
+        {
+          "name": "(anonymous_43)",
+          "line": 656
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/api.ts",
+      "source_sha256": "4288148c705ac69feb553f0c74174316083f387f6c4dfe8cf8c46f610dd9dcf2",
+      "summary": {
+        "lines": {
+          "total": 776,
+          "covered": 683,
+          "skipped": 0,
+          "pct": 88.01
+        },
+        "functions": {
+          "total": 134,
+          "covered": 126,
+          "skipped": 0,
+          "pct": 94.02
+        },
+        "statements": {
+          "total": 829,
+          "covered": 713,
+          "skipped": 0,
+          "pct": 86
+        },
+        "branches": {
+          "total": 956,
+          "covered": 754,
+          "skipped": 0,
+          "pct": 78.87
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_46)",
+          "line": 1087
+        },
+        {
+          "name": "(anonymous_54)",
+          "line": 1191
+        },
+        {
+          "name": "(anonymous_62)",
+          "line": 1303
+        },
+        {
+          "name": "(anonymous_94)",
+          "line": 2201
+        },
+        {
+          "name": "getRetentionPolicy",
+          "line": 2620
+        },
+        {
+          "name": "appendRetentionPolicyVersion",
+          "line": 2632
+        },
+        {
+          "name": "createCase",
+          "line": 2666
+        },
+        {
+          "name": "applyHold",
+          "line": 2730
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/auth.ts",
+      "source_sha256": "0a97fcad7329f07bf55178100910f118ea7148ebb7dcfda6da22f0a5ae2a863d",
+      "summary": {
+        "lines": {
+          "total": 26,
+          "covered": 22,
+          "skipped": 0,
+          "pct": 84.61
+        },
+        "functions": {
+          "total": 9,
+          "covered": 7,
+          "skipped": 0,
+          "pct": 77.77
+        },
+        "statements": {
+          "total": 30,
+          "covered": 24,
+          "skipped": 0,
+          "pct": 80
+        },
+        "branches": {
+          "total": 45,
+          "covered": 38,
+          "skipped": 0,
+          "pct": 84.44
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "currentReturnTo",
+          "line": 17
+        },
+        {
+          "name": "(anonymous_6)",
+          "line": 64
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/config.ts",
+      "source_sha256": "50145df639e641bfaccb1499e7f0adf374d8751644a6416d0f62c2272903bd7a",
+      "summary": {
+        "lines": {
+          "total": 16,
+          "covered": 16,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 3,
+          "covered": 3,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 18,
+          "covered": 17,
+          "skipped": 0,
+          "pct": 94.44
+        },
+        "branches": {
+          "total": 17,
+          "covered": 15,
+          "skipped": 0,
+          "pct": 88.23
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/admin-app/src/i18n.ts",
+      "source_sha256": "cd4a9e46512ef9c8ae8eedca27865d9cb93a486374d8b0220a59d20055a08bd2",
+      "summary": {
+        "lines": {
+          "total": 7,
+          "covered": 7,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 3,
+          "covered": 3,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 9,
+          "covered": 9,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 8,
+          "covered": 8,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/admin-app/src/main.tsx",
+      "source_sha256": "471cc5249842c143d1e361298e972270560f9442b709c7689f9e606451317178",
+      "summary": {
+        "lines": {
+          "total": 1,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 0
+        },
+        "functions": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 1,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 0
+        },
+        "branches": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/admin-app/src/types.ts",
+      "source_sha256": "083c20614ef0c24ef9d8b588f0e8666794f7d000d1f1b6637210c47a0d35f117",
+      "summary": {
+        "lines": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/design-system/src/command-palette.tsx",
+      "source_sha256": "6bf7d2e76258a7f0bea37a83c88b8d3fd241f591ab761099c7247c0a9d9acf85",
+      "summary": {
+        "lines": {
+          "total": 131,
+          "covered": 112,
+          "skipped": 0,
+          "pct": 85.49
+        },
+        "functions": {
+          "total": 35,
+          "covered": 29,
+          "skipped": 0,
+          "pct": 82.85
+        },
+        "statements": {
+          "total": 154,
+          "covered": 128,
+          "skipped": 0,
+          "pct": 83.11
+        },
+        "branches": {
+          "total": 118,
+          "covered": 90,
+          "skipped": 0,
+          "pct": 76.27
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_21)",
+          "line": 216
+        },
+        {
+          "name": "(anonymous_22)",
+          "line": 217
+        },
+        {
+          "name": "(anonymous_23)",
+          "line": 220
+        },
+        {
+          "name": "(anonymous_24)",
+          "line": 229
+        },
+        {
+          "name": "(anonymous_28)",
+          "line": 286
+        },
+        {
+          "name": "(anonymous_33)",
+          "line": 380
+        }
+      ]
+    },
+    {
+      "path": "web/design-system/src/context-bar.tsx",
+      "source_sha256": "afdb768b2b8d74c74e9e52c82ad816a991a6cb8d74de642dafe8ae429f880aad",
+      "summary": {
+        "lines": {
+          "total": 18,
+          "covered": 18,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 5,
+          "covered": 5,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 19,
+          "covered": 19,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 18,
+          "covered": 18,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/design-system/src/dialog.tsx",
+      "source_sha256": "d89ce6f93eddf709feed3ca7de89b07f246a26cafba1ac2af2ddc53fd53b1b4c",
+      "summary": {
+        "lines": {
+          "total": 107,
+          "covered": 104,
+          "skipped": 0,
+          "pct": 97.19
+        },
+        "functions": {
+          "total": 20,
+          "covered": 19,
+          "skipped": 0,
+          "pct": 95
+        },
+        "statements": {
+          "total": 119,
+          "covered": 113,
+          "skipped": 0,
+          "pct": 94.95
+        },
+        "branches": {
+          "total": 109,
+          "covered": 98,
+          "skipped": 0,
+          "pct": 89.9
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_14)",
+          "line": 231
+        }
+      ]
+    },
+    {
+      "path": "web/design-system/src/icons.tsx",
+      "source_sha256": "9de71de0ae00758c13d5dbcec85eeb6faa5fc83b5b60e94dd56c3de9be6ab066",
+      "summary": {
+        "lines": {
+          "total": 73,
+          "covered": 50,
+          "skipped": 0,
+          "pct": 68.49
+        },
+        "functions": {
+          "total": 69,
+          "covered": 46,
+          "skipped": 0,
+          "pct": 66.66
+        },
+        "statements": {
+          "total": 73,
+          "covered": 50,
+          "skipped": 0,
+          "pct": 68.49
+        },
+        "branches": {
+          "total": 13,
+          "covered": 10,
+          "skipped": 0,
+          "pct": 76.92
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "ComposeIcon",
+          "line": 379
+        },
+        {
+          "name": "SearchIcon",
+          "line": 391
+        },
+        {
+          "name": "RefreshIcon",
+          "line": 395
+        },
+        {
+          "name": "CloseIcon",
+          "line": 399
+        },
+        {
+          "name": "StarIcon",
+          "line": 403
+        },
+        {
+          "name": "StarFilledIcon",
+          "line": 407
+        },
+        {
+          "name": "AttachmentIcon",
+          "line": 411
+        },
+        {
+          "name": "ReplyIcon",
+          "line": 427
+        },
+        {
+          "name": "ChevronDownIcon",
+          "line": 431
+        },
+        {
+          "name": "HumanIcon",
+          "line": 435
+        },
+        {
+          "name": "AgentIcon",
+          "line": 439
+        },
+        {
+          "name": "SharedIcon",
+          "line": 443
+        },
+        {
+          "name": "GroupIcon",
+          "line": 447
+        },
+        {
+          "name": "SystemIcon",
+          "line": 451
+        },
+        {
+          "name": "StatusNeutralIcon",
+          "line": 455
+        },
+        {
+          "name": "StatusPositiveIcon",
+          "line": 459
+        },
+        {
+          "name": "StatusWarningIcon",
+          "line": 463
+        },
+        {
+          "name": "StatusCriticalIcon",
+          "line": 467
+        },
+        {
+          "name": "StatusInfoIcon",
+          "line": 471
+        },
+        {
+          "name": "SendIcon",
+          "line": 475
+        },
+        {
+          "name": "CommandIcon",
+          "line": 479
+        },
+        {
+          "name": "FilterIcon",
+          "line": 483
+        },
+        {
+          "name": "PanelIcon",
+          "line": 487
+        }
+      ]
+    },
+    {
+      "path": "web/design-system/src/index.tsx",
+      "source_sha256": "b888d4f8273fbd5d81730e5756d3ee1635dda61208870fed2954126b54d9f1b5",
+      "summary": {
+        "lines": {
+          "total": 27,
+          "covered": 26,
+          "skipped": 0,
+          "pct": 96.29
+        },
+        "functions": {
+          "total": 13,
+          "covered": 12,
+          "skipped": 0,
+          "pct": 92.3
+        },
+        "statements": {
+          "total": 27,
+          "covered": 26,
+          "skipped": 0,
+          "pct": 96.29
+        },
+        "branches": {
+          "total": 39,
+          "covered": 38,
+          "skipped": 0,
+          "pct": 97.43
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "EntityBadge",
+          "line": 125
+        }
+      ]
+    },
+    {
+      "path": "web/design-system/src/unknown-write-lock.tsx",
+      "source_sha256": "6a210a12647bb57f7fdb75b0c98a4e356cc74d6169b8c664af7083e0548664e5",
+      "summary": {
+        "lines": {
+          "total": 2,
+          "covered": 2,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 1,
+          "covered": 1,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 2,
+          "covered": 2,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 14,
+          "covered": 14,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/App.tsx",
+      "source_sha256": "7635e7cc7a7252c8bbba9d7f1d373dfec0d9d3b3d538852b53011b7f7e2ffe7c",
+      "summary": {
+        "lines": {
+          "total": 659,
+          "covered": 591,
+          "skipped": 0,
+          "pct": 89.68
+        },
+        "functions": {
+          "total": 124,
+          "covered": 115,
+          "skipped": 0,
+          "pct": 92.74
+        },
+        "statements": {
+          "total": 729,
+          "covered": 621,
+          "skipped": 0,
+          "pct": 85.18
+        },
+        "branches": {
+          "total": 628,
+          "covered": 473,
+          "skipped": 0,
+          "pct": 75.31
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_36)",
+          "line": 549
+        },
+        {
+          "name": "(anonymous_43)",
+          "line": 613
+        },
+        {
+          "name": "(anonymous_87)",
+          "line": 1243
+        },
+        {
+          "name": "(anonymous_88)",
+          "line": 1249
+        },
+        {
+          "name": "(anonymous_89)",
+          "line": 1249
+        },
+        {
+          "name": "(anonymous_92)",
+          "line": 1320
+        },
+        {
+          "name": "(anonymous_93)",
+          "line": 1322
+        },
+        {
+          "name": "(anonymous_120)",
+          "line": 1560
+        },
+        {
+          "name": "(anonymous_121)",
+          "line": 1565
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/api.ts",
+      "source_sha256": "f2a0a36ecb31850a2d72d80f9fa4afa3515abb36497f8a35d8892f7612cec1cb",
+      "summary": {
+        "lines": {
+          "total": 398,
+          "covered": 378,
+          "skipped": 0,
+          "pct": 94.97
+        },
+        "functions": {
+          "total": 73,
+          "covered": 71,
+          "skipped": 0,
+          "pct": 97.26
+        },
+        "statements": {
+          "total": 431,
+          "covered": 405,
+          "skipped": 0,
+          "pct": 93.96
+        },
+        "branches": {
+          "total": 394,
+          "covered": 347,
+          "skipped": 0,
+          "pct": 88.07
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_27)",
+          "line": 406
+        },
+        {
+          "name": "(anonymous_60)",
+          "line": 902
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/auth.ts",
+      "source_sha256": "25e356d378c93511254d42b042540df532bf737291ee48d134658d09222ce9cf",
+      "summary": {
+        "lines": {
+          "total": 41,
+          "covered": 38,
+          "skipped": 0,
+          "pct": 92.68
+        },
+        "functions": {
+          "total": 11,
+          "covered": 9,
+          "skipped": 0,
+          "pct": 81.81
+        },
+        "statements": {
+          "total": 48,
+          "covered": 41,
+          "skipped": 0,
+          "pct": 85.41
+        },
+        "branches": {
+          "total": 65,
+          "covered": 53,
+          "skipped": 0,
+          "pct": 81.53
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "currentReturnTo",
+          "line": 54
+        },
+        {
+          "name": "(anonymous_8)",
+          "line": 90
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/components/ComposerDialog.tsx",
+      "source_sha256": "7f0eab2ffb1242fbf7888058eccace88316814463add3111ecc2914cde5e431a",
+      "summary": {
+        "lines": {
+          "total": 10,
+          "covered": 10,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 6,
+          "covered": 6,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 11,
+          "covered": 11,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 28,
+          "covered": 28,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/components/ComposerSubmissionEvidence.tsx",
+      "source_sha256": "4dacea3b2c1547e75d63a5c3036c256fd1d1621d18c9d5360a4362e7e5d2b934",
+      "summary": {
+        "lines": {
+          "total": 5,
+          "covered": 5,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 1,
+          "covered": 1,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 5,
+          "covered": 5,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 6,
+          "covered": 6,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/components/DraftDirectoryItem.tsx",
+      "source_sha256": "1e53c887498a647b73e1c0d35edb58e38c861462c22c483d8d9e051abeeddf48",
+      "summary": {
+        "lines": {
+          "total": 6,
+          "covered": 6,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 3,
+          "covered": 3,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 6,
+          "covered": 6,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 6,
+          "covered": 6,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/components/DraftList.tsx",
+      "source_sha256": "0f2988f4eb087432c210c2314e7fe6e83e270b0faac26e96526b495ca78081bd",
+      "summary": {
+        "lines": {
+          "total": 9,
+          "covered": 9,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 3,
+          "covered": 3,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 9,
+          "covered": 9,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 34,
+          "covered": 34,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/components/DraftRestoreConfirmDialog.tsx",
+      "source_sha256": "911e05ec2f1ed701bb4fd21782dc860ff5aef467aebcddb4411095c6dfff67a9",
+      "summary": {
+        "lines": {
+          "total": 1,
+          "covered": 1,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 1,
+          "covered": 1,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 1,
+          "covered": 1,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 3,
+          "covered": 3,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/components/LanguagePicker.tsx",
+      "source_sha256": "0870c50ce1ab09234eb74c7a2cdf04dd39c9601f4065a0db62185452435bd368",
+      "summary": {
+        "lines": {
+          "total": 2,
+          "covered": 2,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 2,
+          "covered": 2,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 2,
+          "covered": 2,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/components/MailAccessSurface.tsx",
+      "source_sha256": "66ba719923b4c135028c4fabf8f058d22d82761e43ab15ad3550f3b7e2d89318",
+      "summary": {
+        "lines": {
+          "total": 3,
+          "covered": 3,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 2,
+          "covered": 2,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 3,
+          "covered": 3,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 16,
+          "covered": 16,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/components/MailNavigation.tsx",
+      "source_sha256": "bece582cac0f551ddd2115610ea2d4181bd036d2d7b350b2b97bd886fde2d78a",
+      "summary": {
+        "lines": {
+          "total": 16,
+          "covered": 14,
+          "skipped": 0,
+          "pct": 87.5
+        },
+        "functions": {
+          "total": 12,
+          "covered": 10,
+          "skipped": 0,
+          "pct": 83.33
+        },
+        "statements": {
+          "total": 16,
+          "covered": 14,
+          "skipped": 0,
+          "pct": 87.5
+        },
+        "branches": {
+          "total": 51,
+          "covered": 51,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_8)",
+          "line": 271
+        },
+        {
+          "name": "(anonymous_9)",
+          "line": 315
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/components/MailboxPicker.tsx",
+      "source_sha256": "38c096560435c2a61ac12173c225d3c0110623553bb3f37553aa21cb05708aa4",
+      "summary": {
+        "lines": {
+          "total": 8,
+          "covered": 8,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 7,
+          "covered": 7,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 9,
+          "covered": 9,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 14,
+          "covered": 14,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/components/MessageDetail.tsx",
+      "source_sha256": "8d9a52f9ea93b831bd5433f06be942328e507e7b5b0c1bf3043c7ad79944a108",
+      "summary": {
+        "lines": {
+          "total": 2,
+          "covered": 1,
+          "skipped": 0,
+          "pct": 50
+        },
+        "functions": {
+          "total": 2,
+          "covered": 1,
+          "skipped": 0,
+          "pct": 50
+        },
+        "statements": {
+          "total": 2,
+          "covered": 1,
+          "skipped": 0,
+          "pct": 50
+        },
+        "branches": {
+          "total": 16,
+          "covered": 11,
+          "skipped": 0,
+          "pct": 68.75
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_1)",
+          "line": 77
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/components/MessageList.tsx",
+      "source_sha256": "8843c6173a5b9645e553a628fe6ef61ea4404cc48d3493014b76f3c748651276",
+      "summary": {
+        "lines": {
+          "total": 12,
+          "covered": 12,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 5,
+          "covered": 5,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 14,
+          "covered": 14,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 39,
+          "covered": 32,
+          "skipped": 0,
+          "pct": 82.05
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/components/MessageQueueItem.tsx",
+      "source_sha256": "71cb7ca34f7cc48ea49c5a27c66d55eb9daf23bf77f5a8df2a32a039e0b6e95f",
+      "summary": {
+        "lines": {
+          "total": 5,
+          "covered": 5,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 3,
+          "covered": 3,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 5,
+          "covered": 5,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 21,
+          "covered": 18,
+          "skipped": 0,
+          "pct": 85.71
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/components/MessageReadingHeader.tsx",
+      "source_sha256": "fc70ad9ffa27bece418cbc573a5497c37871f587e20293ad0ace5cd5cac29da5",
+      "summary": {
+        "lines": {
+          "total": 2,
+          "covered": 2,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 3,
+          "covered": 3,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 3,
+          "covered": 3,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 20,
+          "covered": 19,
+          "skipped": 0,
+          "pct": 95
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/components/SentDirectoryItem.tsx",
+      "source_sha256": "be3966c8217f1417bd933cdf371898ecb4f8123624be0074d379585852362750",
+      "summary": {
+        "lines": {
+          "total": 20,
+          "covered": 20,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 5,
+          "covered": 5,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 24,
+          "covered": 24,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 24,
+          "covered": 24,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/components/SentList.tsx",
+      "source_sha256": "7718610039c4124411c7da34cbb7bc440da995f8b89e90a931872b0da251ffee",
+      "summary": {
+        "lines": {
+          "total": 7,
+          "covered": 7,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 3,
+          "covered": 3,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 7,
+          "covered": 7,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 25,
+          "covered": 24,
+          "skipped": 0,
+          "pct": 96
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/components/SessionVerificationNotice.tsx",
+      "source_sha256": "967d72541ed824f9b1cc2c99ccd9eeb54993a507440516982b02d70f6b2c365f",
+      "summary": {
+        "lines": {
+          "total": 4,
+          "covered": 4,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 1,
+          "covered": 1,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 4,
+          "covered": 4,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 10,
+          "covered": 10,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/config.ts",
+      "source_sha256": "2f8003d644b80e00315be58dacfcea2089958a7a155c784f19434423183e7501",
+      "summary": {
+        "lines": {
+          "total": 11,
+          "covered": 9,
+          "skipped": 0,
+          "pct": 81.81
+        },
+        "functions": {
+          "total": 2,
+          "covered": 2,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 12,
+          "covered": 10,
+          "skipped": 0,
+          "pct": 83.33
+        },
+        "branches": {
+          "total": 17,
+          "covered": 9,
+          "skipped": 0,
+          "pct": 52.94
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/detail-request.ts",
+      "source_sha256": "e0c56a55eb5fca4cdf2d7faf67d1a2f8e3f55e15b63add0bbbd581f9c81dbf4e",
+      "summary": {
+        "lines": {
+          "total": 10,
+          "covered": 10,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 5,
+          "covered": 5,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 11,
+          "covered": 11,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 11,
+          "covered": 11,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/i18n.ts",
+      "source_sha256": "f40dbb5c1eb19c4216be64905143176399d76ade3ab3ee028147ce73c3702035",
+      "summary": {
+        "lines": {
+          "total": 85,
+          "covered": 75,
+          "skipped": 0,
+          "pct": 88.23
+        },
+        "functions": {
+          "total": 22,
+          "covered": 20,
+          "skipped": 0,
+          "pct": 90.9
+        },
+        "statements": {
+          "total": 100,
+          "covered": 87,
+          "skipped": 0,
+          "pct": 87
+        },
+        "branches": {
+          "total": 88,
+          "covered": 68,
+          "skipped": 0,
+          "pct": 77.27
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "browserDocumentLanguage",
+          "line": 553
+        },
+        {
+          "name": "browserNavigatorLanguages",
+          "line": 561
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/mail-keyboard-shortcuts.ts",
+      "source_sha256": "0275f420daa36e7bb58617df2894719b0aff6e01db408277f0a79f6a0f7e3013",
+      "summary": {
+        "lines": {
+          "total": 64,
+          "covered": 63,
+          "skipped": 0,
+          "pct": 98.43
+        },
+        "functions": {
+          "total": 7,
+          "covered": 7,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 70,
+          "covered": 68,
+          "skipped": 0,
+          "pct": 97.14
+        },
+        "branches": {
+          "total": 55,
+          "covered": 50,
+          "skipped": 0,
+          "pct": 90.9
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/main.tsx",
+      "source_sha256": "7f70da9920508eaf3fc7ab72d1e4747027fc9fe4a222325e77dd873fb384c10b",
+      "summary": {
+        "lines": {
+          "total": 1,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 0
+        },
+        "functions": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 1,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 0
+        },
+        "branches": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/shell/MailWorkspaceShell.tsx",
+      "source_sha256": "8f0a2b0dd57a29c635a12ea70c84961c8824ec67166ff27a3e069c9009118bfd",
+      "summary": {
+        "lines": {
+          "total": 1,
+          "covered": 1,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 1,
+          "covered": 1,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 1,
+          "covered": 1,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 8,
+          "covered": 8,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/types.ts",
+      "source_sha256": "fe12d48ab304058261ca3168baa87a366fcb9d91aa9ab8d83e0353bfe889be54",
+      "summary": {
+        "lines": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/useComposerSession.ts",
+      "source_sha256": "752cb2ebd15e48a697319f2abd8bd19bd147539b5ce01dbe17f94899c75ec9c7",
+      "summary": {
+        "lines": {
+          "total": 309,
+          "covered": 284,
+          "skipped": 0,
+          "pct": 91.9
+        },
+        "functions": {
+          "total": 48,
+          "covered": 43,
+          "skipped": 0,
+          "pct": 89.58
+        },
+        "statements": {
+          "total": 339,
+          "covered": 301,
+          "skipped": 0,
+          "pct": 88.79
+        },
+        "branches": {
+          "total": 182,
+          "covered": 141,
+          "skipped": 0,
+          "pct": 77.47
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_17)",
+          "line": 241
+        },
+        {
+          "name": "(anonymous_31)",
+          "line": 378
+        },
+        {
+          "name": "(anonymous_32)",
+          "line": 381
+        },
+        {
+          "name": "(anonymous_39)",
+          "line": 434
+        },
+        {
+          "name": "(anonymous_41)",
+          "line": 469
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/useDraftDirectory.ts",
+      "source_sha256": "3263933032c32623360cdaee8817dcb147ee065a591de4ce27fe7d796e16ad69",
+      "summary": {
+        "lines": {
+          "total": 213,
+          "covered": 208,
+          "skipped": 0,
+          "pct": 97.65
+        },
+        "functions": {
+          "total": 34,
+          "covered": 34,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 232,
+          "covered": 220,
+          "skipped": 0,
+          "pct": 94.82
+        },
+        "branches": {
+          "total": 98,
+          "covered": 81,
+          "skipped": 0,
+          "pct": 82.65
+        }
+      },
+      "unexecuted_functions": []
+    },
+    {
+      "path": "web/mail-app/src/useSentDirectory.ts",
+      "source_sha256": "776265183e7766a998fa9aa1b6e0c84fdbb2ff3645d9fec9e2e6a4fd73559b88",
+      "summary": {
+        "lines": {
+          "total": 109,
+          "covered": 105,
+          "skipped": 0,
+          "pct": 96.33
+        },
+        "functions": {
+          "total": 19,
+          "covered": 18,
+          "skipped": 0,
+          "pct": 94.73
+        },
+        "statements": {
+          "total": 120,
+          "covered": 113,
+          "skipped": 0,
+          "pct": 94.16
+        },
+        "branches": {
+          "total": 48,
+          "covered": 40,
+          "skipped": 0,
+          "pct": 83.33
+        }
+      },
+      "unexecuted_functions": [
+        {
+          "name": "(anonymous_13)",
+          "line": 177
+        }
+      ]
+    }
+  ]
+}

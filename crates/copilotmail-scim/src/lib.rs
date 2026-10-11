@@ -1107,7 +1107,9 @@ fn provisioning_error(error: ScimProvisioningError) -> Response {
             scim_error(StatusCode::NOT_FOUND, None, "resource not found")
         }
         ScimProvisioningError::Store(
-            StoreError::Unavailable | StoreError::AgentMailAdmission(_),
+            StoreError::Unavailable
+            | StoreError::AgentMailAdmission(_)
+            | StoreError::AuthenticationInvalid,
         ) => scim_error(
             StatusCode::SERVICE_UNAVAILABLE,
             None,

@@ -1,6 +1,8 @@
 import type { RefCallback, RefObject } from "react";
-import { formatCount, formatDate, type Locale, type Translator } from "../i18n";
+import { IconButton } from "@copilotmail/design-system";
+import { formatCount, type Locale, type Translator } from "../i18n";
 import type { HumanDraftListItem, HumanDraftPage } from "../types";
+import { DraftDirectoryItem } from "./DraftDirectoryItem";
 
 interface DraftListProps {
   error?: string;
@@ -15,14 +17,6 @@ interface DraftListProps {
   onRefresh: () => void;
   onRestore: (draft: HumanDraftListItem) => void;
   draftButtonRef: (draftId: string) => RefCallback<HTMLButtonElement>;
-}
-
-function recipientCount(locale: Locale, value: number, t: Translator) {
-  const count = formatCount(locale, value);
-  const category = new Intl.PluralRules(locale).select(value);
-  return category === "one"
-    ? t("drafts.recipientCount.one", { count })
-    : t("drafts.recipientCount.other", { count });
 }
 
 function draftCount(locale: Locale, value: number, t: Translator) {
@@ -47,57 +41,74 @@ export function DraftList({
   onRestore,
   draftButtonRef,
 }: DraftListProps) {
+  const loading = listBusy || (!page && !error);
+  const status = restoreBusyId !== undefined
+    ? t("drafts.restoring")
+    : loading
+      ? t("drafts.syncing")
+      : page
+        ? draftCount(locale, page.items.length, t)
+        : "";
+  const retryDisabled = loading || restoreBusyId !== undefined;
+
   return (
     <section className="inbox drafts-pane" data-dialog-background>
       <header className="inbox-header">
         <div>
           <h1 ref={headingRef} tabIndex={-1}>{t("drafts.heading")}</h1>
-          <p>
-            {page
-              ? draftCount(locale, page.items.length, t)
-              : t("drafts.syncing")}
-          </p>
+          <p aria-atomic="true" aria-live="polite" role="status">{status}</p>
         </div>
-        <button
-          aria-label={t("drafts.refreshAria")}
-          disabled={listBusy || restoreBusyId !== undefined}
+        <IconButton
+          aria-busy={loading || undefined}
+          disabled={retryDisabled}
+          icon="refresh"
+          label={t("drafts.refreshAria")}
           onClick={onRefresh}
-        >
-          <span aria-hidden="true">{t("icon.refresh")}</span>
-        </button>
+        />
       </header>
-      {error && <p className="error" role="alert">{error}</p>}
-      {restoreError && <p className="error" role="alert">{restoreError}</p>}
-      <div className="messages draft-items" aria-busy={listBusy || undefined}>
+      {error && (
+        <div className="error error--actionable" role="alert">
+          <span>{error}</span>
+          <button disabled={retryDisabled} type="button" onClick={onRefresh}>
+            {t("common.retry")}
+          </button>
+        </div>
+      )}
+      {restoreError && (
+        <div className="error error--actionable" role="alert">
+          <span>{restoreError}</span>
+          <button disabled={retryDisabled} type="button" onClick={onRefresh}>
+            {t("common.retry")}
+          </button>
+        </div>
+      )}
+      <div
+        className="messages draft-items"
+        aria-busy={loading || restoreBusyId !== undefined || undefined}
+      >
+        {page?.items.length ? <p className="directory-hint">{t("drafts.detailHint")}</p> : null}
         {page?.items.map((draft) => {
           const restoring = restoreBusyId === draft.draft_id;
-          const kind = draft.reply_to_message_id
-            ? t("drafts.replyDraft")
-            : t("drafts.newDraft");
           return (
-            <button
+            <DraftDirectoryItem
               key={draft.draft_id}
-              ref={draftButtonRef(draft.draft_id)}
-              className="draft-item"
-              disabled={restoreBusyId !== undefined}
-              onClick={() => onRestore(draft)}
-            >
-              <strong>{kind}</strong>
-              <time dateTime={draft.updated_at}>
-                {formatDate(locale, draft.updated_at, {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </time>
-              <span>{recipientCount(locale, draft.recipient_count, t)}</span>
-              <span className="draft-restore-label">
-                {restoring ? t("drafts.restoring") : t("drafts.restore")}
-              </span>
-            </button>
+              draft={draft}
+              draftButtonRef={draftButtonRef}
+              locale={locale}
+              restoring={restoring}
+              restoreLocked={restoreBusyId !== undefined}
+              t={t}
+              onRestore={onRestore}
+            />
           );
         })}
         {page && page.items.length === 0 && !listBusy && (
-          <div className="empty">{t("drafts.empty")}</div>
+          <div className="empty empty--actionable">
+            <p>{t("drafts.empty")}</p>
+            <button className="empty-action" type="button" onClick={onRefresh}>
+              {t("drafts.refreshAria")}
+            </button>
+          </div>
         )}
         {page?.has_more && (
           <button

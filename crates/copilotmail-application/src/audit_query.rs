@@ -118,9 +118,13 @@ where
 
         // Audit reads fail closed: no result page is returned unless the query
         // itself is durably appended to both Audit and Outbox.
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(context).await?;
         if !transaction
-            .active_human_principal_exists(command.organization_id, context.principal_id)
+            .authorize_human_permission(
+                command.organization_id,
+                context.principal_id,
+                Permission::AuditRead,
+            )
             .await?
         {
             return Err(AuditEventSearchError::Forbidden);
@@ -341,11 +345,13 @@ mod tests {
             Err(StoreError::Unavailable)
         }
 
-        async fn active_human_principal_exists(
+        async fn authorize_human_permission(
             &mut self,
             _: OrganizationId,
             _: PrincipalId,
+            permission: Permission,
         ) -> Result<bool, StoreError> {
+            assert_eq!(permission, Permission::AuditRead);
             Ok(self.store.active_human)
         }
 
@@ -425,6 +431,7 @@ mod tests {
             organization_id,
             principal_id,
             permissions: BTreeSet::from([Permission::AuditRead]),
+            authentication: None,
         };
         let now = Utc::now();
         let page = AuditEventSearchService::new(store.clone())
@@ -500,6 +507,7 @@ mod tests {
             organization_id,
             principal_id,
             permissions: BTreeSet::from([Permission::AuditRead]),
+            authentication: None,
         };
         let now = Utc::now();
         let service = AuditEventSearchService::new(store);

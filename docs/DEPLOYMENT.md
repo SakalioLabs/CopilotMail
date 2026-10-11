@@ -70,12 +70,18 @@ only to a script-generated database, and fails unless migration, immutable-audit
 trigger/catalog, and seeded-row evidence match.
 
 The latest repository migration is currently
-`0056_human_mail_sent_directory_index.sql`. Migration 0055 commits the
-sent-directory audit catalog entry; 0056 is deliberately an online
-`CREATE INDEX CONCURRENTLY` migration. Run the normal single migrator only,
+`0060_audit_export_runtime_clock.sql` (not deployed in the current code-only phase).
+Migration 0055 commits the sent-directory audit
+catalog entry; 0056 is deliberately an online `CREATE INDEX CONCURRENTLY`
+migration, and 0057 must be applied after it as part of the same governed
+upgrade. Run the normal single migrator through the latest migration only,
 wait for it to finish, and require the read-only `check` command to report the
 schema ready before starting this binary. Do not substitute a manual
 non-concurrent index build on a live submission table.
+Migrations 0059/0060 strengthen retention/export authorization timing. Readiness
+now requires every compiled migration, its successful result and exact checksum;
+an older schema must not serve the new binary. Offline grammar checks do not
+substitute for isolated migration and trigger/concurrency tests.
 Migration 0053 still has an additional stop-the-world requirement: an
 installation at 0052 or earlier must stop every old API, Outbox Worker, and
 audit-maintenance binary before migration; old and new binaries cannot overlap. Run the new
@@ -95,6 +101,37 @@ opaque session cookie; provider tokens never enter either SPA. Configure the
 two public clients, exact origins, tenant/mailbox bindings, and a read-only
 32-byte session key as described in [Human OIDC BFF 会话](HUMAN_OIDC_SESSION.zh-CN.md)
 and [企业管理端](ADMIN_APP.zh-CN.md).
+
+Each frontend image build is fail-closed after Vite produces `dist`:
+`Dockerfile.admin-app` runs `npm run bundle:check:admin`, while
+`Dockerfile.mail-app` runs `npm run bundle:check:mail`. The checks reject an
+oversized initial or total JavaScript/CSS graph, any `.map` file, any
+`sourceMappingURL` in JavaScript or CSS, and an oversized Image 2 WebP/AVIF
+delivery file. From `web/`, run `npm run bundle:check:self-test` to prove the
+negative rules against disposable fixtures and `npm run build` to build and
+check both applications. The combined and per-application checks run that
+self-test before inspecting production output. A Docker build must not copy an
+unchecked `dist` into the Nginx stage.
+
+Frontend publication is a content-addressed transition, not an in-place edit.
+Publish the new hashed `/assets/` set first, verify it, and only then switch the
+no-store `index.html` and `runtime-config.js`. With container images, route
+traffic to the new healthy replica only after its complete asset set exists;
+keep the previous replica or its hashed assets available for the agreed browser
+tab/session drain window. `/assets/` returns an exact 404 for a missing file and
+never falls back to SPA HTML; successful hashed assets are immutable for one
+year, while HTML, runtime configuration, and other responses remain `no-store`.
+
+That exact 404 is a safe failure signal, not seamless stale-tab recovery. An
+already-open Admin tab may request an old lazy chunk after a single-container
+replacement, and a tab loaded from the new release may request a new chunk
+after rollback. The current client does not guarantee automatic hot-upgrade or
+chunk retry. If both asset generations cannot overlap, operators must expect a
+visible reload to recover those tabs. A rollback therefore switches the
+application image and runtime configuration as one unit, retains both old and
+new hashed assets through the drain window when zero-disruption is required,
+and confirms the API remains compatible with both browser generations before
+removing either set.
 
 `COPILOTMAIL_MAIL_APP_MAILBOX_ID` is optional and is only an initial UI
 preference. The authenticated `GET /api/v2/mailboxes` directory remains

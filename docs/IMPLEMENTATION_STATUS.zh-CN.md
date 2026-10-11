@@ -1,21 +1,82 @@
 # CopilotMail V2 实施状态
 
-> 更新时间：2026-08-22
+> 更新时间：2026-09-19（当前只做代码；托管验证码方案已撤回，部署延后）
 > 状态口径：只记录已有代码、测试或文档证据的结果；未验证项不视为完成。
 > 依据：[企业级实施计划](IMPLEMENTATION_PLAN.zh-CN.md)
-> 当前权威计数：83 类审计事件；Application 102、Domain 43、Mail Engine 35、
-> Contracts 16、Control Plane 54；全工作区 `cargo test --workspace --locked` 实跑
-> 304 个非忽略 Rust 测试通过、0 个失败，另有 33 个 ignored 场景未在该命令中执行；
-> OpenAPI 82 条路径、98 个唯一 Operation ID；Web 共 125 个 Vitest
-> （Admin 18、Mail 107）。
-> 当前 Windows 工作区全量门禁已通过；上述测试计数为本轮最终已完整执行的基线。
+> **当前范围**：Human Mail、Agent Mail、企业管理与既有 API 保持；不在平台生成/校验验证码。
+> 未接入的验证码原型已撤下并归档，保留有效的模块拆分、质量门禁和 UI 修复。
+> 标准 SMTP/IMAP 接入工具已补隐式 TLS 与离线安全测试。详见
+> [当前代码开发范围](CODE_DEVELOPMENT_SCOPE.zh-CN.md) 与 [外部客户端说明](EXTERNAL_MAIL_CLIENTS.zh-CN.md)。
+> [早期执行记录](R0_R7_EXECUTION_STATUS.zh-CN.md) 的 344 个 Rust 测试包含已撤回的 12 项原型测试，
+> 只作历史；当前不进行 SSH、Docker 或真实邮件部署，运行态验收延后且不标记为通过。
+> **最新代码质量实跑**：381 个 Rust 测试通过、43 个依赖场景 ignored（其中
+> `postgres_integration.rs` 全部 38 个 disposable PostgreSQL 17 场景已在本轮
+> 显式执行、38/38 通过，含 5 个新增认证围栏场景；4 个 MinIO Object Lock 与
+> 1 个控制层 HTTP 场景仍未执行）；Web 单测 416、浏览器回归 109、离线客户端安全
+> 测试 21 通过。Clippy 与格式门禁通过；新增 60 份迁移的
+> SQL/PLpgSQL 离线语法检查。最新新增迁移到 0060，均未在本轮部署。详见
+> [代码质量审查](CODE_QUALITY_REVIEW.zh-CN.md)；未完成的函数级验证、会话代次屏障和最终签字
+> 不被本地通过数替代。下列 411/317 等计数保持其历史口径，不是当前汇总。
+> **本轮 V2 设计 D1/D3/D4A/D4B/D4C/D4D/D4E 当前 Web 门禁（2026-08-24）**：`npm run check`、
+> Vitest（411 条：设计系统 17、Admin 207、Mail 187）、`npm run build` 与
+> `npm run e2e:run`（109/109，仅回环 Chromium；PNG 基线 103 张：Admin 40、Mail 63）均通过。
+> 最新 Admin 工件为首屏 JavaScript 334,233 B（gzip 102,136 B）、完整图谱 484,636 B、CSS
+> 52,895 B（gzip 9,861 B）；Mail 为首屏/完整图谱 JavaScript 322,054 B（gzip 95,532 B）、
+> CSS 49,145 B（gzip 8,715 B），交付位图 3 个、最大 43,484 B。该结果只覆盖本地构建工件
+> 与内存 BFF 夹具，不表示 Docker、NixOS、数据库、IdP、域名邮件或生产环境已经验证。
+> 当前源码审计目录声明：85 类事件；下列 Application 108、Domain 43、Mail Engine 35、
+> Contracts 17、Control Plane 60；全工作区 `cargo test --workspace --locked` 实跑
+> 381 个非忽略 Rust 测试通过、0 个失败，另有 43 个 ignored 场景（含本轮新增 5 个
+> 认证围栏 disposable-PG 场景）未在该命令中执行；
+> OpenAPI 83 条路径、99 个唯一 Operation ID；P2 源码收敛后的 `npm run check`、`npm test`、
+> `npm run build` 与 `npm run e2e` 已本地完整通过：Web Vitest 共 390 个（共享设计系统 16、
+> Admin 195、Mail 179），Chromium Playwright 共 82 个，并保留 66 个 Windows PNG 基线
+> （Admin 34、Mail 32）。代表性关键界面执行严格 Axe A/AA 扫描；该扫描不等同于完整
+> WCAG 2.2 AA 验收。
+> 上述包、测试、OpenAPI 和前端计数是 P2 最后一次完整门禁的历史基线；P3 新增的精确
+> Agent 发件证据读取必须以本轮重新执行的全量 Rust、审计治理、管理端与 PostgreSQL
+> 验收输出为准，不得以旧的 84 类/317 条通过记录替代。
+> P2 最近一次 Admin 产物测量为：首屏 JavaScript 317,699 B（gzip 97,134 B）、完整图谱
+> JavaScript 459,423 B、CSS 48,927 B。完整图谱预算仅对 Admin 显式设为 460 KiB，Mail
+> 保持 420 KiB；首屏和 CSS 预算未放宽。
+> 当前 Windows 工作区的 P2 前端最终全量门禁已通过；本文件中其余“通过”记录仍按各自
+> 执行时的证据范围解释。环境依赖的 PostgreSQL/MinIO 集成项保持 ignored，不能据此扩大
+> 为真实依赖或部署验收。
 > 已向受限 NixOS 开发目录同步经提交校验的源码快照；尚未在该宿主机启动容器、写入
 > Secret、执行 migration 或变更端口/服务。WSL 不再作为后续验证依赖。目标运行环境仍
-> 未应用当前 0056，因此本地门禁不能替代部署验收。
+> 未应用当前 0058，因此本地门禁不能替代部署验收。
 
 ## 当前结论
 
+2026-09-19 用户进一步明确：先完成代码、不部署，验证码由业务应用负责，邮件系统支持标准
+SMTP/IMAP 外部客户端即可。当前不再开发 Application 验证身份、挑战、验证收据或验证码管理页。
+原有 Human/Agent/企业管理、可靠邮件链路与最终代码质量审查继续；开发不再以提供 SSH/域名/SSO
+为前置。外部客户端直连邮件引擎不会自动继承控制面的 Agent 策略或审计，此边界已单独记录。
+桌面 Compose/Back 样式回退和首批 HTTP/PG 拆分保留；尚未迁移数据库或执行生产部署。
+
 项目已从单包 V1 原型进入 V2 企业控制平面与纵向业务切片阶段。V1 继续作为邮件概念和端到端回归基线；V2 已形成独立的模块化 Rust workspace、Human/Agent 双认证边界、邮件端和管理审计端。此前 Ubuntu WSL 的仅回环 Base Pilot 运行结果仅作为历史基础栈证据；因持续 I/O 风险，后续不再依赖该 WSL。当前 NixOS 仅保存了经提交校验的开发快照，尚无任何运行态部署证据。无论何种宿主机，上述结果都不等同于内部 Alpha 或生产验收；真实企业 IdP、企业域名邮件收发、PostgreSQL 17 同版本原生恢复、HA、容量与安全验收仍未完成。
+
+设计蓝图中的 P0–P2 已完成源码层面的界面收敛：审计调查、单 Agent 受控快照、
+Cases/Holds、Roles 与 Retention 均只呈现现有契约可证明的事实、决策与证据；未知写入继续
+冻结，且不以列表推断关联对象。蓝图中的 P3（不是本表“P3 邮件数据平面”编号）仍以真实的
+新后端契约为前置条件，不能因界面切片完成而补造 Agent execution、委托、运行遥测或策略/投递
+证据。该源码收敛不构成 Docker、NixOS 或任何生产环境部署证据。
+
+2026-08-24 的 D1/D3 首个视觉实现进一步把共享令牌、Admin Shell 与 Overview 收敛为
+“可验证事实 → 唯一下一步”：Overview 只依据既有的开放 Cases 与有效 Holds 读取；未知、
+403 和错误不伪装成零。该切片覆盖全/窄 rail 与抽屉断点、会话控制可达性、焦点恢复、
+双语和真实浏览器回归，但不代表其它治理页面已经完成 Decision Header 重构，也不增加 API、
+预取、轮询、敏感 URL 状态或部署证据。
+
+同日完成的 D4A/D4B/D4C/D4D/D4E 只收敛 Human Mail 的 Shell、Inbox Queue 扫描、明确打开后的 Reading
+标题/元数据，以及 Drafts/Sent 的 metadata-only 目录：D4A 保留既有三栏/栈式几何与移动 Scope
+披露；D4B 只使用已有 `MessageSummary` 与已校验详情字段，`j`/`k` 仍只移动选择，点击或 `Enter`
+才读取详情；D4C 只显示草稿类型/人数/更新时间/既有恢复和已发送的接受时间/人数/真实投递聚合；
+D4D 将既有 `can_send` 收入写信 ContextBar 的 status 槽，并把最小提交证据拆为纯呈现组件，
+Compose 长状态继续完整换行；D4E 把登录入口、已认证目录准入和会话复核拆为两种真实呈现，
+登录 Hero 只用于登录，目录状态不伪装为登录，会话失败为可聚焦的非模态 alert。五个切片均未增加 API、权限、预取、缓存、URL/存储状态、
+轮询或 Agent 运行态/Owner/策略/投递事实。它们通过本地回环 Web 门禁与人工截图审图验证，但
+**不代表整个 D4 Mail Shell 已完成**，更不构成真实邮件、Docker、NixOS 或生产依赖验收。
 
 > **当前宿主机阻断（2026-07-27）**：部署验收完成后，WSL 内核报告承载
 > `Ubuntu-24.04` 的 ext4 VHD 出现目录块校验错误并中止 journal，随后将文件系统
@@ -39,15 +100,167 @@
 | P0 产品、架构与邮件 PoC | 进行中 | 总体实施计划；控制平面 ADR；邮件数据平面边界 ADR；企业威胁模型及可追踪威胁/控制/验证矩阵；可签字的公司输入、容量、IdP、域名、合规、SLO/RPO/RTO 与运维依赖清单；邮箱资源授权矩阵；可机检审计事件目录 | 公司完成输入与风险签字、Stalwart 对比 PoC 与数据平面选型签字 |
 | P1 工程底座 | 进行中 | Cargo Workspace；领域/应用/契约/平台/PG 与 S3 Object Lock adapter；邮件引擎无关的 DTO、错误和 port traits 归 `copilotmail-application` 所有，`copilotmail-mail-engine` 仅作为 Stalwart adapter 实现这些 ports；稳定 UUID `MailDataPlaneId` 区分独立远端引用命名空间且不等同 vendor，binding/ingress 由服务端注入 ID，Application 在网络调用前校验 adapter 来源亲和；从 Domain、Audit、Application 三个权威包根解析全特性依赖图、按层拒绝直接/传递/别名/目标特定向外依赖并扫描 Mail Engine 全 Rust 源码的 CI 架构门禁；migration 及 CI 重复执行无操作验证；API/Worker/Migrate/Check；Docker 开发栈；Ubuntu WSL Base Pilot 容器实跑、健康检查和持久化重启；结构化 JSON 日志；可选 OTLP/HTTP Span exporter、W3C Trace Context 与 Collector/Tempo/Prometheus/Grafana 覆盖层；CI 门禁 | migration rollback、PostgreSQL 17 同版本原生恢复、生产 Collector/Trace 告警演练、统一错误与请求 ID 全链路 |
 | P2 身份与组织 | 进行中 | `Organization`/`Principal`；Bootstrap；默认拒绝 RBAC；九内置角色权威目录和既有租户回填；Active Human 限时角色授予/撤销、自审计有界读模型、精确双人权限提升审批、最后有效 Owner 保护和中英双语角色治理 UI；严格 OIDC Discovery/JWKS/JWT；服务端 Authorization Code + S256 PKCE BFF、只保存摘要/密文的 PostgreSQL Human Session、Admin/Mail Host-only HttpOnly Secure Cookie 与路由隔离、精确 Origin CSRF、跨副本登录限流和不可变创建/撤销证据；可审计的首位 Human Owner 接管；SCIM Users/Groups 生命周期与令牌轮换；Agent OAuth2 `private_key_jwt` 与原生 mTLS 证书绑定 Token、重叠轮换与立即撤销；邮箱成员关系与显式时限委托 ABAC；不可变策略版本和双人审批上下文；请求人/待办隔离的审批读模型、Active Human 决策、请求人取消与中英双语审批中心；受保护 Organization 查询；合规案件与审计归档 Legal Hold 状态机 | 真实企业 IdP/SCIM 互操作与停用 SLA、上游会话撤销/Back-channel Logout、Step-up/AAL、Agent 工作负载身份联邦、审批人组/规则执行器、自定义角色与权限编辑 |
-| P3 邮件数据平面 | 进行中 | 独立 `copilotmail-mail-engine` 与 `copilotmail-dns` 边界；显式数据平面 UUID + canonical origin 配置，管理/Content/Compose/Submission 跨源启动拒绝；带 ID 亲和的 Stalwart JMAP 管理面安全探测与可靠域名投影；真实 DNS 安全预检；域名生命周期、投影状态与路由治理应用事务；双凭据 Stalwart 入站/队列事件验证、租户邮箱绑定、追加式来源回执、最小化 `message.received.v1` 与独立队列运维证据；精确 JMAP Submission 收件人投递状态对账；可选 readiness 硬依赖；固定版本 Docker PoC 覆盖层与 bootstrap runbook；普通账号声明式 upsert、SMTP/IMAP/JMAP/非开放中继及两阶段重启持久性自动验收程序；V1 SMTP 继续用于回归 | 在真实 Stalwart 执行 PG/S3/重启/升级和普通账号互操作证据；真实队列 WebHook/DSN 演练、TLS、反垃圾、可靠投递队列 |
-| P4A 人类邮件体验 | 进行中 | 独立 React/TypeScript 邮件端与 Human-only 收件箱：浏览器只使用同源 BFF Session，不执行 Discovery/PKCE/Token 交换、不保存或发送 Provider Token；Admin/Mail 客户端与 Cookie 完全分区；Mail Session-only 的 `GET /api/v2/mailboxes` 在查询前拒绝 Admin Cookie 与 Bearer，并要求 Active Human、`mailbox.use`、current data-plane binding 和资源级 `Read(None)`；目录仅返回邮箱 UUID、kind、主地址与由 `Send(None)` 推导的 `can_send`，canonical Cursor 绑定仍可见锚点，`SendAs`-only 邮箱保持只读；可选 `mailboxId` 仅作初始偏好，桌面/移动端可切换授权 Human/Shared 邮箱，切换时作废异步请求并清空搜索、列表、详情、选择与写信草稿；写信框明确显示不可编辑 From，只读邮箱禁用写信、回复、草稿和发送；实时 RBAC/Scope、邮箱 Read/Send ABAC、精确租户 JMAP Account 绑定及永久 Account 所有权；列表/搜索必须先解析唯一可读 `role=inbox`，每项只使用既有入站投影的安全 UUID，原始 JMAP Account/Email/Thread/Query State 不进入响应或 Cursor；POST 请求体内的隐私优先有界搜索，查询词不进入 URL、Cursor、审计或 Outbox，搜索 Cursor 绑定邮箱与查询摘要；信封及详情正文分别只有在最小化 Audit/Outbox 原子提交后才披露；详情只取有界 `text/plain`，不渲染 HTML、不暴露 Blob ID；Human 邮件响应统一 `no-store`，前端快速切换会中止并丢弃过期详情响应且状态更新不重复 GET 正文；应用固定文案使用类型安全的简中/英文词典，按持久化值、文档和浏览器语言确定 Locale，无刷新切换并同步 `<html lang>`，日期、数量和附件大小按 Locale 格式化；不超过 900 px 时使用单列列表—详情，打开后聚焦详情标题、返回恢复原邮件焦点，移动工具栏保留写信、语言和退出；写信对话框具备 Modal 语义、背景 `inert`、初始焦点、Tab 环绕、发送中禁止关闭和触发器焦点恢复；一次操作打开并标记已读、切换星标；内容、草稿与提交 OAuth 凭据物理隔离；写信请求不能选择 From，纯文本草稿严格串行自动保存；控制平面 Draft UUID、摘要和 CAS 隐藏远端 ID；本人 active 草稿目录只返回最小元数据，Shared Mailbox 不共享其他人的草稿；恢复仅按 PG 证明的单 ID 读取，复核 Drafts/$draft/From/Thread 与内容证据，并在最终授权/版本复核及 Audit+Outbox 提交后披露正文；本人已发送目录只列 durable accepted/sent 记录及可选投递聚合，并在最终 Read/Send/所有权/快照复核与 `mail.submissions.queried` Audit/Outbox 原子提交后披露；已提交入站投影提供安全回复 UUID，回复按钮不接受原始 Header/JMAP ID，服务端验证并生成 `In-Reply-To`/`References`；点击发送在首个异步等待前同步锁定快照，保存最新版本后以 Header-only Idempotency Key 冻结 Draft 并创建 durable Intent，可能出网后持续锁定且不静默复制 Draft；Worker 以已提交租约执行 Identity 唯一解析、EmailSubmission 查询优先对账、歧义人工复核及终态原子审计/Outbox；接受后继续读取精确 Submission 的收件人级状态，UI 区分服务端接受、排队、对端接收和永久失败；响应未知不会盲目重发；Human JMAP 关键词与 Agent Ack/Lease 状态严格隔离 | 真实 IdP 与公网延迟/退信/DSN 演练、附件、线程、快捷键、孤儿草稿检测/受治理清理、共享协作编辑、真实浏览器移动端/键盘/屏幕阅读器 E2E 与 axe/WCAG 2.2 AA 验收 |
+| P3 邮件数据平面 | 进行中 | 独立 `copilotmail-mail-engine` 与 `copilotmail-dns` 边界；显式数据平面 UUID + canonical origin 配置，管理/Content/Compose/Submission 跨源启动拒绝；带 ID 亲和的 Stalwart JMAP 管理面安全探测与可靠域名投影；真实 DNS 安全预检；域名生命周期、投影状态与路由治理应用事务；中英双语 Admin 域名工作台以列表—详情呈现一次性 ownership token、DNS 验证、`verified` 后显式激活、路由 CAS 与独立投影状态，未知写结果冻结写操作并只读对账；双凭据 Stalwart 入站/队列事件验证、租户邮箱绑定、追加式来源回执、最小化 `message.received.v1` 与独立队列运维证据；精确 JMAP Submission 收件人投递状态对账；可选 readiness 硬依赖；固定版本 Docker PoC 覆盖层与 bootstrap runbook；普通账号声明式 upsert、SMTP/IMAP/JMAP/非开放中继及两阶段重启持久性自动验收程序；V1 SMTP 继续用于回归 | 在真实 Stalwart 执行 PG/S3/重启/升级和普通账号互操作证据；真实队列 WebHook/DSN 演练、TLS、反垃圾、可靠投递队列 |
+| P4A 人类邮件体验 | 进行中 | 独立 React/TypeScript 邮件端与 Human-only 收件箱：浏览器只使用同源 BFF Session，不执行 Discovery/PKCE/Token 交换、不保存或发送 Provider Token；Admin/Mail 客户端与 Cookie 完全分区；Mail Session-only 的 `GET /api/v2/mailboxes` 在查询前拒绝 Admin Cookie 与 Bearer，并要求 Active Human、`mailbox.use`、current data-plane binding 和资源级 `Read(None)`；目录仅返回邮箱 UUID、kind、主地址与由 `Send(None)` 推导的 `can_send`，canonical Cursor 绑定仍可见锚点，`SendAs`-only 邮箱保持只读；可选 `mailboxId` 仅作初始偏好，桌面/移动端按 Human/Agent/Shared/Group 四类 `optgroup` 切换授权邮箱，切换到 Agent 后身份与请求精确绑定所选 UUID，切换时作废异步请求并清空搜索、列表、详情、选择与写信草稿；写信框明确显示不可编辑 From，只读邮箱禁用写信、回复、草稿和发送；实时 RBAC/Scope、邮箱 Read/Send ABAC、精确租户 JMAP Account 绑定及永久 Account 所有权；列表/搜索必须先解析唯一可读 `role=inbox`，每项只使用既有入站投影的安全 UUID，原始 JMAP Account/Email/Thread/Query State 不进入响应或 Cursor；POST 请求体内的隐私优先有界搜索，查询词不进入 URL、Cursor、审计或 Outbox，搜索 Cursor 绑定邮箱与查询摘要；信封及详情正文分别只有在最小化 Audit/Outbox 原子提交后才披露；详情只取有界 `text/plain`，不渲染 HTML、不暴露 Blob ID；Human 邮件响应统一 `no-store`，前端快速切换会中止并丢弃过期详情响应且状态更新不重复 GET 正文；搜索无命中使用专用空状态，详情 `503` 保留所选上下文并原位重试；应用固定文案使用类型安全的简中/英文词典，按持久化值、文档和浏览器语言确定 Locale，无刷新切换并同步 `<html lang>`，日期、数量和附件大小按 Locale 格式化；不超过 900 px 时使用单列列表—详情，打开后聚焦详情标题、返回恢复原邮件焦点，移动工具栏保留写信、语言和退出；写信对话框具备 Modal 语义、背景 `inert`、初始焦点、Tab 环绕、发送中禁止关闭和触发器焦点恢复；一次操作打开并标记已读、切换星标；内容、草稿与提交 OAuth 凭据物理隔离；写信请求不能选择 From，纯文本草稿严格串行自动保存；控制平面 Draft UUID、摘要和 CAS 隐藏远端 ID；本人 active 草稿目录只返回最小元数据，Shared Mailbox 不共享其他人的草稿；恢复前保护现有编辑并要求覆盖确认，恢复仅按 PG 证明的单 ID 读取，复核 Drafts/$draft/From/Thread 与内容证据；`409` 后刷新服务端最新 metadata 并只对该精确版本执行 CAS 重试，在最终授权/版本复核及 Audit+Outbox 提交后披露正文；本人已发送目录只列 durable accepted/sent 记录及可选投递聚合，并在最终 Read/Send/所有权/快照复核与 `mail.submissions.queried` Audit/Outbox 原子提交后披露；已提交入站投影提供安全回复 UUID，回复按钮不接受原始 Header/JMAP ID，服务端验证并生成 `In-Reply-To`/`References`；点击发送在首个异步等待前同步锁定快照，保存最新版本后以 Header-only Idempotency Key 冻结 Draft 并创建 durable Intent，可能出网后持续锁定且不静默复制 Draft；Worker 以已提交租约执行 Identity 唯一解析、EmailSubmission 查询优先对账、歧义人工复核及终态原子审计/Outbox；接受后继续读取精确 Submission 的收件人级状态，UI 区分服务端接受、排队、对端接收和永久失败；响应未知不会盲目重发；Human JMAP 关键词与 Agent Ack/Lease 状态严格隔离 | 真实 IdP 与公网延迟/退信/DSN 演练、附件、线程、孤儿草稿检测/受治理清理、共享协作编辑；更多 Admin/邮件工作流，真实触屏、屏幕阅读器、完整 WCAG 2.2 AA，以及真实依赖下的目录授权、租户隔离与后端 CAS 验收 |
 | P4B Agent Mail Platform | 进行中 | 自绑定邮箱处理订阅；入站事务 Fanout；所有权与有效期约束的 Claim/Lease/续租/Ack/Nack/五次死信工作流；幂等暂停/恢复/终态退役、暂停排空与活动 Lease 退役保护；订阅/真实锚点绑定、先审计后披露且不含原始错误的 Agent 自助死信查询；Header-only Idempotency 精确重放、冲突拒绝和不可变操作证据；Human 已读/星标、Webhook/Cursor 与 Agent processing 状态隔离；事务型 Outbox Worker；签名 Webhook 安全 adapter、Agent 所有权订阅治理、追加式投递账本、独立重试/死信检索、受控人工重放、订阅级 Cursor、有界 SSE、跨副本租户/Agent 一分钟 Ingress 请求窗口与 SSE 租约配额、稳定 `Retry-After`、独立无主体标签 Prometheus 指标与统一 AsyncAPI 信封；development Agent 可通过主体隔离 Draft、CAS、Send ABAC 和 durable Idempotency Submission 发送有界纯文本邮件；Testing Agent 正式投递在应用/数据库双层拒绝，只能原子冻结精确 Draft 并写入不可变非投递 Sandbox、Audit 与 Outbox；所有 Agent 外发由服务端写 RFC 3834 标记，自动来源回复默认拒绝，同主体精确重复正文具备独立 24 小时熔断；production Agent 通过不可变策略激活、最小收件证据、首次联系人审批、跨副本小时/单地址额度、同线程熔断、原子 Admission 和 Worker 租赁证据受控放行，并为策略、额度、熔断和审批拒绝提供不泄露地址的稳定机器错误码；主体绑定的自助 API 返回 Token/RBAC 有效权限、活动策略和数据库时钟下的小时汇总用量，不披露收件人/线程账本；真实 SMTP 入站 `message.received.v1` 生产边界；Feed Message UUID 精确映射、三 Scope 与 Read ABAC 约束、审计先于披露且不污染 Human 状态的有界纯文本正文读取；安全 UUID 绑定、服务端推导 RFC/JMAP 头且不可换绑的显式回复语义；精确 JMAP 投递状态外部事件与隔离的队列运维证据；按 V2 安全模型重写且含 Sandbox 的可分发 Agent Skill 与无依赖 CLI | 多语言 SDK、附件/HTML、公司实际额度签字、真实 Stalwart Header/双 Agent 回环及公网投递/退信验收 |
-| P5 管理、审计与治理 | 原型中 | 追加式审计模型；迁移管理的 83 类事件目录；Human-only `audit.read` 有界检索与查询自身 Fail Closed 审计；显式请求/策略/审批/Session 上下文；敏感数据拒绝；事务审计覆盖率门禁；租户级并发安全 SHA-256 哈希链；RSA 签名 Checkpoint、便携 Manifest、完全离线验签与经回读确认的 S3 Object Lock/WORM 双对象归档；可恢复且由 PostgreSQL 租户锁协调跨主机单活的定时维护 Worker；Prometheus 失败/时效指标与阈值就绪检查；稳定业务 Trace 贯穿审计、日志与对象 metadata，OTLP Span 进一步关联 HTTP Request ID、维护周期和 Checkpoint；案件绑定、双人审批、精确双版本回读和跨主机会话锁保护的审计归档 Legal Hold CLI、受认证管理 API、自审计有界分页读模型及 React 中英双语审计/合规管理工作流；审批请求人与执行人强绑定、双人审批且最长 15 分钟的不可变审计导出授权凭证；精确 S3 Version ID、长度和 SHA-256 回读校验，先落不可变下载账本再返回内容的审计证据下载 API 与 UI；不可变保留策略版本、Active Human 双人审批激活、单调版本前移、Legal Hold 优先语义及中英双语管理 UI；请求人/待办隔离、绑定筛选 Cursor、自审计读取、Active Human 决策和请求人取消的审批中心；角色目录、授权查询、精确双人审批授予、Owner 保护撤销与不可变证据账本；正式发送请求/接受/拒绝/人工复核、Human 邮箱信封/正文与本人草稿目录/正文读取/已发送目录、production Agent Admission、Testing Agent Sandbox、Human Session 与 Agent processing 全生命周期均进入受治理目录，状态与 Outbox 原子提交；禁止非法状态变更/更新/删除/截断触发器 | 邮件内容 Legal Hold、保留策略自动执行与精确处置证明、跨数据库选主、生产 Collector/Trace 告警与真实 IdP/Object Lock 故障演练及其余管理信息架构 |
-| P6 硬化、迁移与企业 Pilot | 进行中 | V1 E2E 回归继续通过；PostgreSQL 原生 custom-format 逻辑备份、自动生成隔离数据库恢复、迁移/审计/触发器/租户证据一致性比较与精确清理门禁；真实 `0050 → latest` Account 历史归属、direct-INSERT、触发器破坏与歧义回滚 CI 场景；Ubuntu/WSL 只读前置检查与部署手册；NixOS 开发/隔离测试节点边界；Ubuntu WSL Base Pilot 曾在 PostgreSQL 17 应用当时全部 51 份迁移并核对 80 类审计目录，API/Admin/Mail/MinIO 健康、端口仅回环、应用进程非 root，PostgreSQL/MinIO 持久化重启和 Worker 同容器自恢复通过；单主机 Pilot 资源/CPU/PID 上限、持久 SIGTERM 优雅关停、Worker 健康检查与有界 CI 重启验收已编码 | 在专用或明确隔离的 Linux Docker 环境实际应用至最新 Migration 0056、第二台机器 LAN 负向探测、PostgreSQL 17 同版本原生恢复、完整 ignored PostgreSQL/MinIO Object Lock 测试、企业 IdP/域名/邮件验收、migration rollback、负载/模糊/故障注入/渗透测试、旧邮件导入与 MX 灰度、容量和完整企业 Pilot 运维演练 |
+| P5 管理、审计与治理 | 原型中 | 追加式审计模型；迁移管理的 85 类事件目录；Human-only `audit.read` 有界检索与查询自身 Fail Closed 审计；显式请求/策略/审批/Session 上下文；敏感数据拒绝；事务审计覆盖率门禁；租户级并发安全 SHA-256 哈希链；RSA 签名 Checkpoint、便携 Manifest、完全离线验签与经回读确认的 S3 Object Lock/WORM 双对象归档；可恢复且由 PostgreSQL 租户锁协调跨主机单活的定时维护 Worker；Prometheus 失败/时效指标与阈值就绪检查；稳定业务 Trace 贯穿审计、日志与对象 metadata，OTLP Span 进一步关联 HTTP Request ID、维护周期和 Checkpoint；案件绑定、双人审批、精确双版本回读和跨主机会话锁保护的审计归档 Legal Hold CLI、受认证管理 API、自审计有界分页读模型及 React 中英双语审计/合规管理工作流；审批请求人与执行人强绑定、双人审批且最长 15 分钟的不可变审计导出授权凭证；精确 S3 Version ID、长度和 SHA-256 回读校验，先落不可变下载账本再返回内容的审计证据下载 API 与 UI；不可变保留策略版本、Active Human 双人审批激活、单调版本前移、Legal Hold 优先语义及中英双语管理 UI；请求人/待办隔离、绑定筛选 Cursor、自审计读取、Active Human 决策和请求人取消的审批中心；角色目录、授权查询、精确双人审批授予、Owner 保护撤销与不可变证据账本；Human-only `identity.manage` Agent Inspector 以最终 Active Human 复核、同事务审计/Outbox 返回受控身份、Owner、Token 交集和邮件控制面快照；管理端已提供显式 UUID、无预取/轮询、无静态假状态的双语检视面，并把 404 原因统一隐藏；可丢弃 PostgreSQL CI 以真实 Admin BFF Session Cookie 覆盖 Human Bearer 拒绝、Agent machine 拒绝、RBAC、租户不可见与审计写入；不暴露运行时、凭据或邮件数据；Human-only `identity.manage` + `audit.read` 的精确 Agent/submission 双 UUID 发件证据读取只披露脱敏准入/批准、可选最新投递聚合和最小审计引用，统一隐藏 `404` 原因并原子写入读取审计；正式发送请求/接受/拒绝/人工复核、Human 邮箱信封/正文与本人草稿目录/正文读取/已发送目录、production Agent Admission、Testing Agent Sandbox、Human Session 与 Agent processing 全生命周期均进入受治理目录，状态与 Outbox 原子提交；禁止非法状态变更/更新/删除/截断触发器 | 邮件内容 Legal Hold、保留策略自动执行与精确处置证明、跨数据库选主、生产 Collector/Trace 告警与真实 IdP/Object Lock 故障演练、Service wire kind 身份模型及其余管理信息架构 |
+| P6 硬化、迁移与企业 Pilot | 进行中 | V1 E2E 回归继续通过；PostgreSQL 原生 custom-format 逻辑备份、自动生成隔离数据库恢复、迁移/审计/触发器/租户证据一致性比较与精确清理门禁；真实 `0050 → latest` Account 历史归属、direct-INSERT、触发器破坏与歧义回滚 CI 场景；Ubuntu/WSL 只读前置检查与部署手册；NixOS 开发/隔离测试节点边界；Ubuntu WSL Base Pilot 曾在 PostgreSQL 17 应用当时全部 51 份迁移并核对 80 类审计目录，API/Admin/Mail/MinIO 健康、端口仅回环、应用进程非 root，PostgreSQL/MinIO 持久化重启和 Worker 同容器自恢复通过；单主机 Pilot 资源/CPU/PID 上限、持久 SIGTERM 优雅关停、Worker 健康检查与有界 CI 重启验收已编码 | 在专用或明确隔离的 Linux Docker 环境实际应用至最新 Migration 0058、第二台机器 LAN 负向探测、PostgreSQL 17 同版本原生恢复、完整 ignored PostgreSQL/MinIO Object Lock 测试、企业 IdP/域名/邮件验收、migration rollback、负载/模糊/故障注入/渗透测试、旧邮件导入与 MX 灰度、容量和完整企业 Pilot 运维演练 |
 | P7 GA 发布 | 未开始 | 根 README 语言入口、独立中英文完整 README、贡献/安全/变更文档、Apache-2.0 LICENSE 与 CI 文档治理门禁（仅为 GA 文档基础，不代表 GA 放行） | HA 部署验证、版本升级/回滚、SBOM、镜像签名与来源证明、正式发布说明、培训、文档站、安装/故障/回滚演练和放行签字 |
+
+> **D4A/D4B/D4C/D4D/D4E 响应式现行口径**：P4A 阶段清单中较早的“≤900px”描述仅保留为前序切片记录；
+> 当前源码与回归基线以 ≤1007px 的显式列表—详情栈为准。关闭态 Scope 摘要保留地址、
+> 身份和可发送性，邮箱/语言/退出通过原生披露进入，不能再以旧移动工具栏描述替代。
+> Drafts/Sent 在宽屏也只保持 metadata-only 宽列表，不补空 Reading；窄屏继续保持目录，
+> Draft 保留既有恢复，Sent 始终不可交互。D4E 仅在登录入口以 ≥901px 的双栏主视觉、≤900px
+> 的单列规则补齐准入状态，不改变已认证工作台的 ≤1007px 栈式断点。
 
 ## 本轮已落地
 
+- 接通请求级认证代次围栏（authentication fencing）：`authenticate_api_request` 将
+  `AuthenticatedIdentity.authentication` 合并进 `AuthorizationContext`；全部请求级写路径
+  （约 50 处，含 SCIM 写路径由 `ScimCredential` 合成 `ScimToken` 绑定上下文）改用
+  `store.begin_authorized(&context)`；`PgControlPlaneTransaction` 实现
+  `bind_request_authentication`，在事务 BEGIN 后对 `human_browser_sessions`、
+  `scim_tokens`、`credentials`（限 `private_key_jwt`/`mtls`）凭据行 `FOR UPDATE`
+  加锁并校验归属/活跃/未撤销/未过期，`tx_commit` 在提交前按数据库时钟复查撤销事实
+  （含追加式会话撤销表）与过期，失效即回滚返回 `StoreError::AuthenticationInvalid`；
+  HTTP 层将其独立映射为 401 `authentication_invalid`。受信本地路径（bootstrap、
+  owner 绑定、SCIM token 签发/吊销 CLI、登录/登出、投递 reconcile 与归档/检查点
+  worker、submission 执行 lease）继续保留 `begin()`。新增 5 个 disposable-PG
+  集成场景（会话提交期撤销竞态、Agent 凭据撤销与过期、SCIM token 撤销、Bearer
+  提交期过期、无 binding 兼容）已随整套 `postgres_integration.rs`（38 场景）在
+  disposable PostgreSQL 17 显式执行、38/38 通过；单元级内存
+  adapter 的默认契约不变（`authentication=None` 放行、带 binding fail-closed）。
+  门禁：fmt/check/clippy（零警告）/workspace 测试 381 通过 0 失败 43 ignored。
+- 完成 V2 设计 D1/D3 的首个可交付切片：共享设计系统统一本地优先的中英文字体、暖白/石墨/
+  jade 语义令牌、间距、层级、44px 触点、动效和焦点双环；Admin Overview 不再使用同权 KPI
+  卡，而是仅由 `listCases({ status: "open", limit: 100 })` 与
+  `listHolds({ status: "active", limit: 100 })` 的已有受审计读取得出一个 fail-closed 的下一步。
+  Cases 非空时只能进入 Cases，Cases 已确认为空且 Holds 非空时才进入 Holds，双空时没有 CTA，
+  任何加载/拒绝/错误都保留“尚不能确认”而非伪造零。该实现没有增加 API、预取、轮询或敏感
+  资源 URL；主 CTA 后焦点移到主工作区并播报新页面。≥1280px 使用完整文字 rail，
+  1024–1279px 使用具名 44px 展开控件和完整抽屉，≤1023px 使用当前页标题与抽屉；窄屏的
+  语言和退出控制仍可达。逐组人工审图后，94 条本地 Playwright 通过；这不表示其它管理页已
+  完成同一信息架构，也不表示任何部署或真实依赖已验证。
+- 完成 V2 设计 D4A 的第一个 Human Mail Shell 切片：新增的结构壳只编排既有桌面导航、
+  移动工具栏、内容和 Overlay，不搬迁请求、认证、快捷键、焦点、Abort/代际隔离、草稿 CAS
+  或未知提交冻结的控制语义。≥1084px 为 224px Scope rail、328–400px Queue 和至少 520px
+  Reading；1008–1083px 保留 160px 文字 rail 与 328px Queue；≤1007px 切换为显式列表—详情栈。
+  关闭的移动 Scope 摘要仍展示实际邮箱地址、IdentityBadge 文字和服务端 `can_send` 派生状态，
+  邮箱切换、语言和文字“退出”在原生 `details` 展开后可用。Compose 的唯一提交状态移到
+   footer，紧邻发送或确认同一提交动作。该切片未增加 API、权限、读取、预取、缓存、URL/存储
+   或轮询，且不伪造 Agent Owner、在线、运行、策略或投递状态；只完成 D4A，不表示 D4 全部完成。
+- 完成 V2 设计 D4B 的 Queue/Reading 纯呈现切片：Queue 的发件人、时间、主题、预览、未读、
+  星标和附件标记均严格来自当前页 `MessageSummary`；Reading 在详情加载/失败时只保留已选消息
+  的真实摘要，详情成功后才显示 To、条件 Cc、正文、附件元数据和既有回复关系。星标与服务器授权
+  的回复仍是唯一既有操作，未添加下载、转发、归档、删除、风险或 Agent 面板。详情见
+  [`DESIGN_D4B_QUEUE_READING_MAPPING.zh-CN.md`](DESIGN_D4B_QUEUE_READING_MAPPING.zh-CN.md)。
+- 完成 V2 设计 D4C 的 Drafts/Sent 纯呈现切片：Draft 行只显示新邮件/回复类型、收件人数、
+  更新时间与原有恢复动作；Sent 行只显示已接受发送、接受时间、收件人数及真实聚合投递状态，
+  无详情、UUID、地址、正文、Provider/SMTP 或行内操作。Compose footer 的既有未知/人工复核
+  状态改为可换行且不裁剪；恢复确认、CAS、全目录冻结、未知提交冻结和精确对账不变。详情见
+  [`DESIGN_D4C_DRAFTS_SENT_MAPPING.zh-CN.md`](DESIGN_D4C_DRAFTS_SENT_MAPPING.zh-CN.md)。
+- 完成 V2 设计 D4D 的 Compose / Submission Evidence 纯呈现切片：写信 ContextBar 仅保留发件范围
+  与身份两个 definition-list facts；同一服务端 `can_send` 状态移到标题旁 status 槽，保留原文本、
+  图标、`data-sendable` 和 tone，并非 `aria-live`。最小 Submission Evidence 已抽成 display-only
+  组件，继续默认收起且只呈现已有窄投影；`manual_review` 插画仍只在展开真实状态时出现。Draft
+  CAS、自动保存、幂等、unknown freeze/reconcile、manual review lock、session/mailbox/focus
+  边界不变。详情见 [`DESIGN_D4D_COMPOSE_MAPPING.zh-CN.md`](DESIGN_D4D_COMPOSE_MAPPING.zh-CN.md)。
+- 完成 V2 设计 D4E 的 Access / Session Trust Gate 纯呈现切片：`MailAccessSurface` 将登录入口与
+  已认证目录准入分开，Hero 只保留给登录；`SessionVerificationNotice` 在会话复核中以单一可见
+  status 提示，在失败时以可聚焦、非模态 alert 呈现已有重试/退出。认证、Cookie、目录分页、
+  `sessionLocked`、`inert` / `aria-busy`、焦点恢复和无活动邮箱时不读取 Mail 资源的行为均未改变；
+  未新增 API、权限、URL、存储、缓存、轮询、预取或生产素材。详情见
+  [`DESIGN_D4E_ACCESS_SESSION_MAPPING.zh-CN.md`](DESIGN_D4E_ACCESS_SESSION_MAPPING.zh-CN.md)。
+- 接入 P3 的 Human-only 精确 Agent production 发件证据读取：调用方必须显式给出同一租户
+  Agent UUID 与 submission UUID，并同时具备 Active Human、`identity.manage` 与 `audit.read`
+  （受限 bearer 也需两个 scope）。HTTP 为精确读取语义的 `POST`，而非无副作用 GET：成功
+  观测会原子追加 High `agent.mail_submission_evidence.queried` Audit/Outbox，Admin Cookie
+  因而走既有 Origin/CSRF guard，不能预取、轮询或自动重放。Application 在读取和提交前
+  复核资格；PostgreSQL 按来源权威时间重新核对策略激活批准与可选首次联系人批准，迟到的
+  批准不能倒灌历史。请求/准入/终态审计分别绑定提交创建、准入和精确终态动作；初始
+  pending intent 的 `updated_at` 不是较晚 `admitted_at` 的上界，内部 `accepted_at` 仅用于
+  将可选投递聚合绑定在接受之后。HTTP/契约只返回提交状态/时间、脱敏准入/批准、可选最新
+  不可变投递聚合和最小审计引用；读取 Audit/Outbox 以同一服务端 `observed_at` 绑定这些
+  最小返回事实。缺失、跨租户、非 Agent、双 ID 不匹配及非 production 准入统一为 `404`，
+  完整性异常为 `503`。它不暴露或推断运行状态、执行/委托、邮箱、收件人、SMTP/提供方、
+  正文或投递成功。管理端设计只在当前 Agent Inspector 快照成功后接受第二个 UUID，证据
+  默认收起；当前条目仅记录代码/契约收敛，完整 Rust、前端及真实 PostgreSQL 验收仍按本轮
+  门禁结果更新。
+- 完成 P2 设计切片的源码收敛与前端全量回归：Audit 采用“查询上下文 → 结果队列
+  → 事实详情 → 默认收起证据”的调查流，导出授权保持独立、默认关闭的高风险门；Agent Inspector
+  只接受显式 UUID 的精确受控快照，不建立目录、轮询或运行大屏；Cases/Holds 仅按 DTO 已返回的
+  `case_id` 作精确详情深链；Roles/Retention 将决策、确认和默认收起证据拆开，并为无到期时间、
+  未配置留存天数等 nullable 事实提供明确文案。上述页面不展示虚构关联、占位数据或无契约动作，
+  Human 与 Agent 的操作边界保持分离。
+- P2 前端产物的最近测量为 Admin 首屏 JavaScript 317,699 B（gzip 97,134 B）、完整图谱
+  JavaScript 459,423 B、CSS 48,927 B。完整图谱 JavaScript 的门禁仅为 Admin 明确设置
+  460 KiB，Mail 保持 420 KiB；首屏与 CSS 预算未放宽，也不通过外移翻译或业务数据规避体积
+  约束。该项是源码/构建产物测量，不表示镜像已构建、容器已启动或目标宿主机已部署。
+
+- 完成自定义邮件域名的管理端工作台与交互边界：管理员以列表—详情注册域名；服务端签发的
+  ownership token 仅在本次成功对话框内显示，关闭、导航或认证上下文重建即从内存清除，绝不进入
+  URL、浏览器历史、持久化存储、Toast 或审计展示。DNS 验证、`verified` 后的显式激活、暂停、
+  路由 `route_version` CAS 及 `not_projected/pending/ready/failed` 引擎投影事实均单独呈现；
+  `active` 不被表述为已可收发邮件。网络、`5xx` 或无效 `2xx` 造成结果未知时冻结该域名全部
+  写操作；已有 domain ID 时只保留该 ID 的 GET 详情对账，注册未返回 ID 时不以列表猜测结果，
+  也不自动重放。该项仅记录源码与本地验证范围，不代表 Docker、
+  NixOS 或生产环境已部署、已迁移或已完成真实域名收发验收。
+- 完成共享身份与状态视觉基础：`IdentityBadge` 为 Human、Agent、Shared、Group、System
+  及持久化 Service 主体提供原创 SVG、身份形状和必填的本地化可见文字；Service 使用独立
+  `service` 身份种类，虽复用受边界系统核心图形，文本仍严格保持 `Service`/`服务`。角色
+  分配、审计列表/详情和 Agent Inspector 已复用该标识；`StatusIndicator` 只呈现 API 事实，
+  始终同时显示图形、形状/色调与文字，不据此推断运行、投递、权限或审批状态。邮件端在
+  不超过 1007px 时将主要交互控件的目标提高至至少 44×44px，且不依赖指针类型；桌面紧凑
+  密度保持不变。
+- 完成扩展后的真实浏览器设计回归：Playwright 在仅监听回环地址的 Admin/Mail Vite Preview
+  上使用本地、精确 DTO 的 BFF 夹具；浏览器禁用 Service Worker，只允许当前回环 Origin，
+  未声明的 `/api/**` 或外部网络请求直接使测试失败，不会访问 IdP、数据库、邮件引擎、CDN
+  或公司 API。109 个 Chromium 测试与 103 张 Windows PNG 基线（Admin 40、Mail 63）覆盖双语
+  五档布局、关键列表—详情、审批/案件/Hold/审计/域名工作流、邮件目录/草稿/已发送/人工复核
+  状态、D4A 的 1084/1083/1008/1007px 几何断点、D4B 的 Queue 1440/1008/390px 扫描、
+  768px Scope 披露、Reading 元数据→动作→正文顺序与 `j`/`k` 不读取详情/不更新状态、D4C 的
+  Drafts/Sent 1440/1008/390px metadata-only 目录、无横向溢出/无详情读取或状态写入；D4D 的
+  Compose 1440/1008/390px 双 facts + 静态 status 槽、1008px unknown、manual-review 展开证据与
+  restored draft 三档截图；D4E 的英文/简体中文登录、目录为空、目录暂不可用及会话复核失败各在
+  1440/901/390px 的 15 张截图；两处 Axe 与 Compose unknown/manual-review 完整状态、D4E 的 Axe；以及窄屏焦点往返、
+  390px 触点和严格像素比较；Admin、
+  Mail 的代表性关键界面执行严格 Axe A/AA 扫描，但该扫描不代表完整 WCAG 2.2 AA 验收。
+  Linux CI 独立执行 TypeScript、Vitest 和生产构建，Windows CI 执行固定 Chromium 像素比较
+  与失败诊断上传。这些同源夹具不证明真实 RBAC、租户隔离、后端 CAS/幂等、企业 IdP、
+  邮件发送或其他生产依赖，也不等同跨操作系统像素基线、真实触屏或屏幕阅读器验收。
+- 完成共享 Dialog 与管理端真实性收敛：`Dialog`/`ConfirmDialog` 统一 Portal、`aria-modal`、
+  背景 `inert`、Tab 环绕、busy 锁和安全焦点恢复；Backdrop 关闭要求指针按下、抬起和点击
+  均发生在背景，拖动从 Dialog 移出不会误关。Admin Session 会在到期、窗口重新获得焦点和
+  受保护请求 `401` 时重验，刷新期间锁定当前界面；认证工作区以主体、租户和到期上下文为
+  key，身份切换会清除上一操作者证据。Cases/Holds 的终态账本和已提交证据跨页面导航保留；
+  列表、详情与写响应严格校验 DTO、租户、资源 ID、过滤器和分页锚点。未知网络结果、`5xx`
+  或无效 `2xx` 只允许通过精确详情/列表回读证明提交结果；无法证明时冻结请求并只开放原参数
+  重试。五个重型管理路由采用可重建 lazy 包装和安全恢复边界，Chunk 加载失败可原位重试或
+  刷新页面，不向操作者暴露原始异常。生产代码不使用原生 `alert`/`confirm`/`prompt`。
+- 完成人类邮件端证据收敛：Draft 与 Sent 只呈现服务端真实目录、精确版本/投递聚合和可恢复
+  状态；`manual_review` 作为服务端终态，同时在当前浏览器运行期形成“需要人工处理”的证据锁。
+  关闭写信窗口只隐藏该证据，再次打开会恢复精确收件人、主题、正文和 Submission UUID，且在
+  解除前阻止邮箱切换、回复、草稿恢复和重复提交。Image2 人工复核插画只绑定真实
+  `manual_review` 状态，不用于普通发送失败、空状态或装饰性占位。
+- 完成前端交付门禁收敛：合并及单应用 Bundle 检查覆盖 initial/total JS、CSS 的 raw/gzip
+  预算，把 `modulepreload` 计入首屏图，并通过 13 个负向 fixture 拒绝 source map 文件、
+  JS/CSS 内联映射、缺失入口/静态依赖和超预算产物；Image2 WebP/AVIF 分别执行上下文图
+  120 KiB、Hero 300 KiB 上限。Admin/Mail Docker Builder 在生产构建后执行对应门禁。
+  Nginx 配置对成功 `/assets/` 响应设置一年 immutable，对入口和错误响应设置 `no-store`；
+  资产缺失精确返回 `404`，不会回退 SPA。Compose/Nginx 结构由静态安全门禁及负向自测覆盖；
+  本机没有可用 Docker/Nginx 可执行文件，因此尚未真实构建镜像或执行 `nginx -t`，NixOS
+  仍未部署；这些静态门禁不能替代目标主机上的运行态验收。
+  生产宿主机也未启动容器、执行 migration、写入 Secret 或变更任何端口/服务。
+- 完成 Agent Inspector 管理端与认证态收口：新增原创导航/身份/状态图标、严格 TypeScript
+  响应类型与同源 `cache: no-store` 客户端；界面仅在 Human 管理员明确提交单个规范 UUID 或
+  点击刷新时读取快照，不建立目录、轮询、浏览器缓存或静态 Agent 卡。结果只呈现受控的身份、
+  Owner、Profile、Token/RBAC 交集、邮件控制面和观测时间；404 原因统一隐藏，响应代次隔离
+  迟到结果，null 时间具有语义化“无记录”表达。不可重试的 403/404 不显示死重试控件，刷新
+  保留已确认快照和键盘焦点并以 `aria-live` 通知完成，UUID 本地错误已关联输入框。可丢弃
+  PostgreSQL CI 的真实 Router 夹具以 Admin BFF Session Cookie 覆盖 Human Bearer 拒绝、Agent
+  machine 拒绝、RBAC、跨租户/缺失目标同构 404、安全响应头及成功读取审计；本机未对任何
+  数据库执行该忽略测试。Service wire kind 尚未建模，未被混称为 Agent 验收。
 - 完成根级多语言与协作治理文档：`README.md` 只承担简洁语言/项目入口，
   `README.zh-CN.md` 与 `README.en.md` 分别保留完整中文和英文说明；新增
   `CONTRIBUTING.md`、`SECURITY.md`、`CHANGELOG.md` 以及与 Cargo 元数据一致的完整
@@ -77,15 +290,19 @@
   0053 明确采用停写升级：停止旧 API/Worker、备份、迁移后原子切换全部新二进制，不支持
   旧新版本并跑或滚动升级。当前仍只有 Stalwart v0.16 adapter；Migration 0001→0053
   与针对数据平面身份、Origin、Domain、Outbox 的直接 SQL 不变量验证已在 disposable
-  PostgreSQL 17 实际执行，
-  完整 ignored PostgreSQL 套件和目标 Pilot 升级不由该证据代替。
+  PostgreSQL 17 实际执行；`postgres_integration.rs` 全部 38 个 ignored 场景
+  亦已在本轮 disposable PostgreSQL 17 中显式执行通过。
+  目标 Pilot 升级与 MinIO/控制层 HTTP 场景不由该证据代替。
 - 完成 P4A-01 双语、响应式和可访问性基础切片：应用固定文案收口到类型安全且插值
   参数一致的简体中文/英语词典，Locale 按持久化值、文档语言、浏览器语言顺序选择，
   支持不刷新切换并同步 `<html lang>`，日期、数量和附件大小按 Locale 格式化。
-  不超过 900 px 时切换为焦点可往返的单列列表—详情，移动工具栏保留写信、语言和退出；
+  当前 D4A 在不超过 1007px 时切换为焦点可往返的单列列表—详情；移动工具栏保留写信和
+  Command Palette，邮箱/语言/退出进入关闭态仍可辨识当前范围的原生 Scope 披露；
   写信窗口具备 Modal 语义、背景精确 `inert`/`aria-hidden` 隔离、初始焦点、Tab 环绕、
-  发送中禁止关闭和触发器焦点恢复。当前证据为 Vitest/jsdom 组件测试，尚未执行真实
-  浏览器、触屏、屏幕阅读器、axe 或 WCAG 2.2 AA 验收。
+  发送中禁止关闭和触发器焦点恢复。当前真实 Chromium 固定夹具证据覆盖 Mail 五档
+  列表—详情、简体中文五档、完整首批键盘路径和 390px 实际 44×44px 几何，并对默认
+  收件箱执行代表性严格 Axe A/AA 自动扫描；真实触屏、屏幕阅读器、中文全部状态及完整
+  WCAG 2.2 AA 仍未验收。
 - 完成 P4A 授权邮箱目录与 Shared Mailbox 切换切片：新增 Mail Session-only
   `GET /api/v2/mailboxes`，在访问目录存储前拒绝 Admin Cookie、Bearer 与缺少 Mail
   Session 的请求，并在用例和 PostgreSQL 一致性快照内复核 Active Human、实时
@@ -95,7 +312,11 @@
   `SendAs`-only 不会获得写入能力。部署 `mailboxId` 降为不可扩权的初始偏好；桌面与移动
   邮件端可切换授权邮箱，并同步作废收件箱/详情请求、清空搜索、列表、详情、选择及写信
   草稿。写信窗口显示只读 From；`can_send=false` 时禁用写信、回复、自动保存和正式发送。
-  当前自动化证据仍为 Rust/契约与 Vitest/jsdom 测试，不代表真实浏览器或 WCAG 验收。
+  目录、Shared Mailbox 切换与资源授权安全边界的自动化证据仍主要来自 Rust/契约和
+  Vitest/jsdom；当前 Playwright 证明 Human/Agent/Shared/Group 四类固定目录分组、Agent
+  切换后可见身份与收件箱请求绑定所选 UUID，也证明一个服务端 `can_send=false` 的只读
+  Shared 固定夹具在桌面/移动布局中关闭全部发送路径，但不证明真实目录服务、RBAC/租户
+  隔离、后端授权或完整 WCAG 验收。
 - 完成 P4A 本人私有草稿目录与精确恢复切片：目录只查询 PostgreSQL 中调用人创建的
   active Draft，Shared Mailbox 成员不能读取彼此草稿，列表只披露 UUID、版本、回复
   UUID、收件人数和时间，并使用 active/owned/current-binding 的 canonical Cursor
@@ -140,7 +361,9 @@
   门禁扩展为真实 `0050 → latest` 历史回填、跨租户/跨邮箱拒绝、孤立 INSERT 回滚、
   正常首次绑定/轮换、触发器破坏、coverage 缺口及冲突回滚。新增 0052 与 0053 已随
   0001→0053 完整迁移链在 disposable PostgreSQL 17 执行，并完成数据平面直接 SQL
-  不变量验证；完整 ignored PostgreSQL 套件仍需单独验收。此前还修正
+  不变量验证；`postgres_integration.rs` 全部 38 个 ignored 场景本轮已在
+  disposable PostgreSQL 17 显式执行通过（剩余 MinIO 4 场景与控制层 1 场景
+  未执行）。此前还修正
   0040/0043/0044/0045 的审计目录列名，避免全新安装在迁移阶段失败。
 - Human Mail API 与前端移除 JMAP Thread/Query State 及原始 Provider 标识，Cursor
   只绑定邮箱、位置和可选查询摘要；全部 Human 邮件响应使用 `no-store` 与
@@ -473,34 +696,40 @@
 
 ## 已验证
 
+下表中的“通过”均保留各自执行时的证据。P2 的 390 条 Vitest、82 条 Chromium 与 66 张
+Windows PNG 是历史合并基线；D1/D3/D4A/D4B/D4C/D4D/D4E 的当前本地 Web 回归为 411 条 Vitest、109 条
+Chromium 与 103 张 PNG。环境依赖集成项仍按 ignored/实际执行状态分别解释。
+
 | 验证项 | 结果 |
 |---|---|
 | `cargo fmt --all --check` | 通过 |
 | `cargo check` | V1 根包、V2 workspace 与最终控制平面依赖组合分拆检查通过 |
 | `python scripts/check_architecture.py --self-test` | 通过；Domain、Audit、Application 三个权威 package-id 根均按分层允许集检查解析后的 all-features 完整依赖图，覆盖根 dev/全部 target、workspace 别名、非 workspace 中转和后续 build 边；Mail Engine 全 Rust 源码 corpus 只能恰好一次私有导入 Application ports，并拒绝子模块重导出、名称遮蔽、raw identifier 与 `extern crate` alias 反例 |
 | `python scripts/check_web_i18n.py --self-test` | 通过；保留全生产 TS/TSX Han 字符所有权检查，并用仓库锁定的 TypeScript AST 拒绝 JSX 文本、字符串表达式及常见可见/无障碍属性绕过简中/英文类型化词典；英文、条件、模板与属性反例自测通过 |
-| Rust 单元/协议测试 | `cargo test --workspace --locked` 实际运行 304 个非忽略测试并全部通过，0 个失败；其中 Application 102 个、Control Plane 54 个、Domain 43 个、Mail Engine 35 个、Contracts 16 个。新增覆盖本人已发送目录的私有所有权、canonical Cursor、投递聚合、最终授权/快照重验与最小 Audit/Outbox 证据，并继续覆盖本人私有草稿目录、当页 UUID/active 版本一致性、精确单 ID Draft 恢复、Provider 内容完整性、稳定数据平面身份、legacy/v2 指纹兼容、来源亲和、routed Outbox、唯一可读 Inbox、信封/正文审计先于披露、UUID 回复、OIDC BFF、Agent 邮件、角色审批、邮件投递、域名、审计归档/导出/Legal Hold、保留策略、OTLP、SCIM 与 Webhook 安全边界；Windows 使用 `CARGO_PROFILE_TEST_DEBUG=0` 生成并运行测试二进制 |
-| 需外部服务的集成测试 | 全工作区命令报告 33 个 ignored 场景：29 个 PostgreSQL 场景（包括授权邮箱目录、本人私有草稿和本人已发送目录的绑定、Read/Send、SendAs-only、所有权、active/version、Cursor、投递聚合、最终授权数据库时钟及 Audit/Outbox 原子披露；以及 Human Message UUID 当前绑定/租户/顺序投影、Account 跨租户重绑、所有权账本、Human Session、Testing Agent Sandbox、Agent 入站/Processing/生产准入、Outbox、草稿/Submission/投递、邮件事件、角色治理、审计导出及保留策略）与 4 个 MinIO Object Lock 场景均成功编译但未由该命令自动执行。当前版本另在每次重建的独立 disposable PostgreSQL 15 数据库中精确执行 7 个既有关键场景：schema readiness、Domain 生命周期、Human 当前绑定/所有权、Outbox 租约恢复、入站重放、草稿/Submission/投递及时钟偏差，以及生产 Agent 准入；均通过。本轮 Human 邮箱、草稿及已发送目录场景因本机无可用 PostgreSQL，均只完成编译，仍待 CI 或干净 disposable 数据库实跑。Migration 0001→0053 与数据平面直接 SQL 不变量另有 disposable PostgreSQL 17 实跑证据；不能据此宣称其余 ignored 场景、0054—0056 或 MinIO Object Lock 已执行 |
+| Rust 单元/协议测试 | `cargo test --workspace --locked` 实际运行 381 个非忽略测试并全部通过，0 个失败（Application 155、Control Plane 60、Domain 43、Mail Engine 35、Contracts 17 等）。覆盖 Agent Inspector、审计导出精确对象回读、本人已发送目录的私有所有权、canonical Cursor、投递聚合、最终授权/快照重验与最小 Audit/Outbox 证据；既有草稿、数据平面身份、OIDC BFF、Agent 邮件、角色审批、域名、审计归档/Legal Hold、保留策略、OTLP、SCIM 与 Webhook 安全边界继续通过。 |
+| 需外部服务的集成测试 | 全工作区命令报告 43 个 ignored 场景：35 个 PostgreSQL adapter 集成场景（含 5 个本轮新增的请求级认证围栏场景：会话提交期撤销竞态、Agent 凭据撤销与过期、SCIM token 撤销、Bearer 提交期过期、无 binding 兼容；以及授权邮箱目录、本人私有草稿和本人已发送目录的绑定、Read/Send、SendAs-only、所有权、active/version、Cursor、投递聚合、最终授权数据库时钟及 Audit/Outbox 原子披露；以及 Human Message UUID 当前绑定/租户/顺序投影、Account 跨租户重绑、所有权账本、Human Session、Testing Agent Sandbox、Agent 入站/Processing/生产准入、Outbox、草稿/Submission/投递、邮件事件、角色治理、审计导出及保留策略）、1 个控制层真实 Admin BFF Session Cookie Agent Inspector HTTP 场景，以及 4 个 MinIO Object Lock 场景；均成功编译但未由该命令自动执行。**本轮已在本机 disposable PostgreSQL 17（host-network 容器，隔离重建 `copilotmail_test_*` 库）中显式执行 `postgres_integration.rs` 全部 38 个 ignored 场景并 38/38 通过**，覆盖：schema readiness、Domain 生命周期、Human 当前绑定/所有权、Outbox 租约恢复、入站重放、草稿/Submission/投递及时钟偏差、生产 Agent 准入、Human 邮箱/草稿/已发送目录绑定、SCIM 供给/回收、角色治理、审批双人、合规案件/法制保留、审计搜索/链完整性/签名 Checkpoint/导出、Webhook 死信台账、邮箱委托、Agent Inspector/沙箱，以及 5 个新增认证围栏竞态场景；执行过程暴露并修复 2 个真实缺陷（跨时钟域 `is_active` 判定改用 DB 时钟端口、SCIM revoke 审计 `Value::Null` 违反结构化 details 约束）。仍不能据此宣称 4 个 MinIO Object Lock 场景、1 个控制层 HTTP 场景、0054—0058 迁移目标环境或 MinIO/真实部署已执行 |
 | `cargo clippy -- -D warnings` | 平台、应用、PostgreSQL、Object Store 与控制平面目标通过 |
-| `python scripts/check_audit_governance.py` | 通过；83 个领域/数据库/生产者事件一致，事务覆盖检查通过 |
-| `cargo test -p copilotmail-control` | 54 个测试本机全部通过；新增 `/submissions` 的 GET/HEAD/POST 在认证前拒绝畸形路径、GET 目录不允许隐式 HEAD 审计副作用的回归，以及仅对固定 legacy-primary UUID 选择兼容指纹、其他数据平面选择 v2 的回归、Ctrl+C/SIGTERM 选择、常驻循环持久监听与工作分支先完成后的取消窗口覆盖；Human Session 未配置时存储前 Fail Closed、双客户端 Cookie/路由分区、Cookie 与 Authorization 歧义拒绝、Cookie 属性、PKCE 密文状态绑定、登录 429、回调 Cookie 自愈和认证响应禁止缓存/Referrer 泄漏；既有 Agent、角色、审批、草稿/发送、审计、合规、原生 TLS、邮件事件、OAuth/JWKS、请求 ID、签名 Key 与 Webhook 边界继续通过 |
-| Web `npm run check/test/build` 与依赖审计 | 管理端和邮件端 TypeScript 严格检查通过；Vitest 实际重跑共 125 个测试（Admin 18、Mail 107）通过。Mail App 当前 11 个测试文件覆盖类型化双语词典、Locale、授权邮箱目录、本人私有草稿列表/分页/精确恢复、本人已发送列表/分页/投递聚合、恢复覆盖确认与焦点、只读 Shared Mailbox、明确 From、写信对话框可访问性、严格 Draft/Submission/Delivery 响应解析，以及邮箱/视图/写信会话切换时全链路迟到响应隔离；未知提交状态不能由新建、回复、恢复或邮箱切换清除冻结快照和幂等上下文。既有 Human 安全 UUID 收件箱、Provider 字段拒绝、`no-store`、搜索与提交契约继续通过。两个 Vite 生产构建通过；显式 `npm audit --audit-level=moderate` 为 0。企业 IdP 登录、邮件正式发送、移动端/键盘/屏幕阅读器和 WCAG 2.2 AA 仍待真实浏览器 E2E/验收 |
-| OpenAPI / AsyncAPI / Compose | V2 契约、CI、Compose 与观测配置 YAML 均可解析；OpenAPI v2 包含 82 条路径、98 个唯一 Operation ID；Admin/Mail Session 与 Logout 使用四条字面量路径和各自 Cookie Scheme，登录声明数据库准入 `429 + Retry-After`，审计制品下载为写证据的 POST；邮箱绑定请求不再接受 vendor/source、响应返回 UUID `data_plane_id`；新增 Mail Session-only 授权邮箱目录、本人私有草稿列表/精确恢复与本人已发送/投递状态目录（`HEAD` 显式认证后拒绝）；Human 邮箱搜索、Testing Agent Sandbox、Agent 自助策略/Processing/正文读取、角色/授权、Human 正式提交/审批/保留/合规/审计及邮件事件契约继续保持租户、客户端和内容权限分离 |
+| `python scripts/check_audit_governance.py` | 通过；P3 的 0058 目录登记已与领域和生产者对齐，85 个领域/数据库/生产者事件一致，事务覆盖检查通过。其余 Rust、管理端与真实 PostgreSQL 验收仍按各自本轮门禁结果更新。 |
+| `cargo test -p copilotmail-control` | 60 个非忽略测试本机全部通过，另有 1 个需 disposable PostgreSQL 的 Agent Inspector HTTP 场景保持 ignored；Human Session、双客户端 Cookie/路由分区、Authorization 歧义拒绝、PKCE、登录限流、Agent、角色、审批、草稿/发送、审计导出、合规、原生 TLS、邮件事件、OAuth/JWKS、请求 ID、签名 Key 与 Webhook 边界继续通过 |
+| D1/D3/D4A/D4B/D4C/D4D/D4E 当前 Web 回归 | `npm run check`、受限 worker Vitest（411：设计系统 17、Admin 207、Mail 187）、`npm run build` 与 `npm run e2e:run`（109/109，仅回环 Chromium）均通过；103 张 PNG 基线（Admin 40、Mail 63）已人工审图。D4A 额外覆盖 Mail 1084/1083/1008/1007px 布局几何、390px Scope 披露与 Compose footer 状态邻近性；D4B 额外覆盖 Queue 1440/1008/390px 扫描、768px Scope 披露、Reading 元数据→动作→正文顺序、打开 Reading 后的 Axe A/AA 扫描以及 `j`/`k` 不读取详情/不更新状态；D4C 额外覆盖 Drafts/Sent 1440/1008/390px metadata-only 目录、无横向溢出、目录切换不读取详情/写入消息状态、Draft/Sent Axe 与 Compose unknown/manual-review footer 文案不裁剪；D4D 额外覆盖 Compose 1440/1008/390px 的双 facts、静态 status 槽、1008px unknown、展开 manual-review 证据与 restored draft 三档布局；D4E 额外覆盖英文/简体中文登录、目录为空、目录暂不可用及会话复核失败在 1440/901/390px 的视觉、Axe、触点、无溢出和无额外 Mail 资源读取。测试仅使用回环 Vite 产物和内存 BFF 夹具，不证明真实 RBAC、后端 CAS/幂等或生产依赖。 |
+| P3 Web 回归（历史记录） | 当时的 Admin/Mail 严格 TypeScript 检查和两个 Vite 生产构建通过；Vitest 共 390 个测试（共享设计系统 16、Admin 195、Mail 179）全部通过。共享设计系统覆盖 Dialog、焦点、Context Bar、Evidence Inspector 与未知写入冻结；Admin 覆盖 Session 重验、精确 DTO、域名、审批、Cases/Holds、审计调查、Agent Inspector、角色与留存等按需治理工作区；Mail 覆盖邮箱目录、Draft、Sent、CAS、迟到响应隔离及 `manual_review` 精确证据锁。`npm run e2e:run` 的 82 个隔离 Chromium 测试（Admin 53、Mail 29）全部通过，66 张 Windows PNG 基线（Admin 34、Mail 32）覆盖双语响应式布局、分组导航、真实状态、域名工作台和人工复核；Image2 插画只绑定真实 `manual_review`。生产构建后的 Bundle 门禁含 13 个负向 fixture 与 Admin/Mail 完整图谱预算差异断言，拒绝 source map 并检查 JS/CSS、`modulepreload` 和 Image2 预算；`npm audit --audit-level=moderate` 为 0。这些同源 fixture 不证明真实 RBAC、租户隔离、后端 CAS/幂等或生产依赖；本机无可用 Docker/Nginx，未真实构建镜像、执行 `nginx -t` 或部署 NixOS。当前 D1/D3/D4A 数量见上一行。 |
+| P2 Web 最终回归 | `npm run check`、`npm test`、`npm run build`、`npm run e2e` 与 Bundle 自测均通过：Vitest 390 条（共享设计系统 16、Admin 195、Mail 179），Chromium 82 条、Windows PNG 66 张（Admin 34、Mail 32）；Bundle 自测覆盖 13 个负向 fixture 及 Admin/Mail 完整图谱预算差异。最近测得的 Admin 首屏 JavaScript 为 317,699 B（gzip 97,134 B）、完整图谱 JavaScript 为 459,423 B、CSS 为 48,927 B；这些测量和同源夹具回归不构成 Docker、NixOS、生产环境或真实依赖验收。 |
+| OpenAPI / AsyncAPI / Compose | V2 契约、CI、Compose 与观测配置 YAML 均可解析；OpenAPI v2 包含 83 条路径、99 个唯一 Operation ID；Admin/Mail Session 与 Logout 使用四条字面量路径和各自 Cookie Scheme，登录声明数据库准入 `429 + Retry-After`，审计制品下载为写证据的 POST；邮箱绑定请求不再接受 vendor/source、响应返回 UUID `data_plane_id`；Mail Session-only 目录、草稿、已发送，以及 Human 邮箱搜索、Testing Agent Sandbox、Agent 自助策略/Processing/正文读取、角色/授权、Human 正式提交/审批/保留/合规/审计及邮件事件契约继续保持租户、客户端和内容权限分离 |
 | `docs/openapi-v2.yaml` / `docs/asyncapi-v2.yaml` YAML 解析、必填字段与路径/操作断言 | 通过；Webhook 契约采用 AsyncAPI 3.1 |
 | `python scripts/check_agent_skill.py` / `skills/copilotmail` | CI 治理脚本通过：拒绝 V1 鉴权/路径回退，核对关键 V2 OpenAPI 路径，执行 11 条 CLI 模拟请求编排，并断言非 Loopback 明文 HTTP 不得携带 Bearer；Skill Creator 结构校验和 CLI Python 编译另行通过 |
-| `python scripts/check_documentation.py` | 通过；13 个必需文件、当前 78 份根级/架构/运维/Skill 文档的仓库内链接及 3 个语言入口一致，中文链接不再错误指向根 README；完整 Apache-2.0 LICENSE 与 Cargo 元数据一致 |
+| `python scripts/check_documentation.py` | 通过；13 个必需文件、当前 88 份根级/架构/运维/Skill 文档的仓库内链接及 3 个语言入口一致，中文链接不再错误指向根 README；完整 Apache-2.0 LICENSE 与 Cargo 元数据一致 |
 | `python tests/e2e.py` | 通过；HTTP、鉴权、SMTP、WebSocket、发送、CRUD、前端 |
 | Stalwart PoC 自动化离线门禁 | `python scripts/render_stalwart_poc_plan.py --self-test` 与 `python tests/stalwart_poc.py self-test` 通过；覆盖声明式对象顺序/引用/Secret 字段/非法输入，以及 listener 配置、明文 JMAP 显式选择和 receipt 防篡改绑定；真实 Stalwart 协议与重启步骤仍待有 Docker 的环境执行 |
 | PostgreSQL 集成测试实际执行 | WSL disposable PostgreSQL 16 已实际执行当时全部 51 份迁移、`0050 → 0051` 专项升级及完整备份—恢复演练；Ubuntu WSL Base Pilot 的 PostgreSQL 17 也已实际应用当时全部 51 份迁移并核对 80 类审计事件目录。当前代码的 Migration 0001→0053 已在独立 disposable PostgreSQL 17 完整执行，并通过数据平面注册/Origin 不可变、Domain 单次亲和及 Outbox 精确路由的直接 SQL 不变量验证；另在 PostgreSQL 15 逐测试重建数据库后通过上述 7 个关键 ignored 场景。该证据不宣称完整 ignored PostgreSQL 套件或目标 Pilot 的 0053 停写升级已经完成 |
 | MinIO Object Lock 实际执行 | Ubuntu WSL Base Pilot 的 MinIO 健康检查与持久化重启通过，对象存储证据在重启后保持；完整 ignored MinIO Object Lock 带保留上传、精确 Version ID 回读与重放测试尚未在该 Pilot 执行 |
 | PostgreSQL 升级与恢复门禁 | `check_postgres_backup_restore.sh --self-test` 与 Shell/CI 检查通过；WSL PostgreSQL 16 已实际完成 51 份迁移后的 custom dump、自动生成隔离数据库 restore、迁移/审计链/触发器/租户证据摘要比对及零泄漏清理。Account 所有权门禁现已扩为 `0050 → latest`、孤立 INSERT、正常绑定/轮换、四触发器与 coverage 破坏、跨租户/跨邮箱拒绝及歧义回滚；其脚本自测与静态检查通过。0052/0053 的干净迁移链和数据平面直接 SQL 不变量已在 disposable PostgreSQL 17 执行；完整 `0050 → latest` 动态门禁、ignored 套件与目标 Pilot 升级仍以最终 CI/Pilot 结果为准。Ubuntu WSL Base Pilot 曾证明 PostgreSQL 17 卷重启持久性，但 PostgreSQL 17 同版本原生 custom dump/隔离 restore 演练仍未完成 |
-| Compose/CI 与 Ubuntu/WSL Pilot | YAML 与 Compose 安全策略解析通过；13 个可选发布端口保持回环绑定，认证敏感路径日志抑制、Human Session Key 隔离和构建上下文 Secret 排除通过；常态 Mail 五项依赖硬失败、恢复管理员一次性覆盖层隔离、危险容器权限拒绝及 Pilot 资源/停止策略门禁通过；`bash -n scripts/check_ubuntu_wsl_pilot.sh` 与 `--self-test` 通过，前置检查拒绝 ambient Compose 控制/插值变量，静默核对最终项目名/端口，并验证仓库与 Docker data-root 所在挂载均为 `rw`。CI 已编码有界 SIGTERM/退出码/重启 smoke，但尚未由本机 Linux Docker 动态执行。Base Pilot 曾实际构建并启动 PostgreSQL 17、MinIO、Migrate、API、Worker、Admin 与 Mail；当时 51/51 迁移、80 类审计目录、健康检查、回环发布、应用非 root、持久化重启及 Worker 同容器自恢复均有实测证据。随后目标 VHD 发生 ext4 checksum/journal I/O 错误并被重挂只读，故当前部署状态降级为不可靠，必须离线修复并应用至最新 Migration 0056 后重新验收；0056 为必须由单一迁移进程执行的在线并发索引步骤，完成后还须只读 `check`；第二台 LAN 负向探测、企业 IdP/域名/邮件 profile、HA、容量、安全与 GA 验收仍未完成；2026-08-12 只读复查再次证明当前挂载为 `rw`、Docker 可达且 Base Compose 可渲染，但异常 dev 栈占用 8083/8084、PostgreSQL/MinIO 仍以 255 退出、目标副本只到 0051，且无离线修复记录，因此没有执行任何部署写入 |
+| Compose/CI 与 Ubuntu/WSL Pilot | YAML 与 Compose 安全策略解析通过；13 个可选发布端口保持回环绑定，认证敏感路径日志抑制、Human Session Key 隔离和构建上下文 Secret 排除通过；常态 Mail 五项依赖硬失败、恢复管理员一次性覆盖层隔离、危险容器权限拒绝及 Pilot 资源/停止策略门禁通过；`bash -n scripts/check_ubuntu_wsl_pilot.sh` 与 `--self-test` 通过，前置检查拒绝 ambient Compose 控制/插值变量，静默核对最终项目名/端口，并验证仓库与 Docker data-root 所在挂载均为 `rw`。CI 已编码有界 SIGTERM/退出码/重启 smoke，但尚未由本机 Linux Docker 动态执行。Base Pilot 曾实际构建并启动 PostgreSQL 17、MinIO、Migrate、API、Worker、Admin 与 Mail；当时 51/51 迁移、80 类审计目录、健康检查、回环发布、应用非 root、持久化重启及 Worker 同容器自恢复均有实测证据。随后目标 VHD 发生 ext4 checksum/journal I/O 错误并被重挂只读，故当前部署状态降级为不可靠，必须离线修复并应用至最新 Migration 0058 后重新验收；0056 为必须由单一迁移进程执行的在线并发索引步骤，随后应用 0058 并执行只读 `check`；第二台 LAN 负向探测、企业 IdP/域名/邮件 profile、HA、容量、安全与 GA 验收仍未完成；2026-08-12 只读复查再次证明当前挂载为 `rw`、Docker 可达且 Base Compose 可渲染，但异常 dev 栈占用 8083/8084、PostgreSQL/MinIO 仍以 255 退出、目标副本只到 0051，且无离线修复记录，因此没有执行任何部署写入 |
 
 ## 下一实施队列
 
 1. 不再将存在 I/O 风险的 WSL 作为验证前提。先由责任人确认专用或明确隔离的 Linux
    Docker 环境、至少 40 GiB 可用磁盘和无端口/Compose 资源冲突；以提交校验源码重新
-   实际应用至 Migration 0056（由单一迁移进程完成在线索引后执行只读 `check`），并重新执行 Base Pilot 的写入、重启与持久性验收。随后
+   实际应用至最新 Migration 0058（其中 0056 由单一迁移进程完成在线索引，再应用 0058 后执行只读 `check`），并重新执行 Base Pilot 的写入、重启与持久性验收。随后
    从第二台 LAN 机器执行发布端口不可达负向探测；使用 PostgreSQL 17 同版本原生客户端
    完成 custom dump、自动生成隔离库 restore 和证据比对；运行完整 ignored
    PostgreSQL/MinIO Object Lock 测试及最终 Linux 全量门禁。企业 IdP、域名和邮件输入

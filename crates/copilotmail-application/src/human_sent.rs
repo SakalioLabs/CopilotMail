@@ -202,7 +202,7 @@ where
     ) -> Result<(), HumanSentError> {
         let mut transaction = self
             .store
-            .begin()
+            .begin_authorized(&command.context)
             .await
             .map_err(|_| HumanSentError::Unavailable)?;
         if !transaction
@@ -334,6 +334,7 @@ const fn map_store_error(error: StoreError) -> HumanSentError {
     match error {
         StoreError::Conflict => HumanSentError::Conflict,
         StoreError::MissingReference => HumanSentError::NotFound,
+        StoreError::AuthenticationInvalid => HumanSentError::Forbidden,
         StoreError::AgentMailAdmission(_) | StoreError::Unavailable => HumanSentError::Unavailable,
     }
 }
@@ -491,6 +492,7 @@ mod tests {
                 principal_id,
                 organization_id,
                 permissions: [Permission::MailboxUse].into_iter().collect(),
+                authentication: None,
             },
             authorization: MailboxAccessSnapshot {
                 organization_id,

@@ -11,7 +11,7 @@ base64.workspace = true
 chrono.workspace = true
 copilotmail-domain = { path = "../copilotmail-domain" }
 hickory-resolver.workspace = true
-rsa.workspace = true
+copilotmail-crypto = { path = "../copilotmail-crypto" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
@@ -19,5 +19,5 @@ thiserror.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
-rand_core.workspace = true
+copilotmail-crypto = { path = "../copilotmail-crypto", features = ["test-utils"] }
 uuid.workspace = true

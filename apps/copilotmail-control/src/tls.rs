@@ -4,14 +4,10 @@ use axum::{
     serve::{IncomingStream, Listener},
 };
 use copilotmail_platform::NativeTlsSettings;
+use rustls::pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject};
 use rustls::{RootCertStore, ServerConfig, server::WebPkiClientVerifier};
 use sha2::{Digest, Sha256};
-use std::{
-    fmt::Write,
-    io::{self, BufReader, Cursor},
-    net::SocketAddr,
-    sync::Arc,
-};
+use std::{fmt::Write, io, net::SocketAddr, sync::Arc};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::{TlsAcceptor, server::TlsStream};
 
@@ -69,21 +65,18 @@ impl NativeTlsListener {
         private_key_pem: Vec<u8>,
         client_ca_pem: Vec<u8>,
     ) -> Result<Self> {
-        let certificates = rustls_pemfile::certs(&mut BufReader::new(Cursor::new(certificate_pem)))
+        let certificates = CertificateDer::pem_slice_iter(&certificate_pem)
             .collect::<Result<Vec<_>, _>>()
             .context("parse native TLS server certificate chain")?;
         anyhow::ensure!(
             !certificates.is_empty(),
             "native TLS server certificate chain is empty"
         );
-        let private_key =
-            rustls_pemfile::private_key(&mut BufReader::new(Cursor::new(private_key_pem)))
-                .context("parse native TLS private key")?
-                .context("native TLS private key is missing")?;
-        let client_ca_certificates =
-            rustls_pemfile::certs(&mut BufReader::new(Cursor::new(client_ca_pem)))
-                .collect::<Result<Vec<_>, _>>()
-                .context("parse native TLS client CA")?;
+        let private_key = PrivateKeyDer::from_pem_slice(&private_key_pem)
+            .context("parse native TLS private key")?;
+        let client_ca_certificates = CertificateDer::pem_slice_iter(&client_ca_pem)
+            .collect::<Result<Vec<_>, _>>()
+            .context("parse native TLS client CA")?;
         anyhow::ensure!(
             !client_ca_certificates.is_empty(),
             "native TLS client CA is empty"
@@ -185,7 +178,7 @@ fn sha256_hex(value: &[u8]) -> String {
 /// Parses the first X.509 PEM certificate and returns the same canonical
 /// fingerprint used by the native TLS listener.
 pub fn certificate_fingerprint_from_pem(value: &[u8]) -> Result<String> {
-    let certificates = rustls_pemfile::certs(&mut BufReader::new(Cursor::new(value)))
+    let certificates = CertificateDer::pem_slice_iter(value)
         .collect::<Result<Vec<_>, _>>()
         .context("parse Agent mTLS certificate")?;
     let leaf = certificates

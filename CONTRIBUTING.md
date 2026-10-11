@@ -55,18 +55,25 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
 python scripts/check_architecture.py --self-test
+python scripts/check_crypto_boundary.py --self-test
 python scripts/check_audit_governance.py
+python -m unittest discover -s scripts -p test_audit_governance.py
+python -m pip install -r scripts/requirements-quality.txt
+python scripts/check_postgres_syntax.py --self-test
 python scripts/check_agent_skill.py
 python scripts/check_compose_security.py --self-test
 python scripts/check_documentation.py
 npm --prefix web ci
+node web/scripts/build-quality-inventory.mjs
+python scripts/check_function_test_matrix.py --self-test
 python scripts/check_web_i18n.py --self-test
 
 cd web
 npm audit --audit-level=moderate
 npm run check
-npm test
+npm run test:coverage
 npm run build
+npm run e2e:run
 ```
 
 `check_architecture.py` is also enforced by CI. It evaluates the resolved graph
@@ -81,6 +88,23 @@ PostgreSQL and MinIO tests marked `ignored` require disposable PostgreSQL 17
 and Object-Lock-enabled S3-compatible storage. Follow
 [the CI workflow](.github/workflows/ci.yml) rather than pointing destructive
 tests at a shared database or bucket.
+
+PG integration requires explicit `COPILOTMAIL_ALLOW_ISOLATED_DB_TESTS=1` and a
+database named `copilotmail_test_<suffix>`; URI query/fragment overrides are
+rejected. The documented CI loopback service is the only exception. Offline
+SQL/PLpgSQL parsing never opens a database connection.
+
+Source inventories, measured coverage and capability assertions are separate.
+Use `cargo llvm-cov --workspace --locked --json --output-path
+quality/coverage/rust-workspace.json` after installing the pinned CI tool and
+creating the output directory, then `python scripts/build_quality_inventory.py
+--llvm-report`. Do not mark initial matrices complete or ignored tests passed.
+Read [the quality review](docs/CODE_QUALITY_REVIEW.zh-CN.md) before release.
+
+Dependency checks include `cargo audit` (CI tool version 0.22.2). Do not add
+blanket advisory ignores. The current unsuppressed RSA advisory and the
+network-signing mitigation are documented in that review; a clean build is
+not a clean security scan.
 
 ## Pull requests / 合并请求
 

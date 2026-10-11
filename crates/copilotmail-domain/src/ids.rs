@@ -198,3 +198,37 @@ id_type!(
     /// Stable identifier for an approval decision step.
     ApprovalStepId
 );
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generated_ids_are_unique_time_ordered_uuid_v7() {
+        let first = OrganizationId::new();
+        let second = OrganizationId::new();
+        assert_ne!(first, second);
+        assert_eq!(first.as_uuid().get_version_num(), 7);
+        assert!(first.as_uuid().get_timestamp().is_some());
+    }
+
+    #[test]
+    fn ids_round_trip_through_uuid_and_display() {
+        let raw = Uuid::now_v7();
+        let id = PrincipalId::from_uuid(raw);
+        assert_eq!(id.as_uuid(), raw);
+        assert_eq!(id.to_string(), raw.to_string());
+        assert_eq!(id.to_string().parse::<PrincipalId>().unwrap(), id);
+        assert!("not-a-uuid".parse::<PrincipalId>().is_err());
+    }
+
+    #[test]
+    fn ids_serialize_transparently_as_plain_uuid_strings() {
+        let raw = Uuid::now_v7();
+        let id = MailDomainId::from_uuid(raw);
+        assert_eq!(serde_json::to_string(&id).unwrap(), format!("\"{raw}\""));
+        let decoded: MailDomainId = serde_json::from_str(&format!("\"{raw}\"")).unwrap();
+        assert_eq!(decoded, id);
+        assert!(serde_json::from_str::<MailDomainId>("\"garbage\"").is_err());
+    }
+}

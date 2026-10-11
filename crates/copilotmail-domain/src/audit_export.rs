@@ -50,7 +50,10 @@ impl AuditExportGrant {
         created_at: DateTime<Utc>,
         expires_at: DateTime<Utc>,
     ) -> Result<Self, DomainError> {
-        if expires_at <= created_at || expires_at > created_at + Self::MAX_LIFETIME {
+        let latest_expiry = created_at
+            .checked_add_signed(Self::MAX_LIFETIME)
+            .ok_or(DomainError::InvalidAuditExport)?;
+        if expires_at <= created_at || expires_at > latest_expiry {
             return Err(DomainError::InvalidAuditExport);
         }
         Ok(Self {

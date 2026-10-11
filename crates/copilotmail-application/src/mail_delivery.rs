@@ -16,6 +16,9 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct ReconcileMailDeliveryCommand {
     pub submission_id: MailSubmissionId,
+    /// Scheduler time retained for command compatibility. It is deliberately
+    /// not persisted as delivery observation evidence; PostgreSQL assigns that
+    /// causal fact from its authoritative snapshot clock.
     pub now: DateTime<Utc>,
 }
 
@@ -81,7 +84,7 @@ where
         if snapshot.submission_ref != target.engine_submission_ref {
             return Err(MailDeliveryReconciliationError::Unavailable);
         }
-        let write = normalize_snapshot(command.now, &target, self.fingerprint_scheme, snapshot)?;
+        let write = normalize_snapshot(&target, self.fingerprint_scheme, snapshot)?;
         let terminal = write.recipients.iter().all(|recipient| {
             matches!(
                 recipient.state,
@@ -95,8 +98,11 @@ where
             .append_mail_delivery_snapshot(&write)
             .await
             .map_err(map_store_error)?;
-        let inserted = insert == MailDeliverySnapshotInsert::Inserted;
-        if inserted {
+        let inserted_at = match insert {
+            MailDeliverySnapshotInsert::Inserted { observed_at } => Some(observed_at),
+            MailDeliverySnapshotInsert::Duplicate => None,
+        };
+        if let Some(observed_at) = inserted_at {
             transaction
                 .enqueue_event(&PendingEvent::for_mail_data_plane(
                     target.data_plane_id,
@@ -114,7 +120,7 @@ where
                         "unknown_count": counts.unknown,
                         "terminal": terminal,
                     }),
-                    command.now,
+                    observed_at,
                 ))
                 .await
                 .map_err(map_store_error)?;
@@ -123,6 +129,7 @@ where
         // This immutable snapshot is remote machine evidence. It is committed
         // with the matching Outbox event and is not attributed to a Human.
         transaction.commit().await.map_err(map_store_error)?;
+        let inserted = inserted_at.is_some();
         Ok(if terminal {
             MailDeliveryReconciliationResult::Terminal { inserted }
         } else {
@@ -132,7 +139,6 @@ where
 }
 
 fn normalize_snapshot(
-    observed_at: DateTime<Utc>,
     target: &crate::MailDeliveryReconciliationTarget,
     fingerprint_scheme: MailDataPlaneFingerprintScheme,
     snapshot: MailDeliverySnapshot,
@@ -202,7 +208,6 @@ fn normalize_snapshot(
         source_state: snapshot.source_state,
         source_sha256: fingerprint.finalize().into(),
         recipients,
-        observed_at,
     })
 }
 
@@ -263,6 +268,7 @@ mod tests {
     #[derive(Default)]
     struct State {
         target: Option<MailDeliveryReconciliationTarget>,
+        snapshot_observed_at: Option<DateTime<Utc>>,
         writes: Vec<MailDeliverySnapshotWrite>,
         events: Vec<PendingEvent>,
         commits: usize,
@@ -348,8 +354,14 @@ mod tests {
             &mut self,
             write: &MailDeliverySnapshotWrite,
         ) -> Result<MailDeliverySnapshotInsert, StoreError> {
+            let observed_at = self
+                .shared
+                .lock()
+                .unwrap()
+                .snapshot_observed_at
+                .ok_or(StoreError::Unavailable)?;
             self.writes.push(write.clone());
-            Ok(MailDeliverySnapshotInsert::Inserted)
+            Ok(MailDeliverySnapshotInsert::Inserted { observed_at })
         }
 
         async fn append_audit_event(&mut self, _: &AuditEvent) -> Result<(), StoreError> {
@@ -422,6 +434,7 @@ mod tests {
         recipients: Vec<RecipientDeliveryEvidence>,
     ) -> (Store, MailSubmissionId, Arc<dyn MailSubmissionAdapter>) {
         let submission_id = MailSubmissionId::new();
+        let snapshot_observed_at = Utc::now() + chrono::Duration::seconds(5);
         let target = MailDeliveryReconciliationTarget {
             submission_id,
             organization_id: OrganizationId::new(),
@@ -437,6 +450,7 @@ mod tests {
             Store {
                 state: Arc::new(Mutex::new(State {
                     target: Some(target),
+                    snapshot_observed_at: Some(snapshot_observed_at),
                     ..State::default()
                 })),
             },
@@ -493,7 +507,6 @@ mod tests {
             engine_identity_ref: "identity-3".into(),
             engine_submission_ref: "submission-7".into(),
         };
-        let observed_at = Utc::now();
         let snapshot = MailDeliverySnapshot {
             submission_ref: "submission-7".into(),
             source_state: "state-8".into(),
@@ -503,7 +516,6 @@ mod tests {
             )],
         };
         let write = normalize_snapshot(
-            observed_at,
             &target,
             MailDataPlaneFingerprintScheme::LegacyV1,
             snapshot.clone(),
@@ -517,13 +529,9 @@ mod tests {
             hex_lower(&write.source_sha256),
             "b24eca879c917cfed1099523a8f61829e6463cfcb8b57ce13c742e1f62285739"
         );
-        let replay = normalize_snapshot(
-            observed_at,
-            &target,
-            MailDataPlaneFingerprintScheme::LegacyV1,
-            snapshot,
-        )
-        .unwrap();
+        let replay =
+            normalize_snapshot(&target, MailDataPlaneFingerprintScheme::LegacyV1, snapshot)
+                .unwrap();
         assert_eq!(replay.source_sha256, write.source_sha256);
         assert_eq!(replay.recipients, write.recipients);
     }
@@ -544,14 +552,12 @@ mod tests {
             recipients,
         };
         let first = normalize_snapshot(
-            Utc::now(),
             &first_target,
             MailDataPlaneFingerprintScheme::DataPlaneV2,
             snapshot.clone(),
         )
         .unwrap();
         let second = normalize_snapshot(
-            Utc::now(),
             &second_target,
             MailDataPlaneFingerprintScheme::DataPlaneV2,
             snapshot,
@@ -641,6 +647,10 @@ mod tests {
         assert_eq!(state.writes.len(), 1);
         assert_eq!(state.events.len(), 1);
         assert_eq!(
+            state.events[0].occurred_at,
+            state.snapshot_observed_at.unwrap()
+        );
+        assert_eq!(
             state.events[0].event_type,
             "message.delivery_status_changed.v1"
         );
@@ -668,7 +678,6 @@ mod tests {
             recipients,
         };
         let first = normalize_snapshot(
-            Utc::now(),
             &first_target,
             MailDataPlaneFingerprintScheme::LegacyV1,
             snapshot.clone(),
@@ -677,7 +686,6 @@ mod tests {
         let mut second_target = first_target;
         second_target.submission_id = MailSubmissionId::new();
         let second = normalize_snapshot(
-            Utc::now(),
             &second_target,
             MailDataPlaneFingerprintScheme::LegacyV1,
             snapshot,

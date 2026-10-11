@@ -32,7 +32,9 @@ pub use audit::{
     AuditResource, AuditRisk, audit_event_definition,
 };
 pub use audit_export::AuditExportGrant;
-pub use authorization::{AuthorizationContext, Permission, Role, RoleAssignment, SystemRole};
+pub use authorization::{
+    AuthenticationBinding, AuthorizationContext, Permission, Role, RoleAssignment, SystemRole,
+};
 pub use compliance::{ComplianceCase, ComplianceCaseStatus, LegalHold, LegalHoldStatus};
 pub use identity::{
     AgentCredential, AgentEnvironment, AgentMtlsCredential, AgentProfile, AgentRiskLevel,

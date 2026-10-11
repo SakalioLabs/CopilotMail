@@ -97,7 +97,11 @@ where
             command.draft_id,
             command.expected_draft_version,
         );
-        let mut transaction = self.store.begin().await.map_err(map_store_error)?;
+        let mut transaction = self
+            .store
+            .begin_authorized(context)
+            .await
+            .map_err(map_store_error)?;
         if !transaction
             .active_principal_exists(context.organization_id, context.principal_id)
             .await
@@ -210,7 +214,9 @@ const fn map_store_error(error: StoreError) -> AgentMailSandboxError {
     match error {
         StoreError::Conflict | StoreError::AgentMailAdmission(_) => AgentMailSandboxError::Conflict,
         StoreError::MissingReference => AgentMailSandboxError::NotFound,
-        StoreError::Unavailable => AgentMailSandboxError::Unavailable,
+        StoreError::AuthenticationInvalid | StoreError::Unavailable => {
+            AgentMailSandboxError::Unavailable
+        }
     }
 }
 
@@ -230,6 +236,7 @@ mod tests {
             organization_id: OrganizationId::new(),
             principal_id: PrincipalId::new(),
             permissions: BTreeSet::new(),
+            authentication: None,
         };
         let mailbox_id = MailboxId::new();
         let draft_id = DraftId::new();

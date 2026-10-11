@@ -2,7 +2,8 @@ use crate::mail_ports::{MailEngineError, MailSubmissionAdapter, MailSubmissionRe
 use crate::{
     AgentMailAdmissionFailure, ControlPlaneStore, MailSubmissionIntentRecord,
     MailSubmissionIntentWrite, MailSubmissionLease, MailSubmissionStatus,
-    MailSubmissionTerminalWrite, MailboxAuthorizationStore, PendingEvent, StoreError,
+    MailSubmissionTerminalTransition, MailSubmissionTerminalWrite, MailboxAuthorizationStore,
+    PendingEvent, StoreError,
 };
 use chrono::{DateTime, Utc};
 use copilotmail_domain::{
@@ -112,7 +113,11 @@ where
             command.expected_draft_version,
             command.first_contact_approval_request_id,
         );
-        let mut transaction = self.store.begin().await.map_err(map_store_error)?;
+        let mut transaction = self
+            .store
+            .begin_authorized(context)
+            .await
+            .map_err(map_store_error)?;
         if !transaction
             .active_principal_exists(context.organization_id, context.principal_id)
             .await
@@ -158,7 +163,10 @@ where
                 "draft_id": command.draft_id,
                 "draft_version": creation.intent.draft_version,
             }),
-            command.now,
+            // The intent timestamp is supplied by the persistence clock,
+            // which is also the source used by immutable production
+            // admission evidence. Keep this request fact on that timeline.
+            creation.intent.created_at,
         )?;
         let event = PendingEvent::for_mail_data_plane(
             creation.intent.data_plane_id,
@@ -172,7 +180,7 @@ where
                 "submission_id": creation.intent.submission_id,
                 "status": "pending",
             }),
-            command.now,
+            creation.intent.created_at,
         );
         transaction
             .append_audit_event(&audit)
@@ -209,7 +217,11 @@ where
                     "recipient_count": admission.recipient_count,
                     "first_contact_count": admission.first_contact_count,
                 }),
-                command.now,
+                // Production admission is materialized by PostgreSQL, whose
+                // immutable trigger supplies the authoritative timestamp.
+                // Bind the audit fact to that returned time rather than an
+                // application clock so evidence reads can prove causality.
+                admission.admitted_at,
             )?
             .with_context(audit_context)?;
             let admission_event = PendingEvent::for_mail_data_plane(
@@ -226,7 +238,7 @@ where
                     "recipient_count": admission.recipient_count,
                     "first_contact_count": admission.first_contact_count,
                 }),
-                command.now,
+                admission.admitted_at,
             );
             transaction
                 .append_audit_event(&admission_audit)
@@ -307,6 +319,10 @@ where
             )
             .await
             .map_err(map_execution_store_error)?;
+        // audit-coverage: operational-lease
+        // This commit only leases an already audited durable intent. It makes
+        // no delivery or user-policy claim; terminal Audit/Outbox follows in
+        // finalize. The governance gate restricts this exception to this call.
         transaction
             .commit()
             .await
@@ -450,13 +466,13 @@ where
                 engine_identity_ref,
                 engine_submission_ref,
                 error_code: error_code.clone(),
-                now: command.now,
             })
             .await
             .map_err(map_execution_store_error)?;
-        if !finalized {
+        let Some(finalized) = finalized else {
             return Ok(MailSubmissionExecutionResult::LostLease);
-        }
+        };
+        let terminal_at = terminal_evidence_timestamp(status, &finalized)?;
         let audit = AuditEvent::new(
             lease.organization_id,
             AuditActor {
@@ -479,7 +495,7 @@ where
                 "error_code": error_code,
                 "execution_mode": "system_worker",
             }),
-            command.now,
+            terminal_at,
         )?;
         let event = PendingEvent::for_mail_data_plane(
             lease.data_plane_id,
@@ -494,7 +510,7 @@ where
                 "status": mail_submission_status_name(status),
                 "error_code": error_code,
             }),
-            command.now,
+            terminal_at,
         );
         transaction
             .append_audit_event(&audit)
@@ -516,7 +532,7 @@ where
                         "mailbox_id": lease.mailbox_id,
                         "submission_id": lease.submission_id,
                     }),
-                    command.now,
+                    terminal_at,
                 ))
                 .await
                 .map_err(map_execution_store_error)?;
@@ -526,6 +542,33 @@ where
             .await
             .map_err(map_execution_store_error)?;
         Ok(result)
+    }
+}
+
+/// Ensures adapters cannot make a terminal audit claim that is detached from
+/// the durable state transition it is meant to prove. PostgreSQL returns this
+/// record from its single lease-CAS `UPDATE`; other implementations must meet
+/// the same invariant or fail closed before Audit/Outbox persistence.
+fn terminal_evidence_timestamp(
+    status: MailSubmissionStatus,
+    transition: &MailSubmissionTerminalTransition,
+) -> Result<DateTime<Utc>, MailSubmissionExecutionError> {
+    match (status, transition.accepted_at) {
+        (MailSubmissionStatus::Accepted, Some(accepted_at))
+            if accepted_at == transition.terminal_at =>
+        {
+            Ok(transition.terminal_at)
+        }
+        (MailSubmissionStatus::Accepted, _)
+        | (MailSubmissionStatus::Rejected | MailSubmissionStatus::ManualReview, Some(_)) => {
+            Err(MailSubmissionExecutionError::Unavailable)
+        }
+        (MailSubmissionStatus::Rejected | MailSubmissionStatus::ManualReview, None) => {
+            Ok(transition.terminal_at)
+        }
+        (MailSubmissionStatus::Pending | MailSubmissionStatus::Reconciling, _) => {
+            Err(MailSubmissionExecutionError::Unavailable)
+        }
     }
 }
 
@@ -582,7 +625,9 @@ fn map_store_error(error: StoreError) -> MailSubmissionError {
         StoreError::Conflict => MailSubmissionError::Conflict,
         StoreError::MissingReference => MailSubmissionError::NotFound,
         StoreError::AgentMailAdmission(reason) => MailSubmissionError::AgentAdmission(reason),
-        StoreError::Unavailable => MailSubmissionError::Unavailable,
+        StoreError::AuthenticationInvalid | StoreError::Unavailable => {
+            MailSubmissionError::Unavailable
+        }
     }
 }
 
@@ -616,6 +661,7 @@ mod tests {
             principal_id: copilotmail_domain::PrincipalId::new(),
             organization_id,
             permissions: [Permission::MailboxUse].into_iter().collect(),
+            authentication: None,
         };
         let mailbox_id = MailboxId::new();
         let draft_id = DraftId::new();
@@ -643,9 +689,12 @@ mod tests {
     #[derive(Default)]
     struct ExecutionState {
         lease: Option<MailSubmissionLease>,
+        terminal_transition: Option<MailSubmissionTerminalTransition>,
         finalized: Vec<MailSubmissionTerminalWrite>,
         audits: Vec<String>,
+        audit_occurred_at: Vec<DateTime<Utc>>,
         events: Vec<String>,
+        event_occurred_at: Vec<DateTime<Utc>>,
         event_routes: Vec<Option<copilotmail_domain::MailDataPlaneId>>,
         commits: usize,
     }
@@ -716,19 +765,23 @@ mod tests {
         async fn finalize_mail_submission_intent(
             &mut self,
             write: &MailSubmissionTerminalWrite,
-        ) -> Result<bool, StoreError> {
-            self.state.lock().unwrap().finalized.push(write.clone());
-            Ok(true)
+        ) -> Result<Option<MailSubmissionTerminalTransition>, StoreError> {
+            let mut state = self.state.lock().unwrap();
+            state.finalized.push(write.clone());
+            Ok(state.terminal_transition.clone())
         }
 
         async fn append_audit_event(&mut self, event: &AuditEvent) -> Result<(), StoreError> {
-            self.state.lock().unwrap().audits.push(event.action.clone());
+            let mut state = self.state.lock().unwrap();
+            state.audits.push(event.action.clone());
+            state.audit_occurred_at.push(event.occurred_at);
             Ok(())
         }
 
         async fn enqueue_event(&mut self, event: &PendingEvent) -> Result<(), StoreError> {
             let mut state = self.state.lock().unwrap();
             state.events.push(event.event_type.clone());
+            state.event_occurred_at.push(event.occurred_at);
             state.event_routes.push(event.data_plane_id);
             Ok(())
         }
@@ -813,6 +866,13 @@ mod tests {
                 lease_expires_at: now + chrono::Duration::seconds(60),
                 attempt_count: 1,
             }),
+            terminal_transition: Some(MailSubmissionTerminalTransition {
+                // Simulate a control-plane database clock that differs from
+                // the worker's request clock. Audit/Outbox evidence must use
+                // this returned immutable transition fact.
+                terminal_at: now + chrono::Duration::seconds(5),
+                accepted_at: Some(now + chrono::Duration::seconds(5)),
+            }),
             ..ExecutionState::default()
         };
         (
@@ -851,10 +911,21 @@ mod tests {
         assert_eq!(state.finalized[0].status, MailSubmissionStatus::Accepted);
         assert_eq!(state.audits, ["mail.submission.accepted"]);
         assert_eq!(
+            state.audit_occurred_at,
+            [now + chrono::Duration::seconds(5)]
+        );
+        assert_eq!(
             state.events,
             [
                 "mail.submission.accepted.v1",
                 "mail.delivery.reconciliation.requested.v1"
+            ]
+        );
+        assert_eq!(
+            state.event_occurred_at,
+            [
+                now + chrono::Duration::seconds(5),
+                now + chrono::Duration::seconds(5),
             ]
         );
         assert_eq!(
@@ -864,6 +935,46 @@ mod tests {
                 Some(crate::mail_ports::test_mail_data_plane_id()),
             ]
         );
+    }
+
+    #[tokio::test]
+    async fn incomplete_accepted_transition_never_emits_terminal_evidence() {
+        let (store, submission_id, now) = execution_fixture();
+        store
+            .state
+            .lock()
+            .unwrap()
+            .terminal_transition
+            .as_mut()
+            .unwrap()
+            .accepted_at = None;
+        let result = MailSubmissionExecutor::new(
+            store.clone(),
+            Arc::new(ExecutionAdapter {
+                data_plane_id: crate::mail_ports::test_mail_data_plane_id(),
+                mode: AdapterMode::Existing,
+                creates: Arc::new(Mutex::new(0)),
+                remote_calls: Arc::new(Mutex::new(0)),
+            }),
+        )
+        .execute(ExecuteMailSubmissionCommand {
+            submission_id,
+            trace_id: "submission-incomplete-terminal-test".into(),
+            now,
+        })
+        .await;
+
+        assert!(matches!(
+            result,
+            Err(MailSubmissionExecutionError::Unavailable)
+        ));
+        let state = store.state.lock().unwrap();
+        // The lease acquisition committed, but malformed persistence output
+        // cannot be followed by a terminal Audit or Outbox claim.
+        assert_eq!(state.commits, 1);
+        assert_eq!(state.finalized.len(), 1);
+        assert!(state.audits.is_empty());
+        assert!(state.events.is_empty());
     }
 
     #[tokio::test]

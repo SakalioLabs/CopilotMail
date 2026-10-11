@@ -207,6 +207,7 @@ mod tests {
             organization_id,
             principal_id,
             permissions: [Permission::MailboxUse].into_iter().collect(),
+            authentication: None,
         }
     }
 
@@ -394,6 +395,7 @@ mod tests {
                         organization_id,
                         principal_id,
                         permissions: BTreeSet::new(),
+                        authentication: None,
                     },
                     limit: 25,
                     cursor: None,

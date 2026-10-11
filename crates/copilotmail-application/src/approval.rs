@@ -115,6 +115,8 @@ pub enum ApprovalWorkflowError {
     Store(#[from] StoreError),
 }
 
+/// Operator-only bootstrap/maintenance service used by the local CLI, not an
+/// HTTP route. The bound OIDC owner must still be a currently authorized Human.
 pub struct ApprovalPolicyService<S> {
     store: S,
 }
@@ -136,6 +138,7 @@ impl<S: ControlPlaneStore> ApprovalPolicyService<S> {
             .find_oidc_owner_binding(command.organization_id)
             .await?
             .ok_or(StoreError::MissingReference)?;
+        ensure_policy_owner(&mut transaction, command.organization_id, &owner).await?;
         let policy_id = PolicyId::new();
         let version = ApprovalPolicyVersion::new(
             policy_id,
@@ -226,6 +229,7 @@ impl<S: ControlPlaneStore> ApprovalPolicyService<S> {
             .find_oidc_owner_binding(command.organization_id)
             .await?
             .ok_or(StoreError::MissingReference)?;
+        ensure_policy_owner(&mut transaction, command.organization_id, &owner).await?;
         let active = transaction
             .find_active_approval_policy(command.organization_id, &command.policy_key)
             .await?
@@ -320,7 +324,25 @@ impl<S: ControlPlaneStore> ApprovalWorkflowService<S> {
         &self,
         command: RequestApprovalCommand,
     ) -> Result<ApprovalRequestId, ApprovalWorkflowError> {
-        let mut transaction = self.store.begin().await?;
+        let permission = approval_action_permission(command.action);
+        if !command
+            .context
+            .permits(command.context.organization_id, permission)
+        {
+            return Err(ApprovalWorkflowError::Forbidden);
+        }
+        validate_policy_text(&command.policy_key, 100, true)?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
+        if !transaction
+            .authorize_principal_permission(
+                command.context.organization_id,
+                command.context.principal_id,
+                permission,
+            )
+            .await?
+        {
+            return Err(ApprovalWorkflowError::Forbidden);
+        }
         let policy = transaction
             .find_active_approval_policy(command.context.organization_id, &command.policy_key)
             .await?
@@ -404,11 +426,12 @@ impl<S: ControlPlaneStore> ApprovalWorkflowService<S> {
         }
         validate_policy_text(&command.reason, 1_000, false)?;
         let step_id = ApprovalStepId::new();
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         if !transaction
-            .active_human_principal_exists(
+            .authorize_human_permission(
                 command.context.organization_id,
                 command.context.principal_id,
+                Permission::AuthorizationManage,
             )
             .await?
         {
@@ -490,6 +513,11 @@ impl<S: ControlPlaneStore + ApprovalQueryStore> ApprovalWorkflowService<S> {
             )
             .await?
             .ok_or(StoreError::MissingReference)?;
+        if detail.request.organization_id != command.context.organization_id
+            || detail.request.request_id != command.request_id
+        {
+            return Err(StoreError::MissingReference.into());
+        }
         let manages = command.context.permits(
             command.context.organization_id,
             Permission::AuthorizationManage,
@@ -498,12 +526,13 @@ impl<S: ControlPlaneStore + ApprovalQueryStore> ApprovalWorkflowService<S> {
         if !manages && !owns {
             return Err(ApprovalWorkflowError::Forbidden);
         }
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         let actor_active = if manages && !owns {
             transaction
-                .active_human_principal_exists(
+                .authorize_human_permission(
                     command.context.organization_id,
                     command.context.principal_id,
+                    Permission::AuthorizationManage,
                 )
                 .await?
         } else {
@@ -564,12 +593,13 @@ impl<S: ControlPlaneStore + ApprovalQueryStore> ApprovalWorkflowService<S> {
         if has_more {
             items.truncate(command.limit as usize);
         }
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         let actor_active = if command.view == ApprovalRequestView::Actionable {
             transaction
-                .active_human_principal_exists(
+                .authorize_human_permission(
                     command.context.organization_id,
                     command.context.principal_id,
+                    Permission::AuthorizationManage,
                 )
                 .await?
         } else {
@@ -616,6 +646,11 @@ impl<S: ControlPlaneStore + ApprovalQueryStore> ApprovalWorkflowService<S> {
             )
             .await?
             .ok_or(StoreError::MissingReference)?;
+        if detail.request.organization_id != command.context.organization_id
+            || detail.request.request_id != command.request_id
+        {
+            return Err(StoreError::MissingReference.into());
+        }
         if detail.request.requested_by != command.context.principal_id
             || !command.context.permits(
                 command.context.organization_id,
@@ -624,11 +659,12 @@ impl<S: ControlPlaneStore + ApprovalQueryStore> ApprovalWorkflowService<S> {
         {
             return Err(ApprovalWorkflowError::Forbidden);
         }
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         if !transaction
-            .active_principal_exists(
+            .authorize_principal_permission(
                 command.context.organization_id,
                 command.context.principal_id,
+                approval_action_permission(detail.request.action),
             )
             .await?
         {
@@ -687,6 +723,25 @@ impl<S: ControlPlaneStore + ApprovalQueryStore> ApprovalWorkflowService<S> {
             approval_count: record.approval_count,
         })
     }
+}
+
+async fn ensure_policy_owner(
+    transaction: &mut Box<dyn crate::ControlPlaneTransaction>,
+    organization_id: OrganizationId,
+    owner: &crate::ExistingOidcOwnerBinding,
+) -> Result<(), ApprovalWorkflowError> {
+    if owner.organization_id != organization_id
+        || !transaction
+            .authorize_human_permission(
+                organization_id,
+                owner.principal_id,
+                Permission::AuthorizationManage,
+            )
+            .await?
+    {
+        return Err(ApprovalWorkflowError::Forbidden);
+    }
+    Ok(())
 }
 
 async fn append_approval_read_evidence(
@@ -806,6 +861,9 @@ fn validate_policy_text(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod workflow_tests;
 
 #[cfg(test)]
 mod tests {

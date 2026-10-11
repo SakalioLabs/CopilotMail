@@ -1,6 +1,6 @@
 use crate::{
     ApprovalProof, ApprovalQueryStore, ControlPlaneStore, PendingEvent,
-    RetentionPolicyActivationRecord, RetentionPolicyDetail, RetentionPolicyQueryStore, StoreError,
+    RetentionPolicyActivationRecord, RetentionPolicyDetail, StoreError,
 };
 use chrono::{DateTime, Utc};
 use copilotmail_domain::{
@@ -85,7 +85,7 @@ pub struct RetentionPolicyService<S> {
 
 impl<S> RetentionPolicyService<S>
 where
-    S: ControlPlaneStore + ApprovalQueryStore + RetentionPolicyQueryStore + Clone,
+    S: ControlPlaneStore + ApprovalQueryStore,
 {
     #[must_use]
     pub const fn new(store: S) -> Self {
@@ -117,8 +117,8 @@ where
             command.now,
         )?;
 
-        let mut transaction = self.store.begin().await?;
-        ensure_active_human(&mut transaction, &command.context).await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
+        ensure_retention_manager(&mut transaction, &command.context).await?;
         transaction.insert_retention_policy(&policy).await?;
         transaction
             .insert_retention_policy_version(&version)
@@ -143,12 +143,13 @@ where
         command: AppendRetentionPolicyVersionCommand,
     ) -> Result<RetentionPolicyVersion, RetentionPolicyError> {
         ensure_base_authorized(&command.context)?;
-        let mut transaction = self.store.begin().await?;
-        ensure_active_human(&mut transaction, &command.context).await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
+        ensure_retention_manager(&mut transaction, &command.context).await?;
         let record = transaction
             .find_retention_policy_for_update(command.context.organization_id, command.policy_id)
             .await?
             .ok_or(RetentionPolicyError::NotFound)?;
+        ensure_policy_scope(&record.policy, &command.context, command.policy_id)?;
         let version_number = record
             .latest_version
             .checked_add(1)
@@ -208,12 +209,13 @@ where
             return Err(RetentionPolicyError::Forbidden);
         }
 
-        let mut transaction = self.store.begin().await?;
-        ensure_active_human(&mut transaction, &command.context).await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
+        ensure_retention_manager(&mut transaction, &command.context).await?;
         let record = transaction
             .find_retention_policy_for_update(command.context.organization_id, command.policy_id)
             .await?
             .ok_or(RetentionPolicyError::NotFound)?;
+        ensure_policy_scope(&record.policy, &command.context, command.policy_id)?;
         let version = transaction
             .find_retention_policy_version(
                 command.context.organization_id,
@@ -222,6 +224,13 @@ where
             )
             .await?
             .ok_or(RetentionPolicyError::NotFound)?;
+
+        if version.id() != command.policy_version_id
+            || version.policy_id() != command.policy_id
+            || version.organization_id() != command.context.organization_id
+        {
+            return Err(StoreError::Unavailable.into());
+        }
 
         if let Some(existing) = transaction
             .find_retention_policy_activation_by_approval(
@@ -252,9 +261,21 @@ where
             activated_by: command.context.principal_id,
             activated_at: command.now,
         };
-        transaction
+        let stored_activation = transaction
             .insert_retention_policy_activation(&activation)
             .await?;
+        if stored_activation.id != activation.id
+            || stored_activation.organization_id != activation.organization_id
+            || stored_activation.policy_id != activation.policy_id
+            || stored_activation.policy_version_id != activation.policy_version_id
+            || stored_activation.approval_request_id != activation.approval_request_id
+            || stored_activation.activated_by != activation.activated_by
+        {
+            return Err(StoreError::Unavailable.into());
+        }
+        if stored_activation.activated_at >= approval.expires_at {
+            return Err(RetentionPolicyError::Forbidden);
+        }
         if !transaction
             .activate_retention_policy_version(
                 command.context.organization_id,
@@ -274,7 +295,7 @@ where
             &version,
             Some(command.approval.request_id),
             &command.trace_id,
-            command.now,
+            stored_activation.activated_at,
         )
         .await?;
         transaction.commit().await?;
@@ -288,13 +309,14 @@ where
         command: GetRetentionPolicyCommand,
     ) -> Result<RetentionPolicyDetail, RetentionPolicyError> {
         ensure_base_authorized(&command.context)?;
-        let detail = self
-            .store
-            .get_retention_policy(command.context.organization_id, command.policy_id)
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
+        ensure_retention_manager(&mut transaction, &command.context).await?;
+        let detail = transaction
+            .retention_policy_detail(command.context.organization_id, command.policy_id)
             .await?
             .ok_or(RetentionPolicyError::NotFound)?;
-        let mut transaction = self.store.begin().await?;
-        ensure_active_human(&mut transaction, &command.context).await?;
+        ensure_policy_scope(&detail.policy, &command.context, command.policy_id)?;
+        ensure_detail_versions(&detail)?;
         let audit = AuditEvent::new(
             command.context.organization_id,
             AuditActor {
@@ -321,6 +343,7 @@ where
             context.subject_principal_id = Some(command.context.principal_id);
             context
         })?;
+        ensure_retention_manager(&mut transaction, &command.context).await?;
         transaction.append_audit_event(&audit).await?;
         let event = PendingEvent::new(
             "compliance.retention_policy.queried.v1",
@@ -342,12 +365,45 @@ fn ensure_base_authorized(context: &AuthorizationContext) -> Result<(), Retentio
     Ok(())
 }
 
-async fn ensure_active_human(
+fn ensure_policy_scope(
+    policy: &RetentionPolicy,
+    context: &AuthorizationContext,
+    policy_id: RetentionPolicyId,
+) -> Result<(), RetentionPolicyError> {
+    if policy.id() != policy_id || policy.organization_id() != context.organization_id {
+        return Err(StoreError::Unavailable.into());
+    }
+    Ok(())
+}
+
+fn ensure_detail_versions(detail: &RetentionPolicyDetail) -> Result<(), RetentionPolicyError> {
+    let belongs = |version: &RetentionPolicyVersion| {
+        version.policy_id() == detail.policy.id()
+            && version.organization_id() == detail.policy.organization_id()
+    };
+    if !belongs(&detail.latest_version)
+        || detail.active_version.as_ref().is_some_and(|active| {
+            !belongs(active)
+                || active.version() > detail.latest_version.version()
+                || (active.version() == detail.latest_version.version()
+                    && active.id() != detail.latest_version.id())
+        })
+    {
+        return Err(StoreError::Unavailable.into());
+    }
+    Ok(())
+}
+
+async fn ensure_retention_manager(
     transaction: &mut Box<dyn crate::ControlPlaneTransaction>,
     context: &AuthorizationContext,
 ) -> Result<(), RetentionPolicyError> {
     if !transaction
-        .active_human_principal_exists(context.organization_id, context.principal_id)
+        .authorize_human_permission(
+            context.organization_id,
+            context.principal_id,
+            Permission::RetentionManage,
+        )
         .await?
     {
         return Err(RetentionPolicyError::Forbidden);
@@ -366,6 +422,7 @@ async fn append_governance_evidence(
     trace_id: &str,
     now: DateTime<Utc>,
 ) -> Result<(), RetentionPolicyError> {
+    ensure_retention_manager(transaction, context).await?;
     let mut audit_context = AuditContext::for_request(trace_id.to_owned())?;
     audit_context.subject_principal_id = Some(context.principal_id);
     audit_context.approval_request_id = approval_request_id;
@@ -408,3 +465,6 @@ async fn append_governance_evidence(
     transaction.enqueue_event(&event).await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

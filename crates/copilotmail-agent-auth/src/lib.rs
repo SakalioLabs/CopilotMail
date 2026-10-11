@@ -10,14 +10,10 @@ use copilotmail_application::{
     AuthenticatedPrincipalKind, AuthenticationContext, AuthenticationError, AuthorizationStore,
     StoreError,
 };
-use copilotmail_domain::{CredentialId, Permission, PrincipalId};
+use copilotmail_crypto::{RsaPrivateKey, RsaPublicKey};
+use copilotmail_domain::{AuthenticationBinding, CredentialId, Permission, PrincipalId};
 use jsonwebtoken_v2::{
     Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, decode_header, encode,
-};
-use rsa::{
-    RsaPrivateKey, RsaPublicKey,
-    pkcs8::{DecodePrivateKey, DecodePublicKey, EncodePublicKey},
-    traits::PublicKeyParts,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -209,12 +205,9 @@ impl AgentSigningKeyManager {
             }
             let public = parse_public_key(&input.public_key_pem)?;
             let encoding_key = if let Some(private_key_pem) = input.private_key_pem {
-                let private = RsaPrivateKey::from_pkcs8_pem(
-                    std::str::from_utf8(&private_key_pem)
-                        .map_err(|_| AgentOAuthConfigError::Key)?,
-                )
-                .map_err(|_| AgentOAuthConfigError::Key)?;
-                if private.n() != public.n() || private.e() != public.e() {
+                let private = RsaPrivateKey::from_pkcs8_pem(&private_key_pem)
+                    .map_err(|_| AgentOAuthConfigError::Key)?;
+                if !private.matches(&public) {
                     return Err(AgentOAuthConfigError::Key);
                 }
                 Some(
@@ -326,8 +319,8 @@ fn rsa_jwk(key_id: String, public: &RsaPublicKey) -> AgentJwk {
         usage: "sig".into(),
         alg: "RS256".into(),
         kid: key_id,
-        n: URL_SAFE_NO_PAD.encode(public.n().to_bytes_be()),
-        e: URL_SAFE_NO_PAD.encode(public.e().to_bytes_be()),
+        n: URL_SAFE_NO_PAD.encode(public.modulus()),
+        e: URL_SAFE_NO_PAD.encode(public.exponent()),
     }
 }
 
@@ -335,9 +328,7 @@ fn rsa_jwk(key_id: String, public: &RsaPublicKey) -> AgentJwk {
 /// DER fingerprint for duplicate-key detection.
 pub fn rsa_public_key_fingerprint(public_key_pem: &[u8]) -> Result<String, AgentOAuthConfigError> {
     let key = parse_public_key(public_key_pem)?;
-    let der = key
-        .to_public_key_der()
-        .map_err(|_| AgentOAuthConfigError::Key)?;
+    let der = key.spki_der().map_err(|_| AgentOAuthConfigError::Key)?;
     let mut fingerprint = String::with_capacity(64);
     for byte in Sha256::digest(der.as_ref()) {
         write!(&mut fingerprint, "{byte:02x}").expect("writing to String cannot fail");
@@ -346,9 +337,9 @@ pub fn rsa_public_key_fingerprint(public_key_pem: &[u8]) -> Result<String, Agent
 }
 
 fn parse_public_key(public_key_pem: &[u8]) -> Result<RsaPublicKey, AgentOAuthConfigError> {
-    let pem = std::str::from_utf8(public_key_pem).map_err(|_| AgentOAuthConfigError::Key)?;
-    let key = RsaPublicKey::from_public_key_pem(pem).map_err(|_| AgentOAuthConfigError::Key)?;
-    if key.n().bits() < 2_048 || key.e().bits() > 32 {
+    let key =
+        RsaPublicKey::from_spki_pem(public_key_pem).map_err(|_| AgentOAuthConfigError::Key)?;
+    if !key.permits_signatures() {
         return Err(AgentOAuthConfigError::Key);
     }
     Ok(key)
@@ -738,11 +729,20 @@ where
         {
             return Err(AuthenticationError::InvalidCredential);
         }
+        let expires_at = Utc
+            .timestamp_opt(claims.exp, 0)
+            .single()
+            .ok_or(AuthenticationError::InvalidCredential)?;
         Ok(AuthenticatedIdentity {
             principal_id,
             principal_kind: AuthenticatedPrincipalKind::Agent,
             credential_id: Some(credential_id.to_string()),
-            scope_restriction: Some(scopes),
+            scope_restriction: Some(scopes.clone()),
+            authentication: AuthenticationBinding::AgentCredential {
+                credential_id,
+                expires_at,
+                scopes,
+            },
         })
     }
 }
@@ -835,8 +835,6 @@ mod tests {
     };
     use copilotmail_domain::{AuthorizationContext, OrganizationId};
     use jsonwebtoken_v2::{Header, encode};
-    use rand_core_06::OsRng;
-    use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey, LineEnding};
     use std::sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -925,6 +923,7 @@ mod tests {
                     principal_id,
                     organization_id: self.credential.organization_id,
                     permissions: self.permissions.clone(),
+                    authentication: None,
                 }),
             )
         }
@@ -941,11 +940,11 @@ mod tests {
     }
 
     fn rsa_pair() -> (String, String) {
-        let private = RsaPrivateKey::new(&mut OsRng, 2_048).unwrap();
-        let public = RsaPublicKey::from(&private);
+        let private = RsaPrivateKey::generate_for_testing().unwrap();
+        let public = private.public_key();
         (
-            private.to_pkcs8_pem(LineEnding::LF).unwrap().to_string(),
-            public.to_public_key_pem(LineEnding::LF).unwrap(),
+            private.pkcs8_pem_for_testing().unwrap().to_string(),
+            public.spki_pem().unwrap(),
         )
     }
 

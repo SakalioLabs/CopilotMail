@@ -39,7 +39,7 @@ describe("BFF browser session", () => {
       principal_id: "human-1",
       organization_id: config.organizationId,
       client: "admin",
-      expires_at: "2026-07-27T08:00:00Z",
+      expires_at: "2099-07-27T08:00:00Z",
     };
     Object.defineProperty(sessionPayload, "access_token", {
       enumerable: true,
@@ -58,7 +58,7 @@ describe("BFF browser session", () => {
       principal_id: "human-1",
       organization_id: config.organizationId,
       client: "admin",
-      expires_at: "2026-07-27T08:00:00Z",
+      expires_at: "2099-07-27T08:00:00Z",
     });
 
     const [url, request] = fetchMock.mock.calls[0];
@@ -91,5 +91,35 @@ describe("BFF browser session", () => {
     ]);
     expect((fetchMock.mock.calls[1][1] as RequestInit).headers)
       .not.toHaveProperty("Authorization");
+  });
+
+  it("fails closed for malformed or expired session projections", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        json: async () => ({
+          principal_id: "human-1",
+          organization_id: config.organizationId,
+          client: "admin",
+          expires_at: "not-a-timestamp",
+        }),
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        json: async () => ({
+          principal_id: "human-1",
+          organization_id: config.organizationId,
+          client: "admin",
+          expires_at: "2026-08-24T01:00:00Z",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(loadSession(config, Date.parse("2026-08-24T02:00:00Z")))
+      .rejects.toThrow("session_response_invalid");
+    await expect(loadSession(config, Date.parse("2026-08-24T02:00:00Z")))
+      .resolves.toBeNull();
   });
 });

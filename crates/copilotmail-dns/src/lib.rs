@@ -8,13 +8,11 @@
 use async_trait::async_trait;
 use base64::{Engine, engine::general_purpose::STANDARD};
 use chrono::{DateTime, Utc};
+use copilotmail_crypto::RsaPublicKey;
 use copilotmail_domain::{
     DnsVerificationChecks, DnsVerificationEvidence, DomainError, MailDomainName,
 };
-use hickory_resolver::{TokioResolver, config::ResolveHosts, name_server::TokioConnectionProvider};
-use rsa::{
-    RsaPublicKey, pkcs1::DecodeRsaPublicKey, pkcs8::DecodePublicKey, traits::PublicKeyParts,
-};
+use hickory_resolver::{TokioResolver, config::ResolveHosts, lookup::Lookup, proto::rr::RData};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::{
@@ -236,15 +234,17 @@ pub struct HickoryDnsLookup {
 
 impl HickoryDnsLookup {
     pub fn from_system() -> Result<Self, DnsError> {
-        let mut builder = TokioResolver::builder(TokioConnectionProvider::default())
-            .map_err(|_| DnsError::ResolverInitialization)?;
+        let mut builder =
+            TokioResolver::builder_tokio().map_err(|_| DnsError::ResolverInitialization)?;
         let options = builder.options_mut();
         options.timeout = Duration::from_secs(3);
         options.attempts = 2;
         options.cache_size = 128;
         options.use_hosts_file = ResolveHosts::Never;
         Ok(Self {
-            resolver: builder.build(),
+            resolver: builder
+                .build()
+                .map_err(|_| DnsError::ResolverInitialization)?,
         })
     }
 }
@@ -255,17 +255,7 @@ impl DnsLookup for HickoryDnsLookup {
         match self.resolver.txt_lookup(name).await {
             Ok(lookup) => {
                 let valid_until = instant_deadline(lookup.valid_until());
-                let values = lookup
-                    .iter()
-                    .map(|record| {
-                        record
-                            .txt_data()
-                            .iter()
-                            .flat_map(|part| part.iter().copied())
-                            .collect::<Vec<_>>()
-                    })
-                    .map(|bytes| String::from_utf8(bytes).map_err(|_| DnsError::InvalidAnswer))
-                    .collect::<Result<Vec<_>, _>>()?;
+                let values = hickory_txt_values(&lookup)?;
                 Ok(DnsRecordSet {
                     values,
                     valid_until,
@@ -280,13 +270,7 @@ impl DnsLookup for HickoryDnsLookup {
         match self.resolver.mx_lookup(name).await {
             Ok(lookup) => Ok(DnsRecordSet {
                 valid_until: instant_deadline(lookup.valid_until()),
-                values: lookup
-                    .iter()
-                    .map(|record| MxRecord {
-                        preference: record.preference(),
-                        exchange: record.exchange().to_utf8().to_ascii_lowercase(),
-                    })
-                    .collect(),
+                values: hickory_mx_values(&lookup),
             }),
             Err(error) if error.is_no_records_found() => Ok(negative_record_set()),
             Err(_) => Err(DnsError::Unavailable),
@@ -395,9 +379,7 @@ fn exactly_one_valid_dkim(records: &[String]) -> bool {
     let Ok(decoded) = STANDARD.decode(public_key.as_bytes()) else {
         return false;
     };
-    RsaPublicKey::from_public_key_der(&decoded)
-        .or_else(|_| RsaPublicKey::from_pkcs1_der(&decoded))
-        .is_ok_and(|key| key.n().bits() >= 2048)
+    RsaPublicKey::from_der(&decoded).is_ok_and(|key| key.permits_signatures())
 }
 
 fn tag_value(record: &str, name: &str) -> Option<String> {
@@ -464,6 +446,41 @@ fn min_deadline<const N: usize>(
         now + chrono::Duration::from_std(MAX_EVIDENCE_TTL).expect("constant duration"),
         min,
     )
+}
+
+// Hickory 0.26 returns a mixed answer section rather than typed lookup
+// iterators. Keep record selection separate from network I/O and test it.
+fn hickory_txt_values(lookup: &Lookup) -> Result<Vec<String>, DnsError> {
+    lookup
+        .answers()
+        .iter()
+        .filter_map(|record| match &record.data {
+            RData::TXT(txt) => Some(txt),
+            _ => None,
+        })
+        .map(|record| {
+            let bytes = record
+                .txt_data
+                .iter()
+                .flat_map(|part| part.iter().copied())
+                .collect();
+            String::from_utf8(bytes).map_err(|_| DnsError::InvalidAnswer)
+        })
+        .collect()
+}
+
+fn hickory_mx_values(lookup: &Lookup) -> Vec<MxRecord> {
+    lookup
+        .answers()
+        .iter()
+        .filter_map(|record| match &record.data {
+            RData::MX(mx) => Some(MxRecord {
+                preference: mx.preference,
+                exchange: mx.exchange.to_utf8().to_ascii_lowercase(),
+            }),
+            _ => None,
+        })
+        .collect()
 }
 
 fn instant_deadline(deadline: Instant) -> DateTime<Utc> {
@@ -566,8 +583,55 @@ pub enum DnsError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand_core::OsRng;
-    use rsa::{RsaPrivateKey, pkcs8::EncodePublicKey};
+
+    #[test]
+    fn hickory_mixed_answers_keep_txt_segments_and_mx_identity_separate() {
+        use hickory_resolver::proto::{
+            op::Query,
+            rr::{
+                Name, Record, RecordType,
+                rdata::{MX, TXT},
+            },
+        };
+        let name = Name::from_ascii("EXAMPLE.TEST.").unwrap();
+        let lookup = Lookup::new_with_max_ttl(
+            Query::query(name.clone(), RecordType::TXT),
+            [
+                Record::from_rdata(
+                    name.clone(),
+                    60,
+                    RData::TXT(TXT::new(vec!["first".into(), "second".into()])),
+                ),
+                Record::from_rdata(name.clone(), 60, RData::MX(MX::new(10, name.clone()))),
+            ],
+        );
+        assert_eq!(hickory_txt_values(&lookup).unwrap(), vec!["firstsecond"]);
+        assert_eq!(
+            hickory_mx_values(&lookup),
+            vec![MxRecord {
+                preference: 10,
+                exchange: "example.test.".into()
+            }]
+        );
+    }
+
+    #[test]
+    fn hickory_txt_rejects_invalid_utf8_instead_of_silently_changing_evidence() {
+        use hickory_resolver::proto::{
+            op::Query,
+            rr::{Name, RecordType, rdata::TXT},
+        };
+        let lookup = Lookup::from_rdata(
+            Query::query(Name::from_ascii("example.test.").unwrap(), RecordType::TXT),
+            RData::TXT(TXT::from_bytes(vec![b"\xff"])),
+        );
+        assert!(matches!(
+            hickory_txt_values(&lookup),
+            Err(DnsError::InvalidAnswer)
+        ));
+        assert!(hickory_mx_values(&lookup).is_empty());
+    }
+    use copilotmail_crypto::RsaPrivateKey;
     use std::{collections::BTreeMap, str::FromStr};
 
     #[derive(Default)]
@@ -624,9 +688,16 @@ mod tests {
     }
 
     fn dkim_record(bits: usize) -> String {
-        let private_key = RsaPrivateKey::new(&mut OsRng, bits).unwrap();
-        let der = private_key.to_public_key().to_public_key_der().unwrap();
-        format!("v=DKIM1; k=rsa; p={}", STANDARD.encode(der.as_bytes()))
+        let key = match bits {
+            2048 => RsaPrivateKey::generate_for_testing().unwrap().public_key(),
+            1024 => RsaPublicKey::from_spki_pem(include_bytes!(
+                "../../copilotmail-crypto/tests/public-1024.pem"
+            ))
+            .unwrap(),
+            _ => panic!("fixture only supports explicit tested strengths"),
+        };
+        let der = key.spki_der().unwrap();
+        format!("v=DKIM1; k=rsa; p={}", STANDARD.encode(der.as_ref()))
     }
 
     fn ready_lookup(token: &str, mx_address: IpAddr) -> MemoryLookup {

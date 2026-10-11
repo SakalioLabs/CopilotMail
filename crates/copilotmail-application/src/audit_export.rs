@@ -78,8 +78,18 @@ where
             .get_audit_export_grant_by_approval(organization_id, command.approval.request_id)
             .await?
         {
+            // Idempotency preserves an existing result, not stale permission.
+            // This read-only transaction is dropped without committing writes.
+            let mut transaction = self.store.begin_authorized(&command.context).await?;
+            if !transaction
+                .authorize_human_permission(organization_id, requested_by, Permission::AuditExport)
+                .await?
+            {
+                return Err(AuditExportAuthorizationError::Forbidden);
+            }
             return ensure_exact_replay(
                 existing,
+                organization_id,
                 command.archive_id,
                 requested_by,
                 command.approval.request_id,
@@ -95,7 +105,11 @@ where
         {
             return Err(AuditExportAuthorizationError::Forbidden);
         }
-        let expires_at = (command.now + Self::GRANT_LIFETIME).min(approval.expires_at);
+        let expires_at = command
+            .now
+            .checked_add_signed(Self::GRANT_LIFETIME)
+            .ok_or(DomainError::InvalidAuditExport)?
+            .min(approval.expires_at);
         if expires_at <= command.now {
             return Err(AuditExportAuthorizationError::Forbidden);
         }
@@ -104,7 +118,7 @@ where
             .get_audit_archive(organization_id, command.archive_id)
             .await?
             .ok_or(AuditExportAuthorizationError::NotFound)?;
-        if archive.organization_id != organization_id {
+        if archive.organization_id != organization_id || archive.archive_id != command.archive_id {
             return Err(AuditExportAuthorizationError::NotFound);
         }
 
@@ -117,9 +131,9 @@ where
             expires_at,
         )?;
         let candidate_id = candidate.id();
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         if !transaction
-            .active_human_principal_exists(organization_id, requested_by)
+            .authorize_human_permission(organization_id, requested_by, Permission::AuditExport)
             .await?
         {
             return Err(AuditExportAuthorizationError::Forbidden);
@@ -127,12 +141,16 @@ where
         let grant = transaction.authorize_audit_export_grant(&candidate).await?;
         ensure_exact_replay(
             grant.clone(),
+            organization_id,
             command.archive_id,
             requested_by,
             command.approval.request_id,
         )?;
 
         if grant.id() == candidate_id {
+            if grant.expires_at() > candidate.expires_at() {
+                return Err(AuditExportAuthorizationError::Conflict);
+            }
             let mut audit_context = AuditContext::for_request(command.trace_id.clone())?;
             audit_context.subject_principal_id = Some(requested_by);
             audit_context.approval_request_id = Some(command.approval.request_id);
@@ -155,7 +173,7 @@ where
                     "checkpoint_id": archive.checkpoint_id,
                     "expires_at": grant.expires_at(),
                 }),
-                command.now,
+                grant.created_at(),
             )?
             .with_context(audit_context)?;
             transaction.append_audit_event(&audit).await?;
@@ -168,7 +186,7 @@ where
                         "organization_id": organization_id,
                         "archive_id": grant.archive_id(),
                     }),
-                    command.now,
+                    grant.created_at(),
                 ))
                 .await?;
         }
@@ -259,11 +277,16 @@ where
             .await?
             .ok_or(AuditExportDownloadError::NotFound)?;
         if grant.organization_id() != organization_id
+            || grant.id() != command.grant_id
             || grant.requested_by() != command.context.principal_id
         {
             return Err(AuditExportDownloadError::NotFound);
         }
-        if !grant.is_active(command.now) {
+        if !self
+            .store
+            .audit_export_grant_is_active(organization_id, command.grant_id)
+            .await?
+        {
             return Err(AuditExportDownloadError::Forbidden);
         }
         let archive = self
@@ -271,7 +294,7 @@ where
             .get_audit_archive(organization_id, grant.archive_id())
             .await?
             .ok_or(AuditExportDownloadError::NotFound)?;
-        if archive.organization_id != organization_id {
+        if archive.organization_id != organization_id || archive.archive_id != grant.archive_id() {
             return Err(AuditExportDownloadError::NotFound);
         }
         Ok(AuthorizedAuditExportObject {
@@ -298,10 +321,16 @@ where
         {
             return Err(AuditExportDownloadError::Forbidden);
         }
-        if !authorized.grant.is_active(command.now) {
+        if !self
+            .store
+            .audit_export_grant_is_active(organization_id, authorized.grant.id())
+            .await?
+        {
             return Err(AuditExportDownloadError::Forbidden);
         }
-        if command.retrieved != authorized.object {
+        if authorized.archive_id != authorized.grant.archive_id()
+            || command.retrieved != authorized.object
+        {
             return Err(AuditExportDownloadError::Conflict);
         }
 
@@ -316,14 +345,29 @@ where
             downloaded_at: command.now,
         };
 
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         if !transaction
-            .active_human_principal_exists(organization_id, command.context.principal_id)
+            .authorize_human_permission(
+                organization_id,
+                command.context.principal_id,
+                Permission::AuditExport,
+            )
             .await?
         {
             return Err(AuditExportDownloadError::Forbidden);
         }
-        transaction.record_audit_export_download(&download).await?;
+        let persisted = transaction.record_audit_export_download(&download).await?;
+        // Only the database owns download time; every other proof field must
+        // match the exact verified object. Never audit an adapter substitution.
+        let mut expected = download;
+        expected.downloaded_at = persisted.downloaded_at;
+        if expected != persisted {
+            return Err(AuditExportDownloadError::Conflict);
+        }
+        if !authorized.grant.is_active(persisted.downloaded_at) {
+            return Err(AuditExportDownloadError::Forbidden);
+        }
+        let download = persisted;
 
         let mut audit_context = AuditContext::for_request(command.trace_id.clone())?;
         audit_context.subject_principal_id = Some(command.context.principal_id);
@@ -351,7 +395,7 @@ where
                 "sha256": download.object.sha256_hex,
                 "size_bytes": download.object.size_bytes,
             }),
-            command.now,
+            download.downloaded_at,
         )?
         .with_context(audit_context)?;
         transaction.append_audit_event(&audit).await?;
@@ -365,7 +409,7 @@ where
                     "archive_id": download.archive_id,
                     "artifact": download.artifact.as_str(),
                 }),
-                command.now,
+                download.downloaded_at,
             ))
             .await?;
         transaction.commit().await?;
@@ -385,11 +429,13 @@ fn select_artifact(
 
 fn ensure_exact_replay(
     grant: AuditExportGrant,
+    organization_id: copilotmail_domain::OrganizationId,
     archive_id: AuditArchiveId,
     requested_by: copilotmail_domain::PrincipalId,
     approval_request_id: copilotmail_domain::ApprovalRequestId,
 ) -> Result<AuditExportGrant, AuditExportAuthorizationError> {
-    if grant.archive_id() != archive_id
+    if grant.organization_id() != organization_id
+        || grant.archive_id() != archive_id
         || grant.requested_by() != requested_by
         || grant.approval_request_id() != approval_request_id
     {
@@ -397,6 +443,9 @@ fn ensure_exact_replay(
     }
     Ok(grant)
 }
+
+#[cfg(test)]
+mod service_tests;
 
 #[cfg(test)]
 mod tests {
@@ -419,10 +468,20 @@ mod tests {
         )
         .unwrap();
 
-        assert!(ensure_exact_replay(grant.clone(), archive_id, requested_by, approval_id).is_ok());
+        assert!(
+            ensure_exact_replay(
+                grant.clone(),
+                grant.organization_id(),
+                archive_id,
+                requested_by,
+                approval_id
+            )
+            .is_ok()
+        );
         assert!(matches!(
             ensure_exact_replay(
                 grant.clone(),
+                grant.organization_id(),
                 AuditArchiveId::new(),
                 requested_by,
                 approval_id
@@ -430,7 +489,13 @@ mod tests {
             Err(AuditExportAuthorizationError::Conflict)
         ));
         assert!(matches!(
-            ensure_exact_replay(grant, archive_id, PrincipalId::new(), approval_id),
+            ensure_exact_replay(
+                grant.clone(),
+                grant.organization_id(),
+                archive_id,
+                PrincipalId::new(),
+                approval_id
+            ),
             Err(AuditExportAuthorizationError::Conflict)
         ));
     }

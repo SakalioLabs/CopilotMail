@@ -1,12 +1,20 @@
 import type { RefCallback, RefObject } from "react";
+import { IconButton } from "@copilotmail/design-system";
 import type { Locale, Translator } from "../i18n";
-import { formatDate, formatMessageCount } from "../i18n";
+import { formatMessageCount } from "../i18n";
 import type { InboxPage, MessageSummary } from "../types";
+import { MessageQueueItem } from "./MessageQueueItem";
+
+const inboxZeroIllustration = new URL(
+  "../../../design-system/assets/illustrations/inbox-zero-v1.webp",
+  import.meta.url,
+).href;
 
 interface MessageListProps {
   activeSearch?: string;
   error?: string;
   headingRef?: RefObject<HTMLHeadingElement | null>;
+  searchInputRef?: RefObject<HTMLInputElement | null>;
   locale: Locale;
   page?: InboxPage;
   searchBusy: boolean;
@@ -22,15 +30,11 @@ interface MessageListProps {
   messageButtonRef: (messageId: string) => RefCallback<HTMLButtonElement>;
 }
 
-function sender(message: MessageSummary, t: Translator) {
-  const first = message.from[0];
-  return first?.name || first?.email || t("sender.unknown");
-}
-
 export function MessageList({
   activeSearch,
   error,
   headingRef,
+  searchInputRef,
   locale,
   page,
   searchBusy,
@@ -45,6 +49,19 @@ export function MessageList({
   onSearchTextChange,
   messageButtonRef,
 }: MessageListProps) {
+  const inboxBusy = searchBusy || (!page && !error);
+  const searchLength = [...searchText.trim()].length;
+  const canRetry = activeSearch !== undefined || searchLength === 0 || searchLength >= 2;
+  const retry = () => {
+    if (activeSearch !== undefined || searchLength >= 2) onSearch();
+    else onRefresh();
+  };
+  const listStatus = inboxBusy
+    ? t("inbox.syncing")
+    : page
+      ? formatMessageCount(locale, page.items.length)
+      : "";
+
   return (
     <section className="inbox" data-dialog-background>
       <header className="inbox-header">
@@ -52,19 +69,16 @@ export function MessageList({
           <h1 ref={headingRef} tabIndex={-1}>
             {activeSearch ? t("inbox.searchResults") : t("nav.inbox")}
           </h1>
-          <p>
-            {page
-              ? formatMessageCount(locale, page.items.length)
-              : t("inbox.syncing")}
-          </p>
+          <p aria-atomic="true" aria-live="polite" role="status">{listStatus}</p>
         </div>
-        <button
-          aria-label={t("inbox.refreshAria")}
+        <IconButton
+          className="inbox-refresh"
+          aria-busy={searchBusy || undefined}
           disabled={searchBusy}
+          icon="refresh"
+          label={t("inbox.refreshAria")}
           onClick={onRefresh}
-        >
-          <span aria-hidden="true">{t("icon.refresh")}</span>
-        </button>
+        />
       </header>
       <form
         className="mail-search"
@@ -75,6 +89,7 @@ export function MessageList({
         }}
       >
         <input
+          ref={searchInputRef}
           aria-label={t("inbox.searchAria")}
           maxLength={128}
           placeholder={t("inbox.searchPlaceholder")}
@@ -82,60 +97,53 @@ export function MessageList({
           onChange={(event) => onSearchTextChange(event.target.value)}
         />
         {activeSearch && (
-          <button
-            type="button"
-            aria-label={t("inbox.clearSearchAria")}
+          <IconButton
+            className="mail-search__clear"
+            icon="close"
+            label={t("inbox.clearSearchAria")}
             onClick={onClearSearch}
-          >
-            <span aria-hidden="true">{t("icon.close")}</span>
-          </button>
+          />
         )}
-        <button
-          type="submit"
+        <IconButton
+          className="mail-search__submit"
           disabled={searchBusy}
-          aria-label={t("inbox.submitSearchAria")}
-        >
-          <span aria-hidden="true">{t("icon.search")}</span>
-        </button>
+          icon="search"
+          label={t("inbox.submitSearchAria")}
+          type="submit"
+        />
       </form>
-      {error && <p className="error" role="alert">{error}</p>}
-      <div className="messages">
-        {page?.items.map((message) => {
-          const selected = selectedMessageId === message.message_id;
-          const className = [
-            "message",
-            selected ? "selected" : "",
-            message.is_read ? "" : "unread",
-          ].filter(Boolean).join(" ");
-          return (
-            <button
-              key={message.message_id}
-              ref={messageButtonRef(message.message_id)}
-              className={className}
-              aria-current={selected ? "true" : undefined}
-              onClick={() => onOpenMessage(message)}
-            >
-              <span className="sender">{sender(message, t)}</span>
-              <time dateTime={message.received_at}>
-                {formatDate(locale, message.received_at)}
-              </time>
-              <strong>{message.subject || t("subject.none")}</strong>
-              <span className="preview">{message.preview}</span>
-              <span className="message-icons" aria-hidden="true">
-                {message.is_flagged ? t("icon.starred") : ""}
-                {message.has_attachment ? t("icon.attachment") : ""}
-              </span>
-              {!message.is_read && <span className="sr-only">{t("message.unread")}</span>}
-              {message.is_flagged && <span className="sr-only">{t("message.starred")}</span>}
-              {message.has_attachment && (
-                <span className="sr-only">{t("message.hasAttachment")}</span>
-              )}
+      {error && (
+        <div className="error error--actionable" role="alert">
+          <span>{error}</span>
+          {canRetry && (
+            <button disabled={searchBusy} type="button" onClick={retry}>
+              {t("common.retry")}
             </button>
-          );
-        })}
+          )}
+        </div>
+      )}
+      <div className="messages" aria-busy={inboxBusy || undefined}>
+        {page?.items.map((message) => (
+          <MessageQueueItem
+            key={message.message_id}
+            locale={locale}
+            message={message}
+            selected={selectedMessageId === message.message_id}
+            t={t}
+            messageButtonRef={messageButtonRef}
+            onOpenMessage={onOpenMessage}
+          />
+        ))}
         {page && page.items.length === 0 && (
-          <div className="empty">
-            {activeSearch ? t("inbox.noSearchResults") : t("inbox.empty")}
+          <div className="empty empty--contextual">
+            {!activeSearch && (
+              <img
+                src={inboxZeroIllustration}
+                alt={t("inbox.emptyIllustrationAlt")}
+              />
+            )}
+            <strong>{activeSearch ? t("inbox.noSearchResults") : t("inbox.empty")}</strong>
+            <p>{activeSearch ? t("inbox.noSearchResultsHint") : t("inbox.emptyHint")}</p>
           </div>
         )}
         {page?.has_more && (

@@ -98,6 +98,7 @@ mod tests {
                     principal_id: PrincipalId::new(),
                     organization_id,
                     permissions: BTreeSet::new(),
+                    authentication: None,
                 },
             })
             .await;
@@ -152,6 +153,7 @@ mod tests {
                 principal_id: agent_id,
                 organization_id,
                 permissions: BTreeSet::from([Permission::AgentOperate]),
+                authentication: None,
             },
         })
         .await
@@ -179,6 +181,7 @@ mod tests {
                 principal_id: agent_id,
                 organization_id,
                 permissions: BTreeSet::from([Permission::AgentOperate]),
+                authentication: None,
             },
         })
         .await;

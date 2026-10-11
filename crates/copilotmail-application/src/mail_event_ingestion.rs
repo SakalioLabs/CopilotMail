@@ -161,9 +161,13 @@ impl<S: ControlPlaneStore> MailEngineMailboxBindingService<S> {
                 Err(MailEventIngestionError::InvalidBinding)
             };
         }
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(context).await?;
         if !transaction
-            .active_human_principal_exists(command.organization_id, context.principal_id)
+            .authorize_human_permission(
+                command.organization_id,
+                context.principal_id,
+                Permission::MailAdmin,
+            )
             .await?
         {
             return Err(MailEventIngestionError::Forbidden);
@@ -910,11 +914,13 @@ mod tests {
             Err(StoreError::Unavailable)
         }
 
-        async fn active_human_principal_exists(
+        async fn authorize_human_permission(
             &mut self,
             _organization_id: OrganizationId,
             _principal_id: copilotmail_domain::PrincipalId,
+            permission: Permission,
         ) -> Result<bool, StoreError> {
+            assert_eq!(permission, Permission::MailAdmin);
             Ok(true)
         }
 
@@ -1163,6 +1169,7 @@ mod tests {
             principal_id,
             organization_id,
             permissions: BTreeSet::from([Permission::MailAdmin]),
+            authentication: None,
         };
 
         let result = MailEngineMailboxBindingService::try_new(
@@ -1433,9 +1440,22 @@ mod tests {
                 state.events[0].data_plane_id,
                 Some(crate::mail_ports::test_mail_data_plane_id())
             );
-            let serialized = state.events[0].payload.to_string();
-            assert!(!serialized.contains('@'));
-            assert!(!serialized.contains("771"));
+            // Compare the complete, typed envelope rather than searching its
+            // serialized bytes: a randomly generated UUID may legitimately
+            // happen to contain a digit sequence from an omitted queue ref.
+            // Exact equality proves that no source address, queue reference,
+            // recipient, SMTP code, or provider event identifier crossed the
+            // minimized Outbox boundary.
+            assert_eq!(
+                state.events[0].payload,
+                json!({
+                    "organization_id": organization_id,
+                    "mailbox_id": mailbox_id,
+                    "trace_event_id": state.outbound_records[0].event_id,
+                    "kind": "delivered",
+                    "terminal": false,
+                })
+            );
         }
 
         let mut tampered = source_event;

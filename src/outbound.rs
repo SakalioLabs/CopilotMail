@@ -1,5 +1,5 @@
 use anyhow::{Context, Result, bail};
-use hickory_resolver::TokioResolver;
+use hickory_resolver::{TokioResolver, proto::rr::RData};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
@@ -10,16 +10,23 @@ pub async fn deliver(sender: &str, recipient: &str, raw: &[u8]) -> Result<()> {
         .rsplit_once('@')
         .map(|(_, domain)| domain)
         .context("recipient has no domain")?;
-    let resolver = TokioResolver::builder_tokio()?.build();
+    let resolver = TokioResolver::builder_tokio()?.build()?;
     let lookup = resolver
         .mx_lookup(domain)
         .await
         .context("MX lookup failed")?;
-    let mut exchanges: Vec<_> = lookup.iter().collect();
-    exchanges.sort_by_key(|mx| mx.preference());
+    let mut exchanges: Vec<_> = lookup
+        .answers()
+        .iter()
+        .filter_map(|record| match &record.data {
+            RData::MX(mx) => Some(mx),
+            _ => None,
+        })
+        .collect();
+    exchanges.sort_by_key(|mx| mx.preference);
     let mut last_error = None;
     for mx in exchanges {
-        let host = mx.exchange().to_utf8().trim_end_matches('.').to_string();
+        let host = mx.exchange.to_utf8().trim_end_matches('.').to_string();
         match deliver_to_host(&host, sender, recipient, raw).await {
             Ok(()) => return Ok(()),
             Err(error) => last_error = Some(error),

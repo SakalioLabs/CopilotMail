@@ -56,9 +56,13 @@ impl<S: ControlPlaneStore> WebhookDeadLetterService<S> {
         {
             return Err(ReplayWebhookDeadLetterError::Forbidden);
         }
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(context).await?;
         if !transaction
-            .active_human_principal_exists(command.organization_id, context.principal_id)
+            .authorize_human_permission(
+                command.organization_id,
+                context.principal_id,
+                Permission::SecurityAdmin,
+            )
             .await?
         {
             return Err(ReplayWebhookDeadLetterError::Forbidden);
@@ -191,11 +195,13 @@ mod tests {
             Err(StoreError::Unavailable)
         }
 
-        async fn active_human_principal_exists(
+        async fn authorize_human_permission(
             &mut self,
             _: OrganizationId,
             _: PrincipalId,
+            permission: Permission,
         ) -> Result<bool, StoreError> {
+            assert_eq!(permission, Permission::SecurityAdmin);
             Ok(self.human_actor)
         }
 
@@ -245,6 +251,7 @@ mod tests {
             } else {
                 BTreeSet::new()
             },
+            authentication: None,
         }
     }
 

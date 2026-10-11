@@ -1,0 +1,2719 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-09-19T03:10:37.542243+00:00",
+  "head": "fabf73ec02ecb1573b744b18e823db3631c7cc5d",
+  "working_tree_sha256": "64bac2ea6f59300fdabe383c2bedcf20f655fc423ba6bc3c3f7532970de989e8",
+  "evidence_kind": "source_inventory_not_test_result_or_backup",
+  "files": [
+    {
+      "path": ".dockerignore",
+      "bytes": 190,
+      "sha256": "b91c5ea8c913529a192ad808fb61242f07621e952bdc0eb93b358eeb2f460015"
+    },
+    {
+      "path": ".gitattributes",
+      "bytes": 17,
+      "sha256": "1d5d71dcc6ccd28ab46a335349ecc74742ca4b81f4fcad212f8d134f70f1f13e"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "bytes": 15351,
+      "sha256": "f8efcea9e73f2f2c9cecbf1c330c5819bd0e6ac436280290093af2c968eeac34"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 266,
+      "sha256": "5e3aa1a04a9ca5003589c0db65f4814e185b6ca215d175fa989d30819149ca4c"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "bytes": 3800,
+      "sha256": "1ea404d738683317cb37d9f6559e3766cb276b6839f6bd53d5bdecf3361ac074"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 4216,
+      "sha256": "a644ba4ded1917afb68282532be3b2dfd0d531f0f94de7790d093d7b1b6fbe61"
+    },
+    {
+      "path": "Cargo.lock",
+      "bytes": 117695,
+      "sha256": "0cbfa57f3963d6513c01dd6da707d2e905bcd2330404848fd96c2dcaf5dd56ea"
+    },
+    {
+      "path": "Cargo.toml",
+      "bytes": 3832,
+      "sha256": "fae202f918b0ff4f32f01542a3ab829e0c3a0784a3d41fe3d69e0ee420f00418"
+    },
+    {
+      "path": "DESIGN.md",
+      "bytes": 9523,
+      "sha256": "e25d5ba533df5bd8d07ae666d112528a432cf5a5153e369a9621acd35371ebf0"
+    },
+    {
+      "path": "Dockerfile",
+      "bytes": 595,
+      "sha256": "ecf99a021233132d77042bb150112971ad383517be2e795a7a2ced14f4ea2f8c"
+    },
+    {
+      "path": "GOAL.md",
+      "bytes": 3629,
+      "sha256": "fb34650f0e2c6a0a0d5bf757f5ab1766812be1b28540591e6e39544c9adb0336"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 11359,
+      "sha256": "c1b9df1275e769f3dbab000d1e457a2d4b0f28eb5da6c77e48dc37eeba202ed7"
+    },
+    {
+      "path": "README.en.md",
+      "bytes": 20869,
+      "sha256": "7ef07480b9c08f51f8b029fea3a822cec688cebf1ac6c1b3448a21c9a8f05672"
+    },
+    {
+      "path": "README.md",
+      "bytes": 1871,
+      "sha256": "d20685f8911e4807dbc683dfce6bba6af81b28be3dddd76f29c5407623e32b5c"
+    },
+    {
+      "path": "README.zh-CN.md",
+      "bytes": 24759,
+      "sha256": "12e37c20d67ac4fb521e75fdecfe3e0c5f2e806506b09c29d8a97c506d5a1d8e"
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 2896,
+      "sha256": "f6c78f4d310a13ccfa6296672a1d8b02c8ea11cd840ad6509e4250713549c3ce"
+    },
+    {
+      "path": "apps/copilotmail-control/Cargo.toml",
+      "bytes": 1759,
+      "sha256": "1e60cb6bb7e92efdecca8b7fb12d0e5660798a5611980e2720492b459182a54b"
+    },
+    {
+      "path": "apps/copilotmail-control/src/lib.rs",
+      "bytes": 672826,
+      "sha256": "3a1b19400de81f5489debbdc8c154a189a84590c5aa1a647274fa164fddb31b4"
+    },
+    {
+      "path": "apps/copilotmail-control/src/main.rs",
+      "bytes": 20842,
+      "sha256": "2ab066560a75791d6134f39043447fa4e52f1030bb15f71392434ffec72620ad"
+    },
+    {
+      "path": "apps/copilotmail-control/src/tls.rs",
+      "bytes": 10129,
+      "sha256": "15d994e91db07e5c0fedc34e55f34d42406c35a9294261bfe74474809f18b890"
+    },
+    {
+      "path": "crates/copilotmail-agent-auth/Cargo.toml",
+      "bytes": 686,
+      "sha256": "3fee4b29452f30153c3d2f6d96cd2317f1bb30da3156285571df0fbd0f106199"
+    },
+    {
+      "path": "crates/copilotmail-agent-auth/src/lib.rs",
+      "bytes": 44521,
+      "sha256": "8adbfbd7b92cb40fc6dfea8f8ba66a1ab921bc4cf1259f738e66291a5144dc0c"
+    },
+    {
+      "path": "crates/copilotmail-application/Cargo.toml",
+      "bytes": 513,
+      "sha256": "87393d0b92007026490fe1849f6f33e21b73a79e396db51e23974a8635d222fa"
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_event_cursor.rs",
+      "bytes": 24853,
+      "sha256": "e73b4b8ba64cb028de25f0b200d02486fe974c2de73020674719087ee8127609"
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_identity.rs",
+      "bytes": 15919,
+      "sha256": "dad90057e6f78b429999cfbddcff599fa20aea3604c0381bc6e896251e003e94"
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_ingress.rs",
+      "bytes": 3445,
+      "sha256": "b7d3a6d897f73359cc6593b2e2b854a6fd4f4ad127c5e3c97c82c63752b20210"
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_inspector.rs",
+      "bytes": 31937,
+      "sha256": "452faac7c8393741595255ddf270a4d12574469031a99818147ca6b3135f5230"
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_mail_content.rs",
+      "bytes": 15335,
+      "sha256": "0ec3d86a0984cf81e73fe640829d246cca00b986eeeb6588d7dbffb95c6db5e0"
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_mail_policy.rs",
+      "bytes": 15964,
+      "sha256": "bec822983dd1efbd7bbc3f65ee24096f5aa9fde41e4cb84fc82a50859fc53427"
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_mail_policy_query.rs",
+      "bytes": 6427,
+      "sha256": "6ff4aa0068297168cabd71773700491baa2bac38d91b915452169902ba9675fb"
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_mail_sandbox.rs",
+      "bytes": 8589,
+      "sha256": "db3c31c8c4d976fb14d4754c6a371b27eb9a5d1571bc10c0dfc94a2f0373131c"
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_mail_submission_evidence.rs",
+      "bytes": 37556,
+      "sha256": "6b876f32d45ffec7f062ad777418891976af50cfda446d7c3456067c242cc152"
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_processing.rs",
+      "bytes": 34279,
+      "sha256": "772b92c16d56f2b32ec5027901dd154bebdd59fb7b575df0869413358d88354c"
+    },
+    {
+      "path": "crates/copilotmail-application/src/approval.rs",
+      "bytes": 30885,
+      "sha256": "0b08e4b2b0e5392c0010d368a7fef99e87e115e3153bbedf31bbb68ef1889600"
+    },
+    {
+      "path": "crates/copilotmail-application/src/audit_archive.rs",
+      "bytes": 9662,
+      "sha256": "ac72713e3f79000a8f877872e49b13371be4c863959a384ccfb39d55727a2c6e"
+    },
+    {
+      "path": "crates/copilotmail-application/src/audit_checkpoint.rs",
+      "bytes": 9817,
+      "sha256": "57480b9e7c98538ac975cd71fb60a892506faaac925f6509811eebffa1ec89c1"
+    },
+    {
+      "path": "crates/copilotmail-application/src/audit_export.rs",
+      "bytes": 15434,
+      "sha256": "68dd51174ce095b63375f1583ed04b8d7bea10af547c49205428f1ebb6032e95"
+    },
+    {
+      "path": "crates/copilotmail-application/src/audit_query.rs",
+      "bytes": 18664,
+      "sha256": "1026316fdfbc73d3599477cb8017e35d505ac1de545511191a11941d0ede6d4a"
+    },
+    {
+      "path": "crates/copilotmail-application/src/authentication.rs",
+      "bytes": 2542,
+      "sha256": "39835d09ddcfa84fc35c888f51f6b29c7491154cc5353a67ce67d714b0ac63d3"
+    },
+    {
+      "path": "crates/copilotmail-application/src/bind_oidc_owner.rs",
+      "bytes": 14767,
+      "sha256": "3fead7f1caf515df035e786653c387561182113ac4fcbe97fd26f47e5bf3b60e"
+    },
+    {
+      "path": "crates/copilotmail-application/src/bootstrap_organization.rs",
+      "bytes": 11188,
+      "sha256": "577f5fdda630617d715dd35cd638938f7073a70a1e4115badd51c6b25acc9bbc"
+    },
+    {
+      "path": "crates/copilotmail-application/src/compliance.rs",
+      "bytes": 23462,
+      "sha256": "d53ee60fbfc49035a959d834db6d21f76e8cabac3004fdfe5957c2928ff0a7b4"
+    },
+    {
+      "path": "crates/copilotmail-application/src/draft.rs",
+      "bytes": 34742,
+      "sha256": "6247955e4f01c3283528976d0a2ed803430539ce38ee66b27746c1c72b4785ca"
+    },
+    {
+      "path": "crates/copilotmail-application/src/events.rs",
+      "bytes": 3763,
+      "sha256": "704f745cd54da993a766f0bf974652abcc1b2fe7c0d47e251732d4f265f6e47c"
+    },
+    {
+      "path": "crates/copilotmail-application/src/human_draft.rs",
+      "bytes": 42606,
+      "sha256": "ba62a9b6566787c6be8497a1285fd7bac9ae26b07bbbc02e4f88ed7a1776a4fe"
+    },
+    {
+      "path": "crates/copilotmail-application/src/human_mailbox_directory.rs",
+      "bytes": 15580,
+      "sha256": "5a92cf2a556e37956cc133a12ede1c96b322b6389ef21f33a5bd88149f74c61f"
+    },
+    {
+      "path": "crates/copilotmail-application/src/human_sent.rs",
+      "bytes": 24171,
+      "sha256": "cd2d32382ecdcb97d834701212e4eba7ff6dd93733e9a4e58c3c6be92fa94ea8"
+    },
+    {
+      "path": "crates/copilotmail-application/src/human_session.rs",
+      "bytes": 36808,
+      "sha256": "0d59f7e98ebc47132e633b24d3bb42aeaf4dabfdb4ad3e9420f71b377f7060bc"
+    },
+    {
+      "path": "crates/copilotmail-application/src/inbox.rs",
+      "bytes": 44583,
+      "sha256": "fbb8f6ea580f32642cc429fdb0471f14aea71541ef04c91df9289dd0c528a737"
+    },
+    {
+      "path": "crates/copilotmail-application/src/lib.rs",
+      "bytes": 13361,
+      "sha256": "d968213cc121450b8e962f24a89accc5fa9d4b9a25d954df11d3471bd98d08f5"
+    },
+    {
+      "path": "crates/copilotmail-application/src/mail_delivery.rs",
+      "bytes": 25352,
+      "sha256": "32f982f673646214d4f8bc94e001c2679a2aef0e02b798ae6106b8e3fa7b5f35"
+    },
+    {
+      "path": "crates/copilotmail-application/src/mail_domain.rs",
+      "bytes": 44660,
+      "sha256": "92df03ea5bda24f66c015503f4f014e596d96e8630acfe0010cb2a50b2322034"
+    },
+    {
+      "path": "crates/copilotmail-application/src/mail_event_ingestion.rs",
+      "bytes": 55845,
+      "sha256": "8b78ff639428a8dafc129bcefd8e73771ea3d888a13890927822f8d1160f9519"
+    },
+    {
+      "path": "crates/copilotmail-application/src/mail_ports.rs",
+      "bytes": 13748,
+      "sha256": "9fd4d59718b40016fc73b2dfe1e0d809f2422da2877e3d1a32112010fcde68a3"
+    },
+    {
+      "path": "crates/copilotmail-application/src/mail_submission.rs",
+      "bytes": 37104,
+      "sha256": "3a864a3e592fae14097eb6904bda612beeeb4d7af4877b66876d8e56504d287c"
+    },
+    {
+      "path": "crates/copilotmail-application/src/mailbox_authorization.rs",
+      "bytes": 15767,
+      "sha256": "c1f518b379e4a92bfbcdc164da6cb4c324f1a77658b9cb4aadfd8ecc7d261318"
+    },
+    {
+      "path": "crates/copilotmail-application/src/ports.rs",
+      "bytes": 117553,
+      "sha256": "6dacd9eb7e348e93de7c5d5754655ed83bf350da43da37f8fa0e72277afcceb3"
+    },
+    {
+      "path": "crates/copilotmail-application/src/register_principal.rs",
+      "bytes": 6802,
+      "sha256": "80ae4aa739faf682dd57faf1c93e176ffd6e8a18d38d2d661bad6055f8443196"
+    },
+    {
+      "path": "crates/copilotmail-application/src/retention.rs",
+      "bytes": 14514,
+      "sha256": "2d274dd9f2875d0b15491d9e7817378e0b6f01570aaa41c7ccbc526adf99eaca"
+    },
+    {
+      "path": "crates/copilotmail-application/src/role_governance.rs",
+      "bytes": 17945,
+      "sha256": "ab1b0a9bbbcf415af7589106bdb45b1f3a05ad9e1fb62e708d71fc17183002a0"
+    },
+    {
+      "path": "crates/copilotmail-application/src/scim.rs",
+      "bytes": 30511,
+      "sha256": "29f689f02a473aba08589f3f12da68768af9da2878552157670dd0425fe65826"
+    },
+    {
+      "path": "crates/copilotmail-application/src/webhook_delivery.rs",
+      "bytes": 10065,
+      "sha256": "c34a31dbb740fbc131c2917d1514efe04d0eec75fbed71caac7e8c07ba3ca237"
+    },
+    {
+      "path": "crates/copilotmail-application/src/webhook_subscription.rs",
+      "bytes": 17629,
+      "sha256": "93f9ccf3194113cdfa0b92a1f3d6b6d0d25d518fa9192d7d51138c6354f608ea"
+    },
+    {
+      "path": "crates/copilotmail-audit/Cargo.toml",
+      "bytes": 509,
+      "sha256": "72db7d5cbd1fdcb99da92520a57f21a6a4895860b328a72468317c0b4aaa5292"
+    },
+    {
+      "path": "crates/copilotmail-audit/src/lib.rs",
+      "bytes": 26113,
+      "sha256": "f4397cf3292e303eff25f9319d129f814e375f95d2b2e11ae64a0095444f0937"
+    },
+    {
+      "path": "crates/copilotmail-contracts/Cargo.toml",
+      "bytes": 213,
+      "sha256": "622610fe04be4c71f94eaf3a7ddf791dc7d7932a2fc40165ce1595087dd4d6c4"
+    },
+    {
+      "path": "crates/copilotmail-contracts/src/lib.rs",
+      "bytes": 65523,
+      "sha256": "c011107a6e25af3582a4a53a4f25fcfb301cef5e1aff18ec3534d4f48c77b26f"
+    },
+    {
+      "path": "crates/copilotmail-dns/Cargo.toml",
+      "bytes": 536,
+      "sha256": "99346ae7bf21c66d06c36f43728680f13ef681ca7dd7c4170d91994fc8796364"
+    },
+    {
+      "path": "crates/copilotmail-dns/src/lib.rs",
+      "bytes": 28598,
+      "sha256": "34c65e6dbaef1fa6d194010cbaa2dbda4b7846faa9a6971e0aa674f3475e2052"
+    },
+    {
+      "path": "crates/copilotmail-domain/Cargo.toml",
+      "bytes": 326,
+      "sha256": "31ea990a44d0247e9fc83fde6d68695f7cd181b4cb4b6c1fe0d9b7c2fae2e8e9"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/agent_mail_policy.rs",
+      "bytes": 10795,
+      "sha256": "de9e19da325e2cacc02d1f14a9276194f75f19d5c6fdc0c24b5a0cb90a213141"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/approval.rs",
+      "bytes": 15331,
+      "sha256": "76e144fb4fa5fe98ddac38dd2b9a6fdb2a1afebfbb6fb87105b8a62cf103e4e7"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/audit.rs",
+      "bytes": 19743,
+      "sha256": "7093a099cc2aa928545c7003941b28e0020b16f88c27d1f5a125a18e13ea26d8"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/audit_export.rs",
+      "bytes": 3743,
+      "sha256": "9308f0024fc29e568bed8e7f302e67327f84b58bcca57c999063c4e2ba9a8641"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/authorization.rs",
+      "bytes": 15795,
+      "sha256": "b3ca64b0005b465e69ac130a3aca46d1df97bcf115163231842196a7f2c7d01c"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/compliance.rs",
+      "bytes": 11636,
+      "sha256": "c6ca5ad31eb9e203ef4ccde01d8a83e88295c3e5a6ab11e2c198e1142c37fe12"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/identity.rs",
+      "bytes": 17334,
+      "sha256": "8f019f496e0b21798f63c9ffbb570adf29ac613f4634fd91791f2da1b5d9575a"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/ids.rs",
+      "bytes": 4980,
+      "sha256": "43d97d80917b8390b07f9b7c57221ffa2ac036d69048d704c378b2ba9c5bf105"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/lib.rs",
+      "bytes": 7123,
+      "sha256": "9d2b556a836be3995a1f5b8b3969f5fdeb63c239b458767c5a23e10bb2b32e9a"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/mail_domain.rs",
+      "bytes": 21324,
+      "sha256": "52fccb2bf61b5a2a0e893bdf75d58664c2126450853e83d7525fe912670e913b"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/mailbox.rs",
+      "bytes": 5465,
+      "sha256": "293651a8a3c095e13826d78935dc2d0b3733e8cbc744904522b60cf64455bb91"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/mailbox_authorization.rs",
+      "bytes": 10315,
+      "sha256": "d0cb3258f7e1434cc5e843b00c678803ae97b0792a602d03ecf02c75692f6704"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/organization.rs",
+      "bytes": 3704,
+      "sha256": "1774c47551dd360059e09984fd103a49f812848748cc4608069a6f2d7c231b63"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/processing.rs",
+      "bytes": 8971,
+      "sha256": "9fd5655405bc4fb1213411f0d368b1bfa32f7c1f49ccec61fee32717ce442fb9"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/retention.rs",
+      "bytes": 10697,
+      "sha256": "c51ee27c14db3ee792d7a5d9390ee596117295829e0af34f58394256fda0413b"
+    },
+    {
+      "path": "crates/copilotmail-domain/src/webhook.rs",
+      "bytes": 7113,
+      "sha256": "8fe9d9beef4f53d64e4fd189c438891a24491c7a4a60aa99b857acf2d3d0eca0"
+    },
+    {
+      "path": "crates/copilotmail-mail-engine/Cargo.toml",
+      "bytes": 667,
+      "sha256": "61651e8ae2e4275579a1a393fd8c96b22d0ad2149b72a2a505daf421acf53357"
+    },
+    {
+      "path": "crates/copilotmail-mail-engine/src/lib.rs",
+      "bytes": 183389,
+      "sha256": "130a91e3803eb621759cecb08677b12e591a7893593315879795b6f7c76ef7f8"
+    },
+    {
+      "path": "crates/copilotmail-object-store/Cargo.toml",
+      "bytes": 429,
+      "sha256": "b7cc1e17bbe6ccb47a548d51f69e6abd934410e29dd07f32c5caaaf67e094086"
+    },
+    {
+      "path": "crates/copilotmail-object-store/src/lib.rs",
+      "bytes": 24426,
+      "sha256": "87c8964115cf9000e097ce9afa92290bad0d6feea690f35982a626cc8d080f02"
+    },
+    {
+      "path": "crates/copilotmail-object-store/tests/minio_integration.rs",
+      "bytes": 7017,
+      "sha256": "af27dac8882893a8ebfa836a65a3737130d226b3a33427a0191e748a7520bce9"
+    },
+    {
+      "path": "crates/copilotmail-oidc/Cargo.toml",
+      "bytes": 760,
+      "sha256": "e6195493918da3b1455a01061b998a3cebe51693c39fdabe798646126f3ecb7d"
+    },
+    {
+      "path": "crates/copilotmail-oidc/src/lib.rs",
+      "bytes": 66063,
+      "sha256": "0b1fcbaa0b46a2f80fd818b15bd1fc23ca6a2006df8c80d835647c331853ec39"
+    },
+    {
+      "path": "crates/copilotmail-platform/Cargo.toml",
+      "bytes": 458,
+      "sha256": "cf8949a12457dead4456cca1b51ccf2ab8045cf2deac1b866235e68a6a4df299"
+    },
+    {
+      "path": "crates/copilotmail-platform/examples/observability_smoke.rs",
+      "bytes": 425,
+      "sha256": "46ff24f8f70c4e09e4f6f233343d4c956ed851972a73d60e1be33dc77b594689"
+    },
+    {
+      "path": "crates/copilotmail-platform/src/lib.rs",
+      "bytes": 64106,
+      "sha256": "74971dfcf3ba3b654674a673ab2cc6d5967cb7071097afc05e1b4d1b771aedd6"
+    },
+    {
+      "path": "crates/copilotmail-postgres/Cargo.toml",
+      "bytes": 792,
+      "sha256": "012f6c89d1ce009a7c3d70a73635da9f686491e22480ee9c21b63dc9e014eee2"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0001_control_plane.sql",
+      "bytes": 8556,
+      "sha256": "b758c096a4df389a2579cacfcca781395057e33cea7087e5e5c9195b272f3e1d"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0002_organization_bootstrap.sql",
+      "bytes": 385,
+      "sha256": "05b928807c42077a7ab899efac545483aa9a2b461b5689c5ef7a923c8ff58c0e"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0003_rbac.sql",
+      "bytes": 3680,
+      "sha256": "87f87872a0fef1e8007693245289766551dba0ec9a7492fb7ad7ac6de4338971"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0004_oidc_owner_handover.sql",
+      "bytes": 1327,
+      "sha256": "96524d785fe0a8ec83331232511998e1cdc0a4de7557c98853f38e387244a4c5"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0005_scim_directory.sql",
+      "bytes": 3387,
+      "sha256": "09efd16578607a4eaa46078619171a531812dbec4e29a4636c156c70f1b67af8"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0006_agent_oauth.sql",
+      "bytes": 2049,
+      "sha256": "c3ebe45d68db8e37fcf8da0723cd3a0bbb9d983b63a5f96de60f916a7b0967b3"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0007_agent_mtls.sql",
+      "bytes": 628,
+      "sha256": "a69efc327d22e80e1ec7e66a4c0b93de64d212371e8073f71fafbd76f365e5b6"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0008_mailbox_authorization.sql",
+      "bytes": 2232,
+      "sha256": "a21c5990fc17d9f8a7f6836eac2bab6063e93a42a9b026667224d747dcdbb471"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0009_approval_workflow.sql",
+      "bytes": 5549,
+      "sha256": "8e11bff7649c0c02576615765ea554e1485822579d5c7cbde8c9391baff06568"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0010_audit_governance.sql",
+      "bytes": 5484,
+      "sha256": "c119ed725de17cb8a5601f3a88a11ee403bc2ba8d891ede62ec7da5f6911191f"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0011_audit_hash_chain.sql",
+      "bytes": 5921,
+      "sha256": "522f5ae053940b5dcbf809fbc3ee9f35e8aac472d3f814730d6ef2dea2e49e96"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0012_signed_audit_checkpoints.sql",
+      "bytes": 4902,
+      "sha256": "0cde342b242b57323a1ac32d5f8e05a85c3b5da4d5f4f08828166b9ab2b06629"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0013_audit_worm_archives.sql",
+      "bytes": 3760,
+      "sha256": "51cd0821ac812e21de7ac8923995d50ba15c1c86b4f154c4a728a24220acb926"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0014_mail_domain_governance.sql",
+      "bytes": 6122,
+      "sha256": "b66050b54ac4ffb2527de99c855629808b6096c30bf77b7761c00dabc6056700"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0015_mail_domain_application_events.sql",
+      "bytes": 460,
+      "sha256": "31abb82d965105ad6c8017d88dfc8599521d79e405706680eee1f956a9bf441a"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0016_mail_engine_domain_projection.sql",
+      "bytes": 384,
+      "sha256": "f8585dc06e3d0bdec83eb7ef47f3722bb1e558df9466739373ac72ece463f11a"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0017_mail_engine_projection_status.sql",
+      "bytes": 1678,
+      "sha256": "7c4c9ddb7cfd246af7f1a4a0dcfb56bb97ff8563bbf0b0301f75372412da2b8a"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0018_mail_domain_challenge_rotation.sql",
+      "bytes": 358,
+      "sha256": "138cf373cb5346d153a7074428cf80c2855be5153d31a4f9cc39ec1c863d5cd5"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0019_webhook_delivery_ledger.sql",
+      "bytes": 2297,
+      "sha256": "b861186451d8e8099fcd826cc11e92a79f5f2c88cb1752f37dc06b2e89a156e5"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0020_webhook_subscription_governance.sql",
+      "bytes": 2208,
+      "sha256": "6cac79f6800e30d64ab5a3dc4f21dd5721ca9e0d68a47dcf7f806280d065b3f3"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0021_webhook_dead_letter_replay.sql",
+      "bytes": 287,
+      "sha256": "8ef847d059bc67a8b6503ebf4abb6b2921c0fa2499dd02c8399fe1b76d6da34f"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0022_agent_event_cursor.sql",
+      "bytes": 382,
+      "sha256": "693662506b0cb7a73ae07ffb4dfd6a4faff307b35243b74fe55f84ef2ec76570"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0023_mail_engine_event_ingress.sql",
+      "bytes": 4118,
+      "sha256": "ee4679692542d3ea31d3b71335281db553f75cd24b5c8e79e2477e465c0fcb11"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0024_agent_event_sse.sql",
+      "bytes": 153,
+      "sha256": "04572f5a538ab54c26042dd4313ae0b11b1c4b091e464dfcf12db9729e14d82b"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0025_audit_event_search.sql",
+      "bytes": 385,
+      "sha256": "f024197492e0244b3d5347597a3150b9310606da199bdf649870b361f7e7c7d3"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0026_compliance_legal_holds.sql",
+      "bytes": 13075,
+      "sha256": "a5dec212719c982051d73964feffd3f89315075fba1f34bb7c21960208db2120"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0027_audit_export_grants.sql",
+      "bytes": 3803,
+      "sha256": "172d60a5548b6e47b5a82b22166d4369bfaac86b0cebd4b596ec761d5b3aae11"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0028_audit_export_downloads.sql",
+      "bytes": 4387,
+      "sha256": "c2b57274fd09f3b5068b6cf270e6984e0891bb460a2042e6d0171d4f62769c38"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0029_retention_policies.sql",
+      "bytes": 11152,
+      "sha256": "cac357592936a6ebc5364f7ef0033ce2fa49159306a8deb0ba37fa69a0ff8be8"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0030_mail_drafts_and_submission_intents.sql",
+      "bytes": 13464,
+      "sha256": "b7415d142a36a36dfb874459f19a2ff548ba8f149a7e7bfa494ded9fbaafcaa4"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0031_mail_submission_terminal_audit.sql",
+      "bytes": 292,
+      "sha256": "52120f691b7905d269b58f76c62a867a7b49919f5375b350c97df754a058ddc1"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0032_mail_delivery_evidence.sql",
+      "bytes": 6549,
+      "sha256": "9e51c19bdcd3fc9db4345c1137411afb8959012580c799fda517d19288a24a80"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0033_outbound_delivery_trace_evidence.sql",
+      "bytes": 3201,
+      "sha256": "13ca2788b6da3847327333cd3d5be535c97168e205c796dff6020a84eab79f1a"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0034_approval_request_center.sql",
+      "bytes": 3286,
+      "sha256": "657606c33a40fb4f6df2861f07949c9434b95992c65a4adafde0aeabf5742df1"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0035_builtin_role_catalog.sql",
+      "bytes": 2559,
+      "sha256": "f4a2a3da7752935abc11a68cd338325c80334c75dd318026cfb55054dacfdb0b"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0036_governed_role_assignments.sql",
+      "bytes": 7636,
+      "sha256": "df4bbd02dd0d932184c5966f04a217fa30683ea1877e00d32e4bbec4a39bd8c5"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0037_agent_event_stream_leases.sql",
+      "bytes": 2906,
+      "sha256": "2d4f3a2dcd4a219f8e1dfc9ee6c0af4896c1f85571f7c13becb06b4218f3eac1"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0038_agent_ingress_rate_limits.sql",
+      "bytes": 3593,
+      "sha256": "1b7ec09e51167f9394906ec8a7970ebb808c386f93e3a5626dfecba0767fb407"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0039_agent_mail_submission.sql",
+      "bytes": 3655,
+      "sha256": "1c1e1df125845825466b7de56305705fd4f0fbbb9b0d083a0e92db26ef7f7f63"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0040_agent_mail_content.sql",
+      "bytes": 311,
+      "sha256": "8d419f3dd03a355a878f11adf7000463f276a21247e5d71cbb0c722465c3f9d4"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0041_agent_mail_policy_versions.sql",
+      "bytes": 10549,
+      "sha256": "6c52ed460f6d827f9f5fd1d93b04a37b12514d4062bd54c65a5203a3f638fdb8"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0042_agent_mail_admission.sql",
+      "bytes": 22613,
+      "sha256": "8fb6cd05779b3c9f3f4a5560319a9ee72569b490c1caebd1d1757eb9459866ff"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0043_agent_message_processing.sql",
+      "bytes": 11663,
+      "sha256": "bb8acab543330e68e552c3d4055413b16c33b8ed7c18dad3fdae1f830af6d1e4"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0044_agent_processing_dead_letter_query.sql",
+      "bytes": 411,
+      "sha256": "7e2f89ddb07fbb6f41a93d03f5702fd5c0b912ddedab79f18a822993e9ac86ba"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0045_agent_processing_subscription_lifecycle.sql",
+      "bytes": 8087,
+      "sha256": "75ce812b52d5f45e72dd5d75c6912c70952a40f032e790c3f8324d5b687a9a0f"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0046_explicit_mail_reply_semantics.sql",
+      "bytes": 2773,
+      "sha256": "9e2cb98bf0a531b2129f2122594096ee0baf3a945817808d159b3d6dea3b5746"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0047_agent_automatic_reply_loop_guard.sql",
+      "bytes": 11837,
+      "sha256": "2bcc92d667a768f6f089aea602d308fda1ff1a1efebaa8e03ccabff836eb460f"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0048_human_mail_search_audit.sql",
+      "bytes": 134,
+      "sha256": "b51c2366b6f511169d083266261a9223e4e914fb6d186fd5707f4b5a35fcadc1"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0049_human_browser_sessions.sql",
+      "bytes": 11132,
+      "sha256": "353ecaa06ad6685d4766dcce15d42f25cb088f276b493d1666b56571835bb1b9"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0050_human_mail_content_reads.sql",
+      "bytes": 599,
+      "sha256": "97b02ea0bdc452c209def1b4bd67b7e6ea77ea7cb7b91881cac4b100f76b1cce"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0051_mail_engine_account_ownership.sql",
+      "bytes": 5446,
+      "sha256": "009ac4c178c34e70501c5c8efb9cb0ccfbf957c7074ed5329206a69fba538b00"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0052_mail_engine_account_owner_insert_guard.sql",
+      "bytes": 10159,
+      "sha256": "0397d860feca93befb0c61edbdedf5b4c76ea4fa70c778d869637a94e5d23663"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0053_mail_data_plane_identity.sql",
+      "bytes": 53180,
+      "sha256": "acea1638b305ad25828bfed4eea2b7bf19f15c1d98f8a9c933333e26f66ed95c"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0054_human_mail_draft_reads.sql",
+      "bytes": 407,
+      "sha256": "12c9fd9b8b44c3e99524d85772b0a654cffe697c1a45060aa3857ef53accaa6a"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0055_human_mail_sent_directory.sql",
+      "bytes": 518,
+      "sha256": "840e20c7421196d98c9cac003102f1efc81bd493c529770ef8e92f32098d3caf"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0056_human_mail_sent_directory_index.sql",
+      "bytes": 970,
+      "sha256": "5caaaced633803c92f1e6df568b570dbb09a320689c103badd0f0a7e2c537bc1"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0057_agent_inspector.sql",
+      "bytes": 362,
+      "sha256": "f93c28773394f3bade44396945a6a03e7f033430b00808e7cdc171d2ff7b7e21"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/0058_agent_mail_submission_evidence.sql",
+      "bytes": 397,
+      "sha256": "0893925e4a714c4a63851e1656cc69d7885def4977aa1397dae3ce20857b13b5"
+    },
+    {
+      "path": "crates/copilotmail-postgres/migrations/README.md",
+      "bytes": 14478,
+      "sha256": "ca83b98f139647b0b535300a7359ae9e7d19fb548cb362f334de4e60e323f384"
+    },
+    {
+      "path": "crates/copilotmail-postgres/src/lib.rs",
+      "bytes": 646380,
+      "sha256": "651e4996698390c65d0d9c52e00a325a4a47bd066a85c612555db08b4dcd545e"
+    },
+    {
+      "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+      "bytes": 349603,
+      "sha256": "8a62e9b1f90470e10699b82c4739f88fb3b4d14661b6c07888ce5750a8224d5d"
+    },
+    {
+      "path": "crates/copilotmail-scim/Cargo.toml",
+      "bytes": 515,
+      "sha256": "e14a63700948305aafd573040eba1c0bd620ad1b54467c247afb9ba4af9a187f"
+    },
+    {
+      "path": "crates/copilotmail-scim/src/lib.rs",
+      "bytes": 43027,
+      "sha256": "727210350f71804a3da3099d87f7e21d34cbf53cf1f39f58d8a33c0c7f90dbec"
+    },
+    {
+      "path": "crates/copilotmail-webhook/Cargo.toml",
+      "bytes": 591,
+      "sha256": "79418ef8efc77c20eef459c05ded6b9c27c40a42eab7b592e68ed6e5d1e0b532"
+    },
+    {
+      "path": "crates/copilotmail-webhook/src/lib.rs",
+      "bytes": 22094,
+      "sha256": "1e7f0fa8cb18650af39efc692324e9952dd2067bed6ba926d226d21cd20fd181"
+    },
+    {
+      "path": "deploy/compose.dev.yaml",
+      "bytes": 11040,
+      "sha256": "32b32b28715a0e91c7dce1e78df1596137ff8c9887a9bb6580ac680d77a2f728"
+    },
+    {
+      "path": "deploy/compose.human-session.yaml",
+      "bytes": 1880,
+      "sha256": "e933eb879b7b2d6c09af76161b6b74a6cc7386eef65fc56de9bc54133e295ba6"
+    },
+    {
+      "path": "deploy/compose.mail-bootstrap.yaml",
+      "bytes": 168,
+      "sha256": "361f53d76a66d7b4d68b5fa053649a1fc671ad527c74c3e5a4108196b4725144"
+    },
+    {
+      "path": "deploy/compose.mail-poc.yaml",
+      "bytes": 5451,
+      "sha256": "467a9102bc4aa48c76904476fadb6c5aa559f847a1c0b3984961cb5c362ad983"
+    },
+    {
+      "path": "deploy/compose.observability.yaml",
+      "bytes": 3112,
+      "sha256": "f0c376bbd5140aeee5fbdc94763063ecbc95aac7f93a3e777799332ec2590239"
+    },
+    {
+      "path": "deploy/compose.pilot.yaml",
+      "bytes": 1496,
+      "sha256": "46eb0c6aa17320f4f286c2043e2cb2bfc97cd79ddb2739e1ae4738e618f2e425"
+    },
+    {
+      "path": "deploy/docker/Dockerfile.admin-app",
+      "bytes": 1067,
+      "sha256": "430ba8bdaf918d7f27675b1c46ee24e1c4e84c434c7dd1a3c0e3d12a408c1531"
+    },
+    {
+      "path": "deploy/docker/Dockerfile.control-plane",
+      "bytes": 1146,
+      "sha256": "dd527589878290107a6bcb049da2b2697ad8cee475a1ff96f5a2144f65c59b61"
+    },
+    {
+      "path": "deploy/docker/Dockerfile.mail-app",
+      "bytes": 1053,
+      "sha256": "cbcefc153c84920395259ffdae72d59df48f3ac210f0e84858aaa0a5d88f1554"
+    },
+    {
+      "path": "deploy/docker/admin-runtime-config.sh",
+      "bytes": 1047,
+      "sha256": "e3f4573f0272405a7f4b99680b975e54fa0247083c39101a3f21dff1d987ed29"
+    },
+    {
+      "path": "deploy/docker/mail-runtime-config.sh",
+      "bytes": 990,
+      "sha256": "0d797a0297180b514c372f3524064f1d734bda874dac2f0b90b926f31baa76a4"
+    },
+    {
+      "path": "deploy/nginx/admin-app.conf",
+      "bytes": 2355,
+      "sha256": "48e81118e7e144c8b959e66e481a18e434d7652bb691f940664e61349b690545"
+    },
+    {
+      "path": "deploy/nginx/mail-app.conf",
+      "bytes": 2040,
+      "sha256": "8f243dd2a1cd494a8ecf76595fc278d75bd5bab00ffa7d60b220c5f17a51524a"
+    },
+    {
+      "path": "deploy/observability/grafana-datasources.yaml",
+      "bytes": 416,
+      "sha256": "ce61eaeddcf98945f2d740126a9bc71e5a18ff0b3544640dd2ea94611fafddcb"
+    },
+    {
+      "path": "deploy/observability/otel-collector.yaml",
+      "bytes": 684,
+      "sha256": "5cdef00bbc2a351524689991ecea58053e10a6e3328047393bdc69b602d31a4f"
+    },
+    {
+      "path": "deploy/observability/prometheus.yaml",
+      "bytes": 443,
+      "sha256": "0704d76d54b261abc43faa1fcbd488fd861fdef3b4f4ec93781b4abfb8497030"
+    },
+    {
+      "path": "deploy/observability/tempo.yaml",
+      "bytes": 357,
+      "sha256": "23a1f2c0ebc70c76f62c92a3c3050dca7a5d9d8268f651a0f40f1ff038ba09a8"
+    },
+    {
+      "path": "deploy/secrets/README.md",
+      "bytes": 3444,
+      "sha256": "4be1bb240fb7068e41d3bdd228e38633fe4e27e13b5e1cc47bb33302eace24df"
+    },
+    {
+      "path": "docker-compose.yaml",
+      "bytes": 393,
+      "sha256": "a81587f36cff8837cf4348ab4e01b3e7bc978d55d99ee87ff36845e1c4219ea7"
+    },
+    {
+      "path": "docs/ADMIN_APP.zh-CN.md",
+      "bytes": 20725,
+      "sha256": "8e0b7983de396319ba11ce9a0a870e3a9e0da6aa0d4a1510445dbf8a44eea4a9"
+    },
+    {
+      "path": "docs/AGENT_AUTH.zh-CN.md",
+      "bytes": 22423,
+      "sha256": "03c118e5e30f7cb27c4ba58baabe1490bd75e69844b0fe5a4e9c733abece3996"
+    },
+    {
+      "path": "docs/AGENT_INSPECTOR_API_PLAN.zh-CN.md",
+      "bytes": 20541,
+      "sha256": "4ca7431d85b445cd9803bb0bb44424fd789d8cd3a00133cb89e328a98cb8666b"
+    },
+    {
+      "path": "docs/AGENT_MAIL_SANDBOX_AND_LOOP_GUARDS.zh-CN.md",
+      "bytes": 5963,
+      "sha256": "1f74ebcacff8e4d484812af4b338c543e306c922e30577925027e3a87d46da3d"
+    },
+    {
+      "path": "docs/AGENT_SIGNING_KEY_ROTATION.zh-CN.md",
+      "bytes": 3970,
+      "sha256": "52cb4efa68de940e317c063ab8e062cbc356a899de3c6d8879eb10096139ec0a"
+    },
+    {
+      "path": "docs/APPLICATION_VERIFICATION_API_PLAN.zh-CN.md",
+      "bytes": 26098,
+      "sha256": "1b0e118d50f8af01608018053398a84f1253a080825a66b573bc8e93db4119d1"
+    },
+    {
+      "path": "docs/APPROVAL_WORKFLOW.zh-CN.md",
+      "bytes": 6765,
+      "sha256": "f04ed1233cf0120e16967337abeb50c8a29ef53fe1022ca1a295048b1836099b"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "bytes": 1965,
+      "sha256": "5c5543486ed8d353604d2ecd44062bc19cc75f861ff70c5b52b3bd1cdc28e0e1"
+    },
+    {
+      "path": "docs/AUDIT_CHECKPOINTS.zh-CN.md",
+      "bytes": 5587,
+      "sha256": "36f534eea40e134cf8d590388a08cf2ee23057e4760b5a520fdf1f5ff4f2ed49"
+    },
+    {
+      "path": "docs/AUDIT_EVENT_CATALOG.zh-CN.md",
+      "bytes": 12403,
+      "sha256": "aac5ddcccaea7ed769c5054f5312340fe7613f526e478fd16d5b34fa48053cdb"
+    },
+    {
+      "path": "docs/AUDIT_EXPORT_AUTHORIZATION.zh-CN.md",
+      "bytes": 3428,
+      "sha256": "0a6b53ca43ce3cd5a91e73fbee10e31b21c25c782201424fb3d7745e796d4c04"
+    },
+    {
+      "path": "docs/AUDIT_WORM_ARCHIVE.zh-CN.md",
+      "bytes": 9097,
+      "sha256": "116e957e7edb88aa17cd6e3854f3149d7efe1579e525dae16785b2b05a46d28b"
+    },
+    {
+      "path": "docs/AUTHORIZATION_MATRIX.zh-CN.md",
+      "bytes": 7020,
+      "sha256": "908b310107cc1bc23c5f36ed8b10a25df45c20a2e12df91feb38c08f951ce81c"
+    },
+    {
+      "path": "docs/BACKUP_RESTORE.zh-CN.md",
+      "bytes": 14936,
+      "sha256": "53f17c8a25a5f15b3c569a480fd8bfb1ff42a4977f86c6e942a64d5d0ada05f7"
+    },
+    {
+      "path": "docs/DELIVERY_REPLAN_2026-09.zh-CN.md",
+      "bytes": 22101,
+      "sha256": "baa883334d96dc518df75c6a93c70006decf954e442721751f1300814439e219"
+    },
+    {
+      "path": "docs/DEPLOYMENT.md",
+      "bytes": 11262,
+      "sha256": "304bcbc7b5a35a594880a56d39cad9008ec3c9848745980c0218e1151cd51191"
+    },
+    {
+      "path": "docs/DESIGN_D0_ADMIN_FIELD_MAPPING.zh-CN.md",
+      "bytes": 6719,
+      "sha256": "01d0671fa5b1d166c748ee625ed7184c5ed3e595e2b7f825c09f3139f90d4401"
+    },
+    {
+      "path": "docs/DESIGN_D4B_QUEUE_READING_MAPPING.zh-CN.md",
+      "bytes": 16031,
+      "sha256": "346de3012713739f73ae29e123d0ef813c58a327f1f20038ddbefd76a6b94258"
+    },
+    {
+      "path": "docs/DESIGN_D4C_DRAFTS_SENT_MAPPING.zh-CN.md",
+      "bytes": 9708,
+      "sha256": "bc628980164cdf5ad8b779bfab255d88a725aa388998e9cb110a0cdf8a30a051"
+    },
+    {
+      "path": "docs/DESIGN_D4D_COMPOSE_MAPPING.zh-CN.md",
+      "bytes": 11780,
+      "sha256": "bcf8ebfdda916fd101dc137b4a5b6d60b27c6c4ab033821a1f5fb881d1f55ab1"
+    },
+    {
+      "path": "docs/DESIGN_D4E_ACCESS_SESSION_MAPPING.zh-CN.md",
+      "bytes": 6826,
+      "sha256": "e394ef30e047405dc74de791e39e4714a4e48f9318b45db8378aab97c5df5fa9"
+    },
+    {
+      "path": "docs/DESIGN_D4_MAIL_FIELD_MAPPING.zh-CN.md",
+      "bytes": 5886,
+      "sha256": "402112e7dd55b1e98308686e402430f52525202012e88a37cc12f39f0055386e"
+    },
+    {
+      "path": "docs/DESIGN_DEVELOPMENT_BLUEPRINT.zh-CN.md",
+      "bytes": 29044,
+      "sha256": "e6eec08ccb3fd4a969ddd691cdfed1df378cc12e9d53644921d40555a309674a"
+    },
+    {
+      "path": "docs/DESIGN_DEVELOPMENT_SPEC_V2.zh-CN.md",
+      "bytes": 50106,
+      "sha256": "ff2937706f319a646bad2a805cd9f72535a14e854f3b8ba8c0e56b020e459171"
+    },
+    {
+      "path": "docs/DESIGN_GOVERNANCE.zh-CN.md",
+      "bytes": 16782,
+      "sha256": "d335e77e9aa2e619c44a476bd8bb1bbb2f2469381d4af066b2f751351e0ee945"
+    },
+    {
+      "path": "docs/DESIGN_SYSTEM.zh-CN.md",
+      "bytes": 18134,
+      "sha256": "01a46a1883344930637ce3511577a94e53b2e88a31c36a2145ed8fb22df2f1a5"
+    },
+    {
+      "path": "docs/ENTERPRISE_INPUT_CHECKLIST.zh-CN.md",
+      "bytes": 10355,
+      "sha256": "7a6d5a12adae6f50b92b7e960c16c347e5e457d65f7d4665acfdeb6af15067d6"
+    },
+    {
+      "path": "docs/EXPLICIT_REPLY_SEMANTICS.zh-CN.md",
+      "bytes": 1871,
+      "sha256": "4e6a226d6166a19dd2941db6f1f90e7194107e2861a7dc8352fcca60d02c67e1"
+    },
+    {
+      "path": "docs/HUMAN_AGENT_UX_SPEC.zh-CN.md",
+      "bytes": 16018,
+      "sha256": "b78eee99e2c98906693812fc032bf24f80cd0c7f038032d0daec32c8a72af841"
+    },
+    {
+      "path": "docs/HUMAN_MAIL_APP.zh-CN.md",
+      "bytes": 32164,
+      "sha256": "b92e88c55183b8752438fea9251112cd3e2476b3b7a797547cb8725840b171a6"
+    },
+    {
+      "path": "docs/HUMAN_OIDC_SESSION.zh-CN.md",
+      "bytes": 8367,
+      "sha256": "db1761c4e416de23c06c728bdb080bc191a8db50db9d22717e16a7a0abf2a733"
+    },
+    {
+      "path": "docs/IMAGE2_ASSET_MANIFEST.zh-CN.md",
+      "bytes": 4418,
+      "sha256": "e92da68ee23931edbfb05c5d208520d842a6b8df0e95dee77bdb33dab06dace7"
+    },
+    {
+      "path": "docs/IMPLEMENTATION_PLAN.zh-CN.md",
+      "bytes": 28708,
+      "sha256": "72f28d0424097000671d5e0dac1b7f91d07b5526da6b6778c1364d8b378e6293"
+    },
+    {
+      "path": "docs/IMPLEMENTATION_STATUS.zh-CN.md",
+      "bytes": 105362,
+      "sha256": "48d2c2460f88240b8c7f887ee0b09753a0fd3cdccee60238b86cfdd093ed7fec"
+    },
+    {
+      "path": "docs/LEGAL_HOLD.zh-CN.md",
+      "bytes": 5362,
+      "sha256": "0bb5dc1c10ed76353e5236778c509659bc12245bd0d576fd4dac619844483a2c"
+    },
+    {
+      "path": "docs/MAIL_DOMAIN_GOVERNANCE.zh-CN.md",
+      "bytes": 8611,
+      "sha256": "b3748b7b4dd28c9a0b3b46f473c3f1072c74b5a357db630ef27d7e399ad05780"
+    },
+    {
+      "path": "docs/MAIL_EVENT_INGRESS.zh-CN.md",
+      "bytes": 7930,
+      "sha256": "dd522d558dd14ea14e9aa40a981aaee9be438e6fb2e1d8c70917d4fd9af9d9fa"
+    },
+    {
+      "path": "docs/NIXOS_DEVELOPMENT_NODE.zh-CN.md",
+      "bytes": 4654,
+      "sha256": "3ee3aecec94e74747c077b8caed1afcd1e3f08b4cc896755a664b40c42e7580e"
+    },
+    {
+      "path": "docs/OBSERVABILITY.zh-CN.md",
+      "bytes": 4827,
+      "sha256": "f514c5e8841ea007ac0b7c62023dad6104b6cbb1649fb0edccd17838074e187a"
+    },
+    {
+      "path": "docs/RETENTION_POLICIES.zh-CN.md",
+      "bytes": 3532,
+      "sha256": "e205babfa21d56335fd6964577df4715f794c005cf38bd656a7c4ce08bc4701e"
+    },
+    {
+      "path": "docs/SCIM.zh-CN.md",
+      "bytes": 3365,
+      "sha256": "7d9525d21d00cc8e73be1abb69a7451cccbdc8037720a6eb19b5b4a02861ecba"
+    },
+    {
+      "path": "docs/STALWART_POC.zh-CN.md",
+      "bytes": 15511,
+      "sha256": "2fdc7153e7b107a012b4f4dfe0be4cab32cd3f85043deb87d79193873c123e90"
+    },
+    {
+      "path": "docs/THREAT_MODEL.zh-CN.md",
+      "bytes": 22286,
+      "sha256": "6813b350f169e581e182899a82bb69435e04a3ec7e7beaed9343a41906b20884"
+    },
+    {
+      "path": "docs/UBUNTU_WSL_PILOT.zh-CN.md",
+      "bytes": 22346,
+      "sha256": "6cd2f091d2e64eac6c9b8379db1fc8b378592038d08fec0cc75c9a26a9eaccbe"
+    },
+    {
+      "path": "docs/WEBHOOK_DELIVERY.zh-CN.md",
+      "bytes": 11529,
+      "sha256": "44723a49220ebd62bea703095262f81fce75586e6d6c4459c684698d7eb4f53f"
+    },
+    {
+      "path": "docs/adr/0001-v2-modular-control-plane.md",
+      "bytes": 1342,
+      "sha256": "4b860ce8642257779ea24ad734156581e6eeb20f260b7bdf76c0bf8b37737fe6"
+    },
+    {
+      "path": "docs/adr/0002-mail-data-plane-boundary.md",
+      "bytes": 2898,
+      "sha256": "7caac296f73cafaf7eb58fb9a270789008993428909143c528a5e0075510ff10"
+    },
+    {
+      "path": "docs/adr/0003-default-deny-authorization.md",
+      "bytes": 1578,
+      "sha256": "2b80dec50f5d64b12f920ffd11a317cbbd24e0f2dc541eca854e2f685b2395d7"
+    },
+    {
+      "path": "docs/adr/0004-enterprise-human-oidc.md",
+      "bytes": 2059,
+      "sha256": "bf8372cf2ce6df4530164e4e2dcbc2d9f2eed8257e991a673f8c150a80cea5a5"
+    },
+    {
+      "path": "docs/adr/0005-oidc-owner-handover.md",
+      "bytes": 1658,
+      "sha256": "4f04d9bf248fd149643c6cb6daca3fab8e32a9ad62f5a86aaf2a57e094628b96"
+    },
+    {
+      "path": "docs/adr/0006-scim-authoritative-directory.md",
+      "bytes": 1700,
+      "sha256": "238a1a0bd0c96c89e672a7588a31c11ff77fa656e8b6f18742ceede9344e397b"
+    },
+    {
+      "path": "docs/adr/0007-agent-private-key-jwt.md",
+      "bytes": 2225,
+      "sha256": "b50f3bc84c24d1c60a30298163c8e782d32012b46dca9d46ba26d134851ebb15"
+    },
+    {
+      "path": "docs/adr/0008-native-mtls-certificate-bound-tokens.md",
+      "bytes": 2478,
+      "sha256": "3a50007cc0859e2581930ec6bf7d3aee59334ac70c4df1fd4cb5aba7169db3f8"
+    },
+    {
+      "path": "docs/adr/0009-hot-reloaded-agent-signing-key-ring.md",
+      "bytes": 1830,
+      "sha256": "abbd8c799898653ed617caa6fd775bae03c017e8e891e81281177322b89a22c3"
+    },
+    {
+      "path": "docs/adr/0010-mailbox-resource-authorization.md",
+      "bytes": 2163,
+      "sha256": "2c0b4ef5bf10433392e0aec363368124d1d1ad1cae381ba1eb0f39a55cd831ce"
+    },
+    {
+      "path": "docs/adr/0011-versioned-dual-approval-workflow.md",
+      "bytes": 2395,
+      "sha256": "3ed9fc383a36b679bfbbe703c55385a2a16a1dd9773fcebf92a8334e4721869d"
+    },
+    {
+      "path": "docs/adr/0012-governed-audit-event-catalog.md",
+      "bytes": 1918,
+      "sha256": "f34d1022e95d06bed7121cbdd078055a4f52eb12f40b49ffa32c387520e3cedc"
+    },
+    {
+      "path": "docs/adr/0013-tenant-audit-hash-chain.md",
+      "bytes": 2357,
+      "sha256": "f190e296a8fc6b9517130707ffb8f1ff6f46da4555304c55b707db70b75ae9f2"
+    },
+    {
+      "path": "docs/adr/0014-signed-audit-checkpoints-and-portable-exports.md",
+      "bytes": 2424,
+      "sha256": "b13ca0c72118c830f672580e4ae7db8cd362094b820057f3e2b9817ab9c9f9d0"
+    },
+    {
+      "path": "docs/adr/0015-verified-s3-object-lock-audit-archives.md",
+      "bytes": 1905,
+      "sha256": "753499968a73f139287a51afe0b668dcb5b87ba86c30ef2d4ae71e9d8aa5d8ae"
+    },
+    {
+      "path": "docs/adr/0016-challenge-bound-bounded-dns-evidence.md",
+      "bytes": 1721,
+      "sha256": "c12b52d412b041f7b55d412a3d2100a1d27711897852bce48872d3962665ac72"
+    },
+    {
+      "path": "docs/adr/0017-reliable-mail-engine-domain-projection.md",
+      "bytes": 2564,
+      "sha256": "3260b09acd16653e57a92a0c1bf6af4f4ed39bec3a793c94067c8407c513c082"
+    },
+    {
+      "path": "docs/adr/0018-audited-mail-domain-challenge-rotation.md",
+      "bytes": 2305,
+      "sha256": "066603e029a40be896f58b8901ca28c94b656e7eccfc295fb20cc0c55100e352"
+    },
+    {
+      "path": "docs/adr/0019-signed-ssrf-resistant-webhook-delivery.md",
+      "bytes": 2554,
+      "sha256": "ac4483dad7ed9451d26f1ac528df5e525d8dbdb8bca99e8ca0e735f64431e131"
+    },
+    {
+      "path": "docs/adr/0020-governed-agent-webhook-subscriptions-and-replay.md",
+      "bytes": 2003,
+      "sha256": "43f1bb56065cdf575bda7edaac62b8e479896d3cd6b80fe399fb32f1ba87739c"
+    },
+    {
+      "path": "docs/adr/0021-subscription-scoped-agent-event-cursors.md",
+      "bytes": 2006,
+      "sha256": "b47de29476cf7b6c9a4d38a4ff84c234daebc64f90000e62b8093d23199a423c"
+    },
+    {
+      "path": "docs/adr/0022-authenticated-mail-engine-event-ingress.md",
+      "bytes": 3644,
+      "sha256": "abed4be79a3847c46ccb185d07675b1ec4219a7044bc36980635b97c55fc0a1a"
+    },
+    {
+      "path": "docs/adr/0023-bounded-agent-sse-with-cursor-recovery.md",
+      "bytes": 2839,
+      "sha256": "d3f2a4973a7b66a3fbf1d55f75cfb1317ad4fb25408a93cad54e0577fa5b8b17"
+    },
+    {
+      "path": "docs/adr/0024-fail-closed-tenant-audit-search.md",
+      "bytes": 2858,
+      "sha256": "9aafeba190bf4f330b8f16c3e4e5959694c59dd0434fd60e71a6d59ca984c622"
+    },
+    {
+      "path": "docs/adr/0025-recoverable-single-tenant-audit-maintenance.md",
+      "bytes": 4159,
+      "sha256": "92c4e9b90e7370c1c33ed864f7cc98af7bc46d7345c04a8ee4d36ddb21fe5ead"
+    },
+    {
+      "path": "docs/adr/0026-exact-version-audit-legal-hold.md",
+      "bytes": 1921,
+      "sha256": "426fc40272fa0db3b6575153ddfbf330d25cba99bca06c4352cfe412a320fa70"
+    },
+    {
+      "path": "docs/adr/0027-recoverable-idempotent-mail-submission.md",
+      "bytes": 5576,
+      "sha256": "2f9db99cc919aa5ed68bd2986a1cd865ee08c9fe504bb851028774ae44fc4fd3"
+    },
+    {
+      "path": "docs/adr/0028-queue-delivery-evidence-without-submission-conflation.md",
+      "bytes": 3290,
+      "sha256": "221a914574f6806016395007140ed78ac858460f10bdf99689c12c5958ae9f3f"
+    },
+    {
+      "path": "docs/adr/0029-cluster-wide-agent-sse-quotas.md",
+      "bytes": 3259,
+      "sha256": "6a7591233f4858129066b65634c9140a8711e1fa6077a1c4edda3ad89cb4707c"
+    },
+    {
+      "path": "docs/adr/0030-cluster-wide-agent-ingress-rate-limits.md",
+      "bytes": 2197,
+      "sha256": "48edcbc603f86ee1c36bb83560bba6e5456893c139ec9caeec6425fd0dd04522"
+    },
+    {
+      "path": "docs/adr/0031-production-agent-mail-policy-boundary.md",
+      "bytes": 2439,
+      "sha256": "cf760f25700478c25ac0ec2611b81ea5662169dc325966a25660515e4e9330c2"
+    },
+    {
+      "path": "docs/adr/0032-testing-agent-mail-sandbox-and-loop-guards.md",
+      "bytes": 3342,
+      "sha256": "89e6894bcdb3b6ab5d44c97860874d7b91727aa8166c8678b71931abfb74b315"
+    },
+    {
+      "path": "docs/adr/0033-executable-stalwart-interoperability-gate.md",
+      "bytes": 2171,
+      "sha256": "beec2c1ca0fa3cbffc5c5c1c52b0632cd1fc5abeb4251036950cb09b6cb26879"
+    },
+    {
+      "path": "docs/adr/0034-private-human-mail-search.md",
+      "bytes": 1724,
+      "sha256": "85ea3b2de8a626e72f005d658d9e6b358b8fbf7fdeabe10754fb2ed80243cb63"
+    },
+    {
+      "path": "docs/adr/0035-human-oidc-bff-session.md",
+      "bytes": 4112,
+      "sha256": "3b86556040074c1a04561a04176b8ed6a176ee08f9fd2b466828feaf569ec651"
+    },
+    {
+      "path": "docs/adr/0036-immutable-mail-engine-account-ownership.md",
+      "bytes": 3418,
+      "sha256": "7544b3412e50c0b7df7d7bd69fceaed0b48176db3fc9b6907820f839e24f9240"
+    },
+    {
+      "path": "docs/adr/0037-stable-mail-data-plane-identity.md",
+      "bytes": 5188,
+      "sha256": "dfcdd9d1142b5e880c59baf0cfdb03ef4f967a6b4e3d234659c5b2949579f80a"
+    },
+    {
+      "path": "docs/architecture/V2_FOUNDATION.md",
+      "bytes": 6748,
+      "sha256": "123edcbdb9aef1286fac87a19ac1699085aa64e1449606483c28ce515b09bbc2"
+    },
+    {
+      "path": "docs/assets/visual-design/human-agent-mailflow-hero-v1.png",
+      "bytes": 1992391,
+      "sha256": "e92529ea0ae37a8d3d0c9684e68f467903850ccbc514c4fcda60ae2c047e2f7b"
+    },
+    {
+      "path": "docs/assets/visual-design/mailflow-icon-language-v1.png",
+      "bytes": 979851,
+      "sha256": "df01c03369f4f8aae9fa838edfc8ab3bbc328e083a2b6d2ce8d4bf1a66ceb6c1"
+    },
+    {
+      "path": "docs/asyncapi-v2.yaml",
+      "bytes": 6994,
+      "sha256": "113d7faee6ef2eab0d05683d303c16f4b14d89b39ad53a8a364db44b01ea8262"
+    },
+    {
+      "path": "docs/openapi-v2.yaml",
+      "bytes": 214623,
+      "sha256": "faf70bf4a5ece02e4c7287c5f90ecfa87b92cc908169f39c109366e47d089bd8"
+    },
+    {
+      "path": "docs/openapi.yaml",
+      "bytes": 3106,
+      "sha256": "433f080e38e66d67049ddc387970f9f70a30ffadde5a7045b84a3a4da6163403"
+    },
+    {
+      "path": "rust-toolchain.toml",
+      "bytes": 86,
+      "sha256": "279d77167cec5426fa80f457cd066dc74a360fbe4e2816f4f3fa01487a918fdc"
+    },
+    {
+      "path": "scripts/capture_quality_baseline.py",
+      "bytes": 2764,
+      "sha256": "d70160c03a5c6d5dad590ff6a40fb895b4ba5c259393a94c2bdc5decfe61e2a1"
+    },
+    {
+      "path": "scripts/check_agent_skill.py",
+      "bytes": 5575,
+      "sha256": "2bd270d27a8f3919e2886bcee3814d9a7083518b04b3a3afa55c398b61a1979e"
+    },
+    {
+      "path": "scripts/check_architecture.py",
+      "bytes": 45933,
+      "sha256": "a2a7c715f780ef5ff9c9b4c89198f04db6f088f651aa165cc16c93be4f5f724f"
+    },
+    {
+      "path": "scripts/check_audit_governance.py",
+      "bytes": 6571,
+      "sha256": "126fa0ff8cf91cb37b56c58680d98f809197bdc55f4cb1a4ebbbd4807604d3c0"
+    },
+    {
+      "path": "scripts/check_compose_security.py",
+      "bytes": 57088,
+      "sha256": "1e31802b1f9cd5695dbfafd1093b8af4357a35caea4fd7a02c998756b270756b"
+    },
+    {
+      "path": "scripts/check_design_governance.py",
+      "bytes": 43404,
+      "sha256": "7b0fc7660182fbf370aae15a703dfeb4b2f19fa883b7ae605b725b32d50d4124"
+    },
+    {
+      "path": "scripts/check_documentation.py",
+      "bytes": 5479,
+      "sha256": "9ce1442e61c9bfc7d4ff5935880ee26b7658d13f9e039b8e04d345d9488ad5ae"
+    },
+    {
+      "path": "scripts/check_mail_engine_account_ownership_upgrade.sh",
+      "bytes": 35653,
+      "sha256": "eb5e050f8793cab9324bdc62d97548f96a0dde19f87ef413d627273687e5c6bb"
+    },
+    {
+      "path": "scripts/check_postgres_backup_restore.sh",
+      "bytes": 27052,
+      "sha256": "18428abba75c15a1551b3525658ceb382ba1d4671d611e2b4f9ee7170f5bfba8"
+    },
+    {
+      "path": "scripts/check_ubuntu_wsl_pilot.sh",
+      "bytes": 37215,
+      "sha256": "49d575c4be0738fb73756ddef9df3d8d5ebafa99e8afb0444d5e875698cca991"
+    },
+    {
+      "path": "scripts/check_web_container_runtime.sh",
+      "bytes": 10900,
+      "sha256": "cee5bdf0d123c69edd55ddf256ba8e636189ab54b306610341554e08fafa5730"
+    },
+    {
+      "path": "scripts/check_web_i18n.py",
+      "bytes": 4081,
+      "sha256": "a7ca0de43284f311a54bbb5ef6fc424f668a2fb400bc85d3b4dc52b96fbc5876"
+    },
+    {
+      "path": "scripts/check_web_i18n_ast.mjs",
+      "bytes": 10971,
+      "sha256": "e02909b0bb74df3423adc0d78133fb8456fd29cc018036910de9440e5b168569"
+    },
+    {
+      "path": "scripts/render_stalwart_poc_plan.py",
+      "bytes": 6307,
+      "sha256": "405418478f9bd9eda0316ce01eef1510bdc37920641217bf5b295699dbbee2d6"
+    },
+    {
+      "path": "skills/copilotmail/SKILL.md",
+      "bytes": 4186,
+      "sha256": "6a173e965eee11e347f702b8dde906f5354dfbf45e53d16b5972496e53a593b7"
+    },
+    {
+      "path": "skills/copilotmail/agents/openai.yaml",
+      "bytes": 314,
+      "sha256": "09a901289c4734332642cb78ba6ee46ded57e6dccbf897341581c6ebdc8e9ade"
+    },
+    {
+      "path": "skills/copilotmail/references/api.md",
+      "bytes": 7247,
+      "sha256": "2a97cc70c011a8c17ee4ec636d2cd1fbb16872879e96bcea09179a7bd5ce6326"
+    },
+    {
+      "path": "skills/copilotmail/scripts/copilotmail.py",
+      "bytes": 11580,
+      "sha256": "9cf8eb08f18cb4099f0af7a4180aea3fccd31e697c14ddbaa182da41dc65042c"
+    },
+    {
+      "path": "src/api.rs",
+      "bytes": 12369,
+      "sha256": "67b832cbb9b7aaf5806758677317d30e76488ad379c33e652f1814c0251d844f"
+    },
+    {
+      "path": "src/config.rs",
+      "bytes": 1386,
+      "sha256": "394fa56a8c4fce6888ad01fd6f50e5c73e1a52260e9393c3194d8127dc521f1d"
+    },
+    {
+      "path": "src/events.rs",
+      "bytes": 726,
+      "sha256": "9fffbf28a62769de18913117242d78368a99cdcd48558473ebf48b35198f9543"
+    },
+    {
+      "path": "src/main.rs",
+      "bytes": 1153,
+      "sha256": "440f946fe143444189690a2dd166bf282c3e16286167770f1eda2a61039ba896"
+    },
+    {
+      "path": "src/outbound.rs",
+      "bytes": 3017,
+      "sha256": "974838237b2706c130323de367bbf45417eb264f21ac75840078793fb03e8fbd"
+    },
+    {
+      "path": "src/smtp.rs",
+      "bytes": 5387,
+      "sha256": "d3c620eba9f44b518a591e405710760d9d9744fef9b499b85427fcf94a3c4b2d"
+    },
+    {
+      "path": "src/store.rs",
+      "bytes": 8261,
+      "sha256": "dd949720256ac398630b8c1309aa32411677e618db48dbe0ff7ff6bcd7c1702f"
+    },
+    {
+      "path": "tests/e2e.py",
+      "bytes": 5460,
+      "sha256": "4c09a9d603b0ea8a5b3864e67fff83f574fafeb945c6a9d306800727bb7a9da2"
+    },
+    {
+      "path": "tests/stalwart_poc.py",
+      "bytes": 23127,
+      "sha256": "34c15ad16fc32c9686b9b49ac47977e384281a8f080c555f74b450b3c002c4da"
+    },
+    {
+      "path": "web/admin-app/index.html",
+      "bytes": 460,
+      "sha256": "82e1d7001dcb04fc05c11177ae95a0b1472d83fd7af9bfa7f799ded146cefe80"
+    },
+    {
+      "path": "web/admin-app/package.json",
+      "bytes": 692,
+      "sha256": "67369918ff9089a04dc6eaa168954ab513b7129ada2c68be3c12ab8f75e3b401"
+    },
+    {
+      "path": "web/admin-app/public/runtime-config.js",
+      "bytes": 76,
+      "sha256": "863e2d43cfc7b83bdf38b37761b13728c42dc155202a9f265d78475829a54e62"
+    },
+    {
+      "path": "web/admin-app/src/AdminErrorNotice.test.tsx",
+      "bytes": 2838,
+      "sha256": "79cd51f9da6b4ede9e58aca4c4a8baa367c533a4d1efba6e449003683dafde73"
+    },
+    {
+      "path": "web/admin-app/src/AdminErrorNotice.tsx",
+      "bytes": 2177,
+      "sha256": "05aacc4c578417f1a56bad04aa2b2934dabf35205d85153eef3163a35b4bd6d9"
+    },
+    {
+      "path": "web/admin-app/src/AdminListDetail.test.tsx",
+      "bytes": 9300,
+      "sha256": "647119799efab2a0afe2bc2d68b892aa991f79bd58240d8566ebcd1365e11aa2"
+    },
+    {
+      "path": "web/admin-app/src/AdminListDetail.tsx",
+      "bytes": 8267,
+      "sha256": "6724335ece2c43a7a78ffa04ea5eea95298ef727a7a19a061cbe84de3179d760"
+    },
+    {
+      "path": "web/admin-app/src/AdminNavIcon.tsx",
+      "bytes": 1263,
+      "sha256": "7191107ada2c40bfbbf8135d8aa3134aa1f367952678e98bbcc6e4a0d324ca9f"
+    },
+    {
+      "path": "web/admin-app/src/AgentInspectorView.test.tsx",
+      "bytes": 12142,
+      "sha256": "0cbe623a9f51480db7c1cea00f39b083634545eb9c701b0f8000c139bb1a2396"
+    },
+    {
+      "path": "web/admin-app/src/AgentInspectorView.tsx",
+      "bytes": 17467,
+      "sha256": "5b2361d33b90fa074238efbd3467395f8951386466755492a8cc94e3857c16d0"
+    },
+    {
+      "path": "web/admin-app/src/AgentMailSubmissionEvidenceView.test.tsx",
+      "bytes": 6583,
+      "sha256": "2ede790e2da32db83a3f3621942c2fc7c013df5d3c45b437ee1b0631d9ec7188"
+    },
+    {
+      "path": "web/admin-app/src/AgentMailSubmissionEvidenceView.tsx",
+      "bytes": 14103,
+      "sha256": "bf89c6e30124b133e8e5972d0786d8379d6f44f8beced5edcb2c9ffa5ce9276c"
+    },
+    {
+      "path": "web/admin-app/src/App.client.test.tsx",
+      "bytes": 9820,
+      "sha256": "452efdebcb2e94172c713a5598b7e3ead119d94e0c9353b98684b606e33eb5f8"
+    },
+    {
+      "path": "web/admin-app/src/App.test.tsx",
+      "bytes": 74161,
+      "sha256": "cfa860b4d2db056db02ab6745ab690c495f87c1841f525144b41aac2cee4e722"
+    },
+    {
+      "path": "web/admin-app/src/App.tsx",
+      "bytes": 22643,
+      "sha256": "81982fa430a531a03ba1962ab1000f533f2fabbadc9ea20a986d2eb1f104276a"
+    },
+    {
+      "path": "web/admin-app/src/ApprovalView.test.tsx",
+      "bytes": 54186,
+      "sha256": "95ec352695e400cbeebc71b6939712e966c827a0e205518e89c5be0a007d9dbe"
+    },
+    {
+      "path": "web/admin-app/src/ApprovalView.tsx",
+      "bytes": 53511,
+      "sha256": "4445700cf71595f92e72d16a49a075962eca80968e321fc1ebfecdf1733e5b09"
+    },
+    {
+      "path": "web/admin-app/src/AuditView.test.ts",
+      "bytes": 20717,
+      "sha256": "c64aace8d46d516247808a798852f5373dc420fa78db2c116b26bb914e805e55"
+    },
+    {
+      "path": "web/admin-app/src/AuditView.tsx",
+      "bytes": 33796,
+      "sha256": "9316278f352f099f195b52235f3744b0b792d776b9b03398459aeb76064d335a"
+    },
+    {
+      "path": "web/admin-app/src/ComplianceViews.tsx",
+      "bytes": 46269,
+      "sha256": "5d5696ceeb6008bf3b26cf946c8cd3f36d5d25602b1423a89ce67ee94c749322"
+    },
+    {
+      "path": "web/admin-app/src/MailDomainsView.test.tsx",
+      "bytes": 16736,
+      "sha256": "df40c7d72cc7413bf845f702d8da187a2033f36c75eeb0e29ffeee8f4491cc0a"
+    },
+    {
+      "path": "web/admin-app/src/MailDomainsView.tsx",
+      "bytes": 47452,
+      "sha256": "4c5ffdb24f210d5a698558790e735e9989a3d5d1ca53b0742488d5ea4a3c0bcc"
+    },
+    {
+      "path": "web/admin-app/src/OverviewView.tsx",
+      "bytes": 7076,
+      "sha256": "6dfa2e8fcc7354d7ded335f404d27ecafc6f2e7d0d0510a37067f8203244e835"
+    },
+    {
+      "path": "web/admin-app/src/RetentionView.test.tsx",
+      "bytes": 42579,
+      "sha256": "2f71fa91cfa9f5a7cd3a2b1018aea96481a45716fc1fe031d62e50fdd1f29c99"
+    },
+    {
+      "path": "web/admin-app/src/RetentionView.tsx",
+      "bytes": 47255,
+      "sha256": "df6452cb19a8142194be99b04e93ef4ea8218427ea3b7d15d2ab7984694c2698"
+    },
+    {
+      "path": "web/admin-app/src/RolesView.test.tsx",
+      "bytes": 21873,
+      "sha256": "fe72d1d53e4752163f6d6d1a6143215d39fe3472e373c6fbf53dbdeab4f86e71"
+    },
+    {
+      "path": "web/admin-app/src/RolesView.tsx",
+      "bytes": 24910,
+      "sha256": "a5eb72c160f7ddd8e1cb5da2b92b49e19b1203d065c6ecb59481b8f95dc57cfc"
+    },
+    {
+      "path": "web/admin-app/src/api.test.ts",
+      "bytes": 74286,
+      "sha256": "29055bead7f369aca152a1f1349414f4b3c10d1a01b9da6d28fde038ad8a2db4"
+    },
+    {
+      "path": "web/admin-app/src/api.ts",
+      "bytes": 101859,
+      "sha256": "4288148c705ac69feb553f0c74174316083f387f6c4dfe8cf8c46f610dd9dcf2"
+    },
+    {
+      "path": "web/admin-app/src/auth.test.ts",
+      "bytes": 4046,
+      "sha256": "ffd7b4db760d9f7a8858bfa831ab8eafc5200703bc872cfa96691516886543cc"
+    },
+    {
+      "path": "web/admin-app/src/auth.ts",
+      "bytes": 3375,
+      "sha256": "0a97fcad7329f07bf55178100910f118ea7148ebb7dcfda6da22f0a5ae2a863d"
+    },
+    {
+      "path": "web/admin-app/src/config.test.ts",
+      "bytes": 1223,
+      "sha256": "f3aa9baef76399770830cdd7d5faf29ae32d5e5657418da443520b442f4d7a37"
+    },
+    {
+      "path": "web/admin-app/src/config.ts",
+      "bytes": 1326,
+      "sha256": "50145df639e641bfaccb1499e7f0adf374d8751644a6416d0f62c2272903bd7a"
+    },
+    {
+      "path": "web/admin-app/src/i18n.test.ts",
+      "bytes": 617,
+      "sha256": "30953361ed5a68ff92780cac9ab9758c2bbc3e2757ed486d891f95df380f943b"
+    },
+    {
+      "path": "web/admin-app/src/i18n.ts",
+      "bytes": 73066,
+      "sha256": "cd4a9e46512ef9c8ae8eedca27865d9cb93a486374d8b0220a59d20055a08bd2"
+    },
+    {
+      "path": "web/admin-app/src/main.tsx",
+      "bytes": 209,
+      "sha256": "471cc5249842c143d1e361298e972270560f9442b709c7689f9e606451317178"
+    },
+    {
+      "path": "web/admin-app/src/styles.css",
+      "bytes": 39751,
+      "sha256": "fbb76179e7fb67bfd564338679970f86c54aab6a35e8cf617cbf9efa32c5225f"
+    },
+    {
+      "path": "web/admin-app/src/test/setup.ts",
+      "bytes": 43,
+      "sha256": "9b328c4843431fa76d8de00008fc159e95f99a840211085ff3b8f25e53d14409"
+    },
+    {
+      "path": "web/admin-app/src/types.ts",
+      "bytes": 13905,
+      "sha256": "083c20614ef0c24ef9d8b588f0e8666794f7d000d1f1b6637210c47a0d35f117"
+    },
+    {
+      "path": "web/admin-app/tsconfig.json",
+      "bytes": 619,
+      "sha256": "7cacb495e2276f28e4b3e1effc3c277c7c92fb5956e0bd441ea90452fbb5436c"
+    },
+    {
+      "path": "web/admin-app/vite.config.ts",
+      "bytes": 486,
+      "sha256": "6dc3da6e291c82e8e010ce694d6d3d5744fdd98625c214105c8278dfe001f695"
+    },
+    {
+      "path": "web/design-system/assets/illustrations/agent-human-review-v1.png",
+      "bytes": 983982,
+      "sha256": "dc8b4d9a9e957f3affdf6ffe0c35e230f4fa010905a2a157be1cfd68ab5c7ef5"
+    },
+    {
+      "path": "web/design-system/assets/illustrations/agent-human-review-v1.webp",
+      "bytes": 29720,
+      "sha256": "e1569ab8ad35eb32d27d959a3dd66623f29fa1a7664dd75c920cb1ff889cf268"
+    },
+    {
+      "path": "web/design-system/assets/illustrations/audit-evidence-chain-v2.png",
+      "bytes": 1370641,
+      "sha256": "c003a36aceafe0e412ca504a1b3187f10107c9e73256c5f1b45bd0b80a1b539c"
+    },
+    {
+      "path": "web/design-system/assets/illustrations/audit-evidence-chain-v2.webp",
+      "bytes": 43502,
+      "sha256": "5d60059701c9d6938af731080fc6cce9873c6740833a365948f2307909efa539"
+    },
+    {
+      "path": "web/design-system/assets/illustrations/dual-principal-gateway-v2.png",
+      "bytes": 839407,
+      "sha256": "8e61e6f536ce460d8be7748714a393705b662e1584403685919d7714610e1c0f"
+    },
+    {
+      "path": "web/design-system/assets/illustrations/dual-principal-gateway-v2.webp",
+      "bytes": 24670,
+      "sha256": "d4247017a8f4cb2a54b23e07d01aff7ff714fddef673454f495017e21573bebd"
+    },
+    {
+      "path": "web/design-system/assets/illustrations/inbox-zero-v1.png",
+      "bytes": 1139084,
+      "sha256": "ba00bbe009bb205c39909a498f5694fdfe7c4b5195efab003be7bbde92c0a75e"
+    },
+    {
+      "path": "web/design-system/assets/illustrations/inbox-zero-v1.webp",
+      "bytes": 43484,
+      "sha256": "3a17431d99b7b359ce7146a88060854242c71a38d09768f4780587ecfd1a8b3f"
+    },
+    {
+      "path": "web/design-system/assets/illustrations/mail-agent-routing-v1.png",
+      "bytes": 1115656,
+      "sha256": "4b6663bd6255e3754e8f79bc0db54c919c20eefe3d08c152ffa2ad667eb174af"
+    },
+    {
+      "path": "web/design-system/assets/illustrations/mail-agent-routing-v1.webp",
+      "bytes": 21090,
+      "sha256": "51a4a28c4b3e7883f67a964d100596eb832ced99d60e8caf72c80842d81b0946"
+    },
+    {
+      "path": "web/design-system/package.json",
+      "bytes": 800,
+      "sha256": "c02c0f825ab02f1cda5be9197af5ec710e42ce9e8e0eb3f717adf07a73e16ed3"
+    },
+    {
+      "path": "web/design-system/src/command-palette.tsx",
+      "bytes": 13754,
+      "sha256": "6bf7d2e76258a7f0bea37a83c88b8d3fd241f591ab761099c7247c0a9d9acf85"
+    },
+    {
+      "path": "web/design-system/src/context-bar.test.tsx",
+      "bytes": 5551,
+      "sha256": "5c36644eeb29bd638f5c94fefe7e9f8d2a0266d0550997574a5922b73cf42acf"
+    },
+    {
+      "path": "web/design-system/src/context-bar.tsx",
+      "bytes": 5813,
+      "sha256": "afdb768b2b8d74c74e9e52c82ad816a991a6cb8d74de642dafe8ae429f880aad"
+    },
+    {
+      "path": "web/design-system/src/dialog.test.tsx",
+      "bytes": 5652,
+      "sha256": "38314bb774f373663cf19394641a88734f72f51fbff8700b39f0f0792093e59c"
+    },
+    {
+      "path": "web/design-system/src/dialog.tsx",
+      "bytes": 12080,
+      "sha256": "d89ce6f93eddf709feed3ca7de89b07f246a26cafba1ac2af2ddc53fd53b1b4c"
+    },
+    {
+      "path": "web/design-system/src/icons.tsx",
+      "bytes": 13024,
+      "sha256": "9de71de0ae00758c13d5dbcec85eeb6faa5fc83b5b60e94dd56c3de9be6ab066"
+    },
+    {
+      "path": "web/design-system/src/index.tsx",
+      "bytes": 8672,
+      "sha256": "b888d4f8273fbd5d81730e5756d3ee1635dda61208870fed2954126b54d9f1b5"
+    },
+    {
+      "path": "web/design-system/src/primitives.test.tsx",
+      "bytes": 3939,
+      "sha256": "7bb86e3a96bd834cd3ab9c430dad939b3b87a6df25c10e013ce7c284a5ee4652"
+    },
+    {
+      "path": "web/design-system/src/styles.css",
+      "bytes": 24000,
+      "sha256": "37978efe32b3f28a60c995c1854a81bb9a9a303e294ffc5de92d3877d15f4c03"
+    },
+    {
+      "path": "web/design-system/src/test/setup.ts",
+      "bytes": 43,
+      "sha256": "9b328c4843431fa76d8de00008fc159e95f99a840211085ff3b8f25e53d14409"
+    },
+    {
+      "path": "web/design-system/src/unknown-write-lock.test.tsx",
+      "bytes": 2512,
+      "sha256": "030c50caf30abae05466059a62b5c1515c04f42374e66792afaafb4a172bd35f"
+    },
+    {
+      "path": "web/design-system/src/unknown-write-lock.tsx",
+      "bytes": 2221,
+      "sha256": "6a210a12647bb57f7fdb75b0c98a4e356cc74d6169b8c664af7083e0548664e5"
+    },
+    {
+      "path": "web/design-system/tsconfig.json",
+      "bytes": 406,
+      "sha256": "6a5759a55c3b6e31d592ab43e883eac9e3d48abe8db8c10a23afdd6cca992fe6"
+    },
+    {
+      "path": "web/design-system/tsconfig.test.json",
+      "bytes": 313,
+      "sha256": "7e4ab554201f4402aca99fb1bbc51e661f371c5c446fcedfe38f180d8e92e0ff"
+    },
+    {
+      "path": "web/design-system/vite.config.ts",
+      "bytes": 249,
+      "sha256": "fefd0bc17d1c832e7dd48b8667f9db85908b41758187f4e0bc1bc104fe813a29"
+    },
+    {
+      "path": "web/e2e/admin/admin-design-evidence.spec.ts",
+      "bytes": 15600,
+      "sha256": "2102e5be54b72de6ecd8bf92d9154684f444d3a6765cb445c67300d0f4cd0cbb"
+    },
+    {
+      "path": "web/e2e/admin/admin-design-evidence.spec.ts-snapshots/admin-approval-actionable-1440.png",
+      "bytes": 120638,
+      "sha256": "739f85445d775f8e5734282946339548ac809f25d2e2567c5ee868310a024e79"
+    },
+    {
+      "path": "web/e2e/admin/admin-design-evidence.spec.ts-snapshots/admin-case-create-dialog-1024.png",
+      "bytes": 44291,
+      "sha256": "d8b4450a2f6676f5ee7ed5179b9c29835ec608debeb546e4695e2e3c447df5f8"
+    },
+    {
+      "path": "web/e2e/admin/admin-design-evidence.spec.ts-snapshots/admin-case-create-dialog-1280.png",
+      "bytes": 70971,
+      "sha256": "40d4677dbb90505b1cc606eae69d92b2356710e5944c31f60fe40efeb7b277f0"
+    },
+    {
+      "path": "web/e2e/admin/admin-design-evidence.spec.ts-snapshots/admin-case-create-dialog-1440.png",
+      "bytes": 75186,
+      "sha256": "bbaa9f9e0d9ab2088e98c3f41c48617a471f7c654dded066cde1d29f36d982da"
+    },
+    {
+      "path": "web/e2e/admin/admin-design-evidence.spec.ts-snapshots/admin-case-create-dialog-390.png",
+      "bytes": 33994,
+      "sha256": "e033fd8af012e8d6f8c7bc2acaf2f18a0b70bbb8425a511e186d91ba1a4bbe6c"
+    },
+    {
+      "path": "web/e2e/admin/admin-design-evidence.spec.ts-snapshots/admin-case-create-dialog-768.png",
+      "bytes": 45179,
+      "sha256": "e83d7d8706587b4c1b7912c69ee5962565ab98339f6630ac2f330367f53ef7b6"
+    },
+    {
+      "path": "web/e2e/admin/admin-design-evidence.spec.ts-snapshots/admin-navigation-drawer-720.png",
+      "bytes": 45546,
+      "sha256": "5265835953c0251e92c882d181583d02a47ae8891232d73a65171da0ad6c720a"
+    },
+    {
+      "path": "web/e2e/admin/admin-design-evidence.spec.ts-snapshots/admin-navigation-rail-1440.png",
+      "bytes": 15580,
+      "sha256": "08295be566ec5aaa92a004187346369063759e5a90727c0e1e8594d6954aa6f3"
+    },
+    {
+      "path": "web/e2e/admin/admin-design-evidence.spec.ts-snapshots/admin-overview-1024.png",
+      "bytes": 40262,
+      "sha256": "6444ca8f2a45ebf5baf47a4520cad82bd3406dd4c5a0f9c39a7acd0a6cd868cd"
+    },
+    {
+      "path": "web/e2e/admin/admin-design-evidence.spec.ts-snapshots/admin-overview-1280.png",
+      "bytes": 66472,
+      "sha256": "c1e6f2494947740b84ef19f046b8aaddadb6c024ff5fc36941be80842c7d337f"
+    },
+    {
+      "path": "web/e2e/admin/admin-design-evidence.spec.ts-snapshots/admin-overview-1440.png",
+      "bytes": 67462,
+      "sha256": "f8b166441da0750ee46ae272a32e4e00055278419ee95bae030603edf44cb08f"
+    },
+    {
+      "path": "web/e2e/admin/admin-design-evidence.spec.ts-snapshots/admin-overview-390.png",
+      "bytes": 40333,
+      "sha256": "6d91c7f9a41efd49af778975dde3084ecd8ad5bdd04a2f8153f41554f51cac31"
+    },
+    {
+      "path": "web/e2e/admin/admin-design-evidence.spec.ts-snapshots/admin-overview-768.png",
+      "bytes": 42905,
+      "sha256": "5608a3de0a0dd08bc592e30bde345f4817b961c818800df48356909e93f4ba06"
+    },
+    {
+      "path": "web/e2e/admin/admin-list-detail.spec.ts",
+      "bytes": 19528,
+      "sha256": "d227c525fbc797fab7dbfb6346e2bde7cd2b75f86bc794538d0eb3c69fd983ba"
+    },
+    {
+      "path": "web/e2e/admin/admin-list-detail.spec.ts-snapshots/admin-list-detail-approvals-1080.png",
+      "bytes": 82153,
+      "sha256": "d656b14980ac931e19f120d09ea788367117a7f9b1e6328087adcf60150a6537"
+    },
+    {
+      "path": "web/e2e/admin/admin-list-detail.spec.ts-snapshots/admin-list-detail-approvals-720.png",
+      "bytes": 84419,
+      "sha256": "9706961e94695172a341c47c37aab0f66e0616676e973d6a5125455c9bdf60f7"
+    },
+    {
+      "path": "web/e2e/admin/admin-list-detail.spec.ts-snapshots/admin-list-detail-audit-1080.png",
+      "bytes": 87888,
+      "sha256": "77440940cd48999109d7cdbec91b53726b13add663892f8ca3f3dd05c6de7dac"
+    },
+    {
+      "path": "web/e2e/admin/admin-list-detail.spec.ts-snapshots/admin-list-detail-audit-720.png",
+      "bytes": 93975,
+      "sha256": "7ed08559fbfb8a27946ba8d71539d53569221e8aa54209978e249ac4a26a0b38"
+    },
+    {
+      "path": "web/e2e/admin/admin-list-detail.spec.ts-snapshots/admin-list-detail-cases-1080.png",
+      "bytes": 48004,
+      "sha256": "4a535ebce3da607a9af0e18f36127ac47fc372e48f5d5dfbcae39c7bfdf0cd7d"
+    },
+    {
+      "path": "web/e2e/admin/admin-list-detail.spec.ts-snapshots/admin-list-detail-cases-720.png",
+      "bytes": 52240,
+      "sha256": "ac7094e25acadf572bf5fb88dc1ab0d304cf8d4be8cd1be6978813f0a81d3d02"
+    },
+    {
+      "path": "web/e2e/admin/admin-list-detail.spec.ts-snapshots/admin-list-detail-holds-1080.png",
+      "bytes": 47215,
+      "sha256": "8f891480827f4cbaa38dfe67df7108042de280e1cfdeb4c58963783fa1307410"
+    },
+    {
+      "path": "web/e2e/admin/admin-list-detail.spec.ts-snapshots/admin-list-detail-holds-720.png",
+      "bytes": 50080,
+      "sha256": "bc590292e4e2a472ea4d8321237767c255b56453f7e70a2c5ec66efeac320bd0"
+    },
+    {
+      "path": "web/e2e/admin/admin-list-detail.spec.ts-snapshots/audit-investigation-1024.png",
+      "bytes": 87128,
+      "sha256": "ab749de7234453a094007677b1814d1a98474a1f5a14c578bd799bc3ec3fac12"
+    },
+    {
+      "path": "web/e2e/admin/admin-list-detail.spec.ts-snapshots/audit-investigation-1279.png",
+      "bytes": 102890,
+      "sha256": "83227104fe058043e6b7bcb2a1e8e5d95e6f6ef8d7386fa6bb15f6d9e5b81b87"
+    },
+    {
+      "path": "web/e2e/admin/admin-list-detail.spec.ts-snapshots/audit-investigation-1440.png",
+      "bytes": 104411,
+      "sha256": "6c258e0b030561e10a0caaca6dca07286fc8826bea5efe0665217f00b12cdd40"
+    },
+    {
+      "path": "web/e2e/admin/agent-inspector.spec.ts",
+      "bytes": 25348,
+      "sha256": "8b442cf5f36107caa4cc12c9d512142d9576042ec55a08b17859b3a2b5563cf7"
+    },
+    {
+      "path": "web/e2e/admin/agent-inspector.spec.ts-snapshots/agent-inspector-1024.png",
+      "bytes": 106265,
+      "sha256": "556b384f4ff2d1e7ceb345720b5eacb3246174a6a6b31f7c3611561cdc84025c"
+    },
+    {
+      "path": "web/e2e/admin/agent-inspector.spec.ts-snapshots/agent-inspector-1280.png",
+      "bytes": 127886,
+      "sha256": "aacfa40542594941dd9eea00af61b488170508c5299f92be227ff369c8c3d0de"
+    },
+    {
+      "path": "web/e2e/admin/agent-inspector.spec.ts-snapshots/agent-inspector-1440.png",
+      "bytes": 125258,
+      "sha256": "d545fe0bd41a84d4edd62253b8a75764b525152a2a0b34fc7d24a664d33426bf"
+    },
+    {
+      "path": "web/e2e/admin/agent-inspector.spec.ts-snapshots/agent-inspector-390.png",
+      "bytes": 106403,
+      "sha256": "71a23db2084e1dce5115e8f4afa086a8b9c9817ab8365c309ad99d3285519958"
+    },
+    {
+      "path": "web/e2e/admin/agent-inspector.spec.ts-snapshots/agent-inspector-768.png",
+      "bytes": 111508,
+      "sha256": "f07e39e61a4f4066e002edd280c75cb69ae99e448e8017eab873777ca6228d61"
+    },
+    {
+      "path": "web/e2e/admin/agent-inspector.spec.ts-snapshots/agent-inspector-zh-1024.png",
+      "bytes": 107387,
+      "sha256": "ee00fdef53d10fdb616270b41f7765b999795d789c434dc665c842306705f7fa"
+    },
+    {
+      "path": "web/e2e/admin/agent-inspector.spec.ts-snapshots/agent-inspector-zh-1280.png",
+      "bytes": 125458,
+      "sha256": "a158b7e236c3cec56b7f9458858393133a6e8ebbefb3f0500f14b6a385faaef3"
+    },
+    {
+      "path": "web/e2e/admin/agent-inspector.spec.ts-snapshots/agent-inspector-zh-1440.png",
+      "bytes": 123554,
+      "sha256": "17bc4b86701a1a379f22d73695710abf47259cc72c433ccc0e06d61b4410848f"
+    },
+    {
+      "path": "web/e2e/admin/agent-inspector.spec.ts-snapshots/agent-inspector-zh-390.png",
+      "bytes": 106222,
+      "sha256": "054f48f4a43c65ef7c6a04ca1e559c143b8115dde11df8469d2d0c9d33b28925"
+    },
+    {
+      "path": "web/e2e/admin/agent-inspector.spec.ts-snapshots/agent-inspector-zh-768.png",
+      "bytes": 110660,
+      "sha256": "b27fb4ebc9fb5857789bfde53e2c3172d993cb7883765fe1f94d63daa39a73b4"
+    },
+    {
+      "path": "web/e2e/admin/fixtures.ts",
+      "bytes": 51694,
+      "sha256": "e584cc8cd1952ba18d72119d5525b662323ff0e5313c491375a6d992b5940047"
+    },
+    {
+      "path": "web/e2e/admin/mail-domains.spec.ts",
+      "bytes": 12414,
+      "sha256": "2032e84bfa144fd73e8ac79bc5f18eed4728b14443fa4a766bfb61a006e07eef"
+    },
+    {
+      "path": "web/e2e/admin/mail-domains.spec.ts-snapshots/mail-domain-onboarding-1440.png",
+      "bytes": 105056,
+      "sha256": "76e69f2200492e0bd5bb47d89cf73e18cf6f57e894dddee0e020a2493cdb2432"
+    },
+    {
+      "path": "web/e2e/admin/mail-domains.spec.ts-snapshots/mail-domain-onboarding-390.png",
+      "bytes": 69354,
+      "sha256": "5adb8efd1c328f8f0f0f005eece27e85f97cf44ba2d97b1ae47e74bd8be41ff1"
+    },
+    {
+      "path": "web/e2e/admin/roles-retention.spec.ts",
+      "bytes": 11581,
+      "sha256": "763bd15ad52551a6fd2d10465fabc11a86ab987c228f98a76d56710e82fcc1f8"
+    },
+    {
+      "path": "web/e2e/admin/roles-retention.spec.ts-snapshots/admin-retention-1440-en.png",
+      "bytes": 124165,
+      "sha256": "4651588c7fe4f9fa57e24e06ea58c70e8d68bd417c79044c5ecdee9ae389eb01"
+    },
+    {
+      "path": "web/e2e/admin/roles-retention.spec.ts-snapshots/admin-retention-390-zh-CN.png",
+      "bytes": 107820,
+      "sha256": "91a53679806ab5531c53d619e77990c2ddaeb7214978d788b8a7a0e6bfa0c31b"
+    },
+    {
+      "path": "web/e2e/admin/roles-retention.spec.ts-snapshots/admin-roles-1440-en.png",
+      "bytes": 122769,
+      "sha256": "cf90661050f510b72902e2e977f0a12c927b8791c7c19360b90f6b19754b43df"
+    },
+    {
+      "path": "web/e2e/admin/roles-retention.spec.ts-snapshots/admin-roles-390-zh-CN.png",
+      "bytes": 100196,
+      "sha256": "d023780dba98d1299f990f5ecc9ac6dc161066df1a612be9931ae758c188c879"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts",
+      "bytes": 9885,
+      "sha256": "12bd3dbdee27a829ad091afc8077b7793c0559536e17bdba03986363fdb20a64"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts-snapshots/mail-access-directory-empty-1440.png",
+      "bytes": 22593,
+      "sha256": "82294be67239bbe4d54cea5d4d5c4f8939beceaa439f61fc98c7d4670fbd3106"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts-snapshots/mail-access-directory-empty-390.png",
+      "bytes": 14319,
+      "sha256": "8f7b923f474eb1323b4b9320c5b40ff916746f8a4e7f242293c765daaa0a2400"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts-snapshots/mail-access-directory-empty-901.png",
+      "bytes": 16340,
+      "sha256": "ead5c2389477f2ab77a15657b2d4278defe7b457ea8a6a6419234ca5ec421dcf"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts-snapshots/mail-access-directory-unavailable-1440.png",
+      "bytes": 23224,
+      "sha256": "a1d357b55d08c07c23dc47b51e04b901fd158a6e563371a8a75514617258e426"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts-snapshots/mail-access-directory-unavailable-390.png",
+      "bytes": 14846,
+      "sha256": "d60035f11dd79953882c8ebf8a369278118befaf4f633820fd4d4dcde52c597c"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts-snapshots/mail-access-directory-unavailable-901.png",
+      "bytes": 16966,
+      "sha256": "561cfd9e2b3928cbab7565a6c06e37c2af782950e3a28d7aeb2920a862f251d0"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts-snapshots/mail-access-signed-out-1440.png",
+      "bytes": 114006,
+      "sha256": "bd039e89ab899474bf6c9cc608a98094fb1d8218827c46281df867e021694076"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts-snapshots/mail-access-signed-out-390.png",
+      "bytes": 11593,
+      "sha256": "0a51f63baa3ffdbd033a522dfadcc4c5728a411a11f497e4578b085f3ca670a1"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts-snapshots/mail-access-signed-out-901.png",
+      "bytes": 62252,
+      "sha256": "466a07e0eef486af1ef5b88ba523bf91a379e15ad72f9ec01b95bd0fe9b03702"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts-snapshots/mail-access-signed-out-zh-CN-1440.png",
+      "bytes": 113375,
+      "sha256": "942fe0c44524c9137e45af8782293eca4ca95a552a94852c4f038e3496e0ec78"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts-snapshots/mail-access-signed-out-zh-CN-390.png",
+      "bytes": 11258,
+      "sha256": "072cbdb7415b1a9df170ee98591659df0592f6cecd7891106f173d066d54898a"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts-snapshots/mail-access-signed-out-zh-CN-901.png",
+      "bytes": 61729,
+      "sha256": "fdaab1c1c826b45d2c461dba0f6476f608423c7e80511b4b181647c9d0ab5329"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts-snapshots/mail-session-verification-failed-1440.png",
+      "bytes": 52770,
+      "sha256": "ecdc4a9aa5548c74f004c08fc357556e1652a760b577a2a099c95f32bd52ba6b"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts-snapshots/mail-session-verification-failed-390.png",
+      "bytes": 29492,
+      "sha256": "a853c9cbe78969bdc3177cc74a38121039817ef36fa7198bbaddcf581e2c26a9"
+    },
+    {
+      "path": "web/e2e/mail/mail-access-session.spec.ts-snapshots/mail-session-verification-failed-901.png",
+      "bytes": 38885,
+      "sha256": "2093e6db2647603de7cae850f34ffdf6c8cc9a2f003a2a83b4c6ecd2891de9d6"
+    },
+    {
+      "path": "web/e2e/mail/mail-directory-state-contracts.spec.ts",
+      "bytes": 21211,
+      "sha256": "8020135f45974fb25936af24e739cc2e7a98e9d79920a8952353e961606487e6"
+    },
+    {
+      "path": "web/e2e/mail/mail-directory-state-contracts.spec.ts-snapshots/mail-drafts-normal-1008.png",
+      "bytes": 33286,
+      "sha256": "dc7e8a5e7306ac48d56df378d00a008e2f1937f93b10d506def6f812d0d7558d"
+    },
+    {
+      "path": "web/e2e/mail/mail-directory-state-contracts.spec.ts-snapshots/mail-drafts-normal-1440.png",
+      "bytes": 37648,
+      "sha256": "ba40602c9c1061d5a5885c113c3fa0a13353fe41e83a884cf504a9148e880641"
+    },
+    {
+      "path": "web/e2e/mail/mail-directory-state-contracts.spec.ts-snapshots/mail-drafts-normal-390.png",
+      "bytes": 19292,
+      "sha256": "30b26ee98f461459528ef6eb212bf1f51e52f07a18985a19de78eaa19d88c734"
+    },
+    {
+      "path": "web/e2e/mail/mail-directory-state-contracts.spec.ts-snapshots/mail-manual-review-1008.png",
+      "bytes": 64233,
+      "sha256": "4c905195de5c40cae189789a19f535fd050e360afffd59b5091660b75046c0c4"
+    },
+    {
+      "path": "web/e2e/mail/mail-directory-state-contracts.spec.ts-snapshots/mail-manual-review-1440.png",
+      "bytes": 71244,
+      "sha256": "35c2ec7b72ba894998570fb4df23d65c8be241f874a95b97f998462b5557282a"
+    },
+    {
+      "path": "web/e2e/mail/mail-directory-state-contracts.spec.ts-snapshots/mail-manual-review-390.png",
+      "bytes": 27916,
+      "sha256": "033251d39afa74d09db793b2d49d357c8f63fd76aaf59814a5532113d85ce652"
+    },
+    {
+      "path": "web/e2e/mail/mail-directory-state-contracts.spec.ts-snapshots/mail-manual-review-evidence-1440.png",
+      "bytes": 87787,
+      "sha256": "0388489e6487a0df9504948a0f660bd057dfc5b74e7a5c60a85233188cba467b"
+    },
+    {
+      "path": "web/e2e/mail/mail-directory-state-contracts.spec.ts-snapshots/mail-manual-review-footer-1440.png",
+      "bytes": 5390,
+      "sha256": "548089d1325e49c8ee8a683aeba86fd43c1c6780effa5ae0873a2633bbaea72f"
+    },
+    {
+      "path": "web/e2e/mail/mail-directory-state-contracts.spec.ts-snapshots/mail-manual-review-footer-390.png",
+      "bytes": 5547,
+      "sha256": "173749f889ce0516d21cd837881fd7c5548cc2c71c86f9743521d4dd8071073b"
+    },
+    {
+      "path": "web/e2e/mail/mail-directory-state-contracts.spec.ts-snapshots/mail-sent-states-1008.png",
+      "bytes": 59560,
+      "sha256": "ee00729fc7fb2af79e2b3467eb1e4f70a17e5ab8074239726b12e325c0bffead"
+    },
+    {
+      "path": "web/e2e/mail/mail-directory-state-contracts.spec.ts-snapshots/mail-sent-states-1440.png",
+      "bytes": 65420,
+      "sha256": "0014a9441e9f368f0044cdb4b7b977cab106f54e50425a07e77567ec5bae9ef6"
+    },
+    {
+      "path": "web/e2e/mail/mail-directory-state-contracts.spec.ts-snapshots/mail-sent-states-390.png",
+      "bytes": 43778,
+      "sha256": "5e67f907f143737d7b285f23e4aab96350a5e6afd2c548a7796718f6cf91f4e3"
+    },
+    {
+      "path": "web/e2e/mail/mail-fixtures.ts",
+      "bytes": 34890,
+      "sha256": "dba47b59152785d48d2aed3c5cf82964b1652241156b0760571228eef86d9919"
+    },
+    {
+      "path": "web/e2e/mail/mail-recovery-contracts.spec.ts",
+      "bytes": 14664,
+      "sha256": "e4f9d46be733eb904c4a703154863aee140387a44e4ebd28f0b8da1a62053b7e"
+    },
+    {
+      "path": "web/e2e/mail/mail-recovery-contracts.spec.ts-snapshots/mail-detail-error-1440.png",
+      "bytes": 77948,
+      "sha256": "8c986dffbec35956d6820c1cf9c0a29dc97633fcfa2b69090dc144ee4896c18e"
+    },
+    {
+      "path": "web/e2e/mail/mail-recovery-contracts.spec.ts-snapshots/mail-detail-error-390.png",
+      "bytes": 41523,
+      "sha256": "45e34df193a3c483f87509987f30f589c2c53e239a1d6772965cc0a76a1147d7"
+    },
+    {
+      "path": "web/e2e/mail/mail-recovery-contracts.spec.ts-snapshots/mail-draft-cas-conflict-1440.png",
+      "bytes": 40692,
+      "sha256": "57ef0846356ed3dc246ae72dfb17fbfc79932f9faa1360276ab53303d77f6632"
+    },
+    {
+      "path": "web/e2e/mail/mail-recovery-contracts.spec.ts-snapshots/mail-draft-cas-conflict-390.png",
+      "bytes": 22367,
+      "sha256": "9bce397969e7054c41f9215d73bfd1648c4f1da895cb8694426c013909e86b02"
+    },
+    {
+      "path": "web/e2e/mail/mail-recovery-contracts.spec.ts-snapshots/mail-restored-draft-1008.png",
+      "bytes": 60238,
+      "sha256": "753edc00878757d9e6ef8a48c60e36a34d659f2cf36cffa828a08b19de0a1369"
+    },
+    {
+      "path": "web/e2e/mail/mail-recovery-contracts.spec.ts-snapshots/mail-restored-draft-1440.png",
+      "bytes": 65894,
+      "sha256": "c1af4907e5e59f05f299b9d9dccfa30ae72482a1c9f7873a90823a1885208d07"
+    },
+    {
+      "path": "web/e2e/mail/mail-recovery-contracts.spec.ts-snapshots/mail-restored-draft-390.png",
+      "bytes": 25748,
+      "sha256": "3393111fd258369573647a73c841bce882cdfb4144e10c1b8488d121bb67b7f1"
+    },
+    {
+      "path": "web/e2e/mail/mail-recovery-contracts.spec.ts-snapshots/mail-search-no-results-1440.png",
+      "bytes": 43137,
+      "sha256": "5d2d2d069edc3fb5dbeb87ea888e1996893eb6b4676caee31a45281d6696c124"
+    },
+    {
+      "path": "web/e2e/mail/mail-recovery-contracts.spec.ts-snapshots/mail-search-no-results-390.png",
+      "bytes": 21799,
+      "sha256": "d264359cf4d0ff4844be32719d4cb9f04acc62bf70d32d4407a1edbe41341881"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts",
+      "bytes": 25034,
+      "sha256": "c4b2100cd5e396f0ab9061a77d1e1006f0246e0a4842490754e012ac184161aa"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-compose-context-1008.png",
+      "bytes": 22375,
+      "sha256": "57517d8290c4bff4f9a9d8dd27bd86945e3dff0af7b64d2b3a0b498ac07ab94e"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-compose-context-1440.png",
+      "bytes": 22314,
+      "sha256": "b0eea1bf4c7ba9f0cdadf80e18609fde3c2756487237a88dc5af91cb255f7d6d"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-compose-context-390.png",
+      "bytes": 20707,
+      "sha256": "0f84a39faa91367bb7fc0d83f3294378ff751f72d2dd516bcc6774e1aaf000ea"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-empty-inbox-1440.png",
+      "bytes": 69884,
+      "sha256": "a54ac3a66ba64131ac58b9eee741537971a1024d6bd933072934f254cdf8176b"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-empty-inbox-390.png",
+      "bytes": 45328,
+      "sha256": "f890fd8e781c81b5586b020e693f171dcf2cfa78de8788d173326388ed770807"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-inbox-error-1440.png",
+      "bytes": 40066,
+      "sha256": "a22af1f0224f494a2345afe9a93c3e7b44557050ca77e70eb5dc1b1dba9c3799"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-inbox-error-390.png",
+      "bytes": 18631,
+      "sha256": "8723e419d58d46c898b94d8b5132e38fda9ee43683e442e38a5740eb46dd4312"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-readonly-shared-1440.png",
+      "bytes": 43510,
+      "sha256": "3e25c58fdbfc2ce41e1a2b12c07f6f26d0239fd4fb5c4b6905234bac28c3d008"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-readonly-shared-390.png",
+      "bytes": 22319,
+      "sha256": "2ad9cf09e0b180f554148cc73160669b901fe06e38d18766bdf2198d5b1eb5e8"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-unknown-submission-1008.png",
+      "bytes": 62419,
+      "sha256": "ef349b6a2cb1114164d342f317108ede4d5acfe8fa4664aab6310393b1694c15"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-unknown-submission-1440.png",
+      "bytes": 69474,
+      "sha256": "c100c03699a88710629d678341bb93fbdbaa38b68e2db8100960cedc6a9ad55d"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-unknown-submission-390.png",
+      "bytes": 25923,
+      "sha256": "1043b697e8a8756bc9164965ec9a1b65461865c0d72a038750063c784893777a"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-zh-cn-1024.png",
+      "bytes": 39277,
+      "sha256": "51990d9ebc842e66e5da317a7ef7dcadfdfafc823ad94dc929d2f925c979d4bf"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-zh-cn-1280.png",
+      "bytes": 41789,
+      "sha256": "b153b0b37ad0431c6f789dc147b89f2516fc2a9ee567c9cb074b18680d66c06a"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-zh-cn-1440.png",
+      "bytes": 43456,
+      "sha256": "522b17f4399a7fd6e9e7b0953fe0d4d0ec1170e949e91e066a359bc82b986f42"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-zh-cn-390.png",
+      "bytes": 22893,
+      "sha256": "ef83533b66c3511c18e82b942aef97907421fb52a04deb45ee27e7761c69db18"
+    },
+    {
+      "path": "web/e2e/mail/mail-state-contracts.spec.ts-snapshots/mail-zh-cn-768.png",
+      "bytes": 30619,
+      "sha256": "eaf89e61b0e5cd57b8828115e8caa8dbfbe23c1ea7737b9d2179f7feaacd801b"
+    },
+    {
+      "path": "web/e2e/mail/mail.spec.ts",
+      "bytes": 13396,
+      "sha256": "5559652ba5c4eb20c2fe48c4d73f6ec39197e4e96e1a39989df996eb6b05f15b"
+    },
+    {
+      "path": "web/e2e/mail/mail.spec.ts-snapshots/mail-inbox-1024.png",
+      "bytes": 87082,
+      "sha256": "b7fab0f5dca68c0fed41a998de836f0680bd6fe6bd4fd60407ecfd35f793af24"
+    },
+    {
+      "path": "web/e2e/mail/mail.spec.ts-snapshots/mail-inbox-1280.png",
+      "bytes": 91400,
+      "sha256": "fc8fa7b6061167455ab3b1b12ccb1701b72ee0c1fc3072995e7a4578a9179c43"
+    },
+    {
+      "path": "web/e2e/mail/mail.spec.ts-snapshots/mail-inbox-1440.png",
+      "bytes": 95018,
+      "sha256": "029e28dd56783bcd849d746b0a44311e2b70785d0907b72d1f33e185820ebb9c"
+    },
+    {
+      "path": "web/e2e/mail/mail.spec.ts-snapshots/mail-inbox-390.png",
+      "bytes": 52218,
+      "sha256": "0e4bbbfb0c2723b186f0f35681b2bb86fb7a98e257068808b0737325f0f923b6"
+    },
+    {
+      "path": "web/e2e/mail/mail.spec.ts-snapshots/mail-inbox-768.png",
+      "bytes": 64033,
+      "sha256": "90c494f02c2462ccd8321c5ecca2ffc82ee856988ed366637fc15398d3d3b282"
+    },
+    {
+      "path": "web/e2e/mail/mail.spec.ts-snapshots/mail-mobile-scope-390.png",
+      "bytes": 33881,
+      "sha256": "06484dcb060b49a261e6c27e05f90b299d4b1db22bac8f759de55be266ef5460"
+    },
+    {
+      "path": "web/e2e/mail/mail.spec.ts-snapshots/mail-mobile-scope-768.png",
+      "bytes": 42243,
+      "sha256": "0db1147c0186f73e8056b27deb9430ef6b71b28082a22ca75dab43b36b3c42d3"
+    },
+    {
+      "path": "web/e2e/mail/mail.spec.ts-snapshots/mail-queue-scan-1008.png",
+      "bytes": 42491,
+      "sha256": "342f0ff1a90f4671c07b9ac29fc6d25ca955be1477d55b71da892f5563a467e9"
+    },
+    {
+      "path": "web/e2e/mail/mail.spec.ts-snapshots/mail-queue-scan-1440.png",
+      "bytes": 49048,
+      "sha256": "230ea35dd9e5da1d024a53ecc306e640d8ac8ad5e01768a9cd777dae39f4b96f"
+    },
+    {
+      "path": "web/e2e/mail/mail.spec.ts-snapshots/mail-queue-scan-390.png",
+      "bytes": 26935,
+      "sha256": "6fd9f14f93f417bce5eb18258f81489d9c29807cfa39c76bb204a980971bdcd3"
+    },
+    {
+      "path": "web/e2e/tsconfig.json",
+      "bytes": 323,
+      "sha256": "5a80dc6e74cbe2fca730dff6d13c59f7277f977969d6acc2309d1a5200b4685d"
+    },
+    {
+      "path": "web/index.html",
+      "bytes": 5169,
+      "sha256": "ae7cc6ef4bdc4bc8ecb92e620e626d25565129fd2839a141e821e5f8bd3c6f19"
+    },
+    {
+      "path": "web/mail-app/index.html",
+      "bytes": 398,
+      "sha256": "1188d69f5954a6d2756924501e0df503f6471911000ac5ca904c49285f6cb0ea"
+    },
+    {
+      "path": "web/mail-app/package.json",
+      "bytes": 691,
+      "sha256": "ea19f30bd58189b93ef0381958de267a84bb45fa560885e321e7288d5398f6ec"
+    },
+    {
+      "path": "web/mail-app/src/App.test.tsx",
+      "bytes": 103746,
+      "sha256": "68afaff47e1d8595b2f1d4c5c3189f834c04bae8aea4d11800584d3113bcb6f1"
+    },
+    {
+      "path": "web/mail-app/src/App.tsx",
+      "bytes": 55949,
+      "sha256": "7635e7cc7a7252c8bbba9d7f1d373dfec0d9d3b3d538852b53011b7f7e2ffe7c"
+    },
+    {
+      "path": "web/mail-app/src/CommandPalette.test.tsx",
+      "bytes": 7137,
+      "sha256": "a6acd4b7fe757d50cb3f963c27e3b1da2293861e161a666479b75b3ec4960908"
+    },
+    {
+      "path": "web/mail-app/src/api.test.ts",
+      "bytes": 44522,
+      "sha256": "b48d4a3ce176be9c266aeb8f36373c88b981c5a630e65f97f2df0b9ce9fcf505"
+    },
+    {
+      "path": "web/mail-app/src/api.ts",
+      "bytes": 42684,
+      "sha256": "f2a0a36ecb31850a2d72d80f9fa4afa3515abb36497f8a35d8892f7612cec1cb"
+    },
+    {
+      "path": "web/mail-app/src/auth.test.ts",
+      "bytes": 5315,
+      "sha256": "3cb46feb6e62ece43c767632e891fc745b8d81303725849390b1e91b9ef1a6c9"
+    },
+    {
+      "path": "web/mail-app/src/auth.ts",
+      "bytes": 4131,
+      "sha256": "25e356d378c93511254d42b042540df532bf737291ee48d134658d09222ce9cf"
+    },
+    {
+      "path": "web/mail-app/src/components/ComposerDialog.test.tsx",
+      "bytes": 11696,
+      "sha256": "647bd3a311c603a895bc2f4fc5c4fe4a91bdde18695888b37389e2061b2d58cd"
+    },
+    {
+      "path": "web/mail-app/src/components/ComposerDialog.tsx",
+      "bytes": 6158,
+      "sha256": "7f0eab2ffb1242fbf7888058eccace88316814463add3111ecc2914cde5e431a"
+    },
+    {
+      "path": "web/mail-app/src/components/ComposerSubmissionEvidence.tsx",
+      "bytes": 4090,
+      "sha256": "4dacea3b2c1547e75d63a5c3036c256fd1d1621d18c9d5360a4362e7e5d2b934"
+    },
+    {
+      "path": "web/mail-app/src/components/DraftDirectoryItem.tsx",
+      "bytes": 2271,
+      "sha256": "1e53c887498a647b73e1c0d35edb58e38c861462c22c483d8d9e051abeeddf48"
+    },
+    {
+      "path": "web/mail-app/src/components/DraftList.test.tsx",
+      "bytes": 6027,
+      "sha256": "0b76ee8ddc9eb2ce60139ca07b3344d4818eea97e86bea8af1b514c3017a3a32"
+    },
+    {
+      "path": "web/mail-app/src/components/DraftList.tsx",
+      "bytes": 3924,
+      "sha256": "0f2988f4eb087432c210c2314e7fe6e83e270b0faac26e96526b495ca78081bd"
+    },
+    {
+      "path": "web/mail-app/src/components/DraftRestoreConfirmDialog.test.tsx",
+      "bytes": 3851,
+      "sha256": "cd96f93d5617dbb16872757350ea585a8e02ad7f841044505c2c79d56a727542"
+    },
+    {
+      "path": "web/mail-app/src/components/DraftRestoreConfirmDialog.tsx",
+      "bytes": 1072,
+      "sha256": "911e05ec2f1ed701bb4fd21782dc860ff5aef467aebcddb4411095c6dfff67a9"
+    },
+    {
+      "path": "web/mail-app/src/components/LanguagePicker.tsx",
+      "bytes": 649,
+      "sha256": "0870c50ce1ab09234eb74c7a2cdf04dd39c9601f4065a0db62185452435bd368"
+    },
+    {
+      "path": "web/mail-app/src/components/MailAccessSurface.tsx",
+      "bytes": 2985,
+      "sha256": "66ba719923b4c135028c4fabf8f058d22d82761e43ab15ad3550f3b7e2d89318"
+    },
+    {
+      "path": "web/mail-app/src/components/MailNavigation.test.tsx",
+      "bytes": 5632,
+      "sha256": "e5631b11454156e7721b8ad5c42249736e23d5ce1708e286f6549cfa0a7c2670"
+    },
+    {
+      "path": "web/mail-app/src/components/MailNavigation.tsx",
+      "bytes": 11171,
+      "sha256": "5da387f19b0e928fe6fbcd57888b2c66cd1d556688c94bab624a37f87d9be46d"
+    },
+    {
+      "path": "web/mail-app/src/components/MailboxPicker.test.tsx",
+      "bytes": 2951,
+      "sha256": "586541be83b24ddb3b4ddede57403ac5e9af1c3d7db37549c006c4ae1e8b950a"
+    },
+    {
+      "path": "web/mail-app/src/components/MailboxPicker.tsx",
+      "bytes": 2551,
+      "sha256": "38c096560435c2a61ac12173c225d3c0110623553bb3f37553aa21cb05708aa4"
+    },
+    {
+      "path": "web/mail-app/src/components/MessageDetail.test.tsx",
+      "bytes": 4704,
+      "sha256": "a038d7d2233b0b33677a551ad987fb4c37532698d4cfb0864da979cfe5e94965"
+    },
+    {
+      "path": "web/mail-app/src/components/MessageDetail.tsx",
+      "bytes": 3196,
+      "sha256": "8d9a52f9ea93b831bd5433f06be942328e507e7b5b0c1bf3043c7ad79944a108"
+    },
+    {
+      "path": "web/mail-app/src/components/MessageList.test.tsx",
+      "bytes": 4142,
+      "sha256": "c9711323863dc9d16beea09e21e279cdbd1aaa0c5ba7a08f62ddc07ae34c3019"
+    },
+    {
+      "path": "web/mail-app/src/components/MessageList.tsx",
+      "bytes": 4764,
+      "sha256": "8843c6173a5b9645e553a628fe6ef61ea4404cc48d3493014b76f3c748651276"
+    },
+    {
+      "path": "web/mail-app/src/components/MessageQueueItem.tsx",
+      "bytes": 2298,
+      "sha256": "71cb7ca34f7cc48ea49c5a27c66d55eb9daf23bf77f5a8df2a32a039e0b6e95f"
+    },
+    {
+      "path": "web/mail-app/src/components/MessageReadingHeader.tsx",
+      "bytes": 3029,
+      "sha256": "fc70ad9ffa27bece418cbc573a5497c37871f587e20293ad0ace5cd5cac29da5"
+    },
+    {
+      "path": "web/mail-app/src/components/SentDirectoryItem.tsx",
+      "bytes": 3662,
+      "sha256": "be3966c8217f1417bd933cdf371898ecb4f8123624be0074d379585852362750"
+    },
+    {
+      "path": "web/mail-app/src/components/SentList.test.tsx",
+      "bytes": 6583,
+      "sha256": "cf7dbb42e0610219b8a0ee99095e413b511b8d64db468bb48bb1b24af5936b6d"
+    },
+    {
+      "path": "web/mail-app/src/components/SentList.tsx",
+      "bytes": 2876,
+      "sha256": "7718610039c4124411c7da34cbb7bc440da995f8b89e90a931872b0da251ffee"
+    },
+    {
+      "path": "web/mail-app/src/components/SessionVerificationNotice.tsx",
+      "bytes": 1805,
+      "sha256": "967d72541ed824f9b1cc2c99ccd9eeb54993a507440516982b02d70f6b2c365f"
+    },
+    {
+      "path": "web/mail-app/src/config.test.ts",
+      "bytes": 862,
+      "sha256": "6b2c0a3114324511e032eece2152f37bc6440c08acad10b5bc4d802b17b605c2"
+    },
+    {
+      "path": "web/mail-app/src/config.ts",
+      "bytes": 1123,
+      "sha256": "2f8003d644b80e00315be58dacfcea2089958a7a155c784f19434423183e7501"
+    },
+    {
+      "path": "web/mail-app/src/detail-request.test.ts",
+      "bytes": 2472,
+      "sha256": "0412f023e65761c908239c75a9f06737d5cdd2a75784885f4582388049a51073"
+    },
+    {
+      "path": "web/mail-app/src/detail-request.ts",
+      "bytes": 1592,
+      "sha256": "e0c56a55eb5fca4cdf2d7faf67d1a2f8e3f55e15b63add0bbbd581f9c81dbf4e"
+    },
+    {
+      "path": "web/mail-app/src/detail.css",
+      "bytes": 2795,
+      "sha256": "fe596c5c867f9d4c50953d0007049a7d9fcd61948bbe9e19db0783b03020b01f"
+    },
+    {
+      "path": "web/mail-app/src/i18n.test.ts",
+      "bytes": 5962,
+      "sha256": "e4b3509b9b7b8d9144e72c56fc49478b664892e3c168d1f2076cad43f250111f"
+    },
+    {
+      "path": "web/mail-app/src/i18n.ts",
+      "bytes": 33406,
+      "sha256": "f40dbb5c1eb19c4216be64905143176399d76ade3ab3ee028147ce73c3702035"
+    },
+    {
+      "path": "web/mail-app/src/mail-keyboard-shortcuts.test.tsx",
+      "bytes": 5090,
+      "sha256": "783fe5c7764b34545f891697ade69cd2024113c1382c5babf4e59d47ef1f1871"
+    },
+    {
+      "path": "web/mail-app/src/mail-keyboard-shortcuts.ts",
+      "bytes": 4280,
+      "sha256": "0275f420daa36e7bb58617df2894719b0aff6e01db408277f0a79f6a0f7e3013"
+    },
+    {
+      "path": "web/mail-app/src/main.tsx",
+      "bytes": 255,
+      "sha256": "7f70da9920508eaf3fc7ab72d1e4747027fc9fe4a222325e77dd873fb384c10b"
+    },
+    {
+      "path": "web/mail-app/src/mobile-touch-targets.test.tsx",
+      "bytes": 9044,
+      "sha256": "6e20025162bfd929396ae1ac5f1f4b71ed9bc1af9dd67097a45bc40a4b7a69ee"
+    },
+    {
+      "path": "web/mail-app/src/search.css",
+      "bytes": 1335,
+      "sha256": "676046b0b691702a3d7c3a6a4f56f0fd3f7ccfb4a760b89925a131f34b601a61"
+    },
+    {
+      "path": "web/mail-app/src/shell/MailWorkspaceShell.tsx",
+      "bytes": 1157,
+      "sha256": "8f0a2b0dd57a29c635a12ea70c84961c8824ec67166ff27a3e069c9009118bfd"
+    },
+    {
+      "path": "web/mail-app/src/styles.css",
+      "bytes": 33500,
+      "sha256": "a12b221eb061a67aaa21349f95ac6691ccc7a9cc9b606e5cc91b37847c3c9aab"
+    },
+    {
+      "path": "web/mail-app/src/test/setup.ts",
+      "bytes": 43,
+      "sha256": "9b328c4843431fa76d8de00008fc159e95f99a840211085ff3b8f25e53d14409"
+    },
+    {
+      "path": "web/mail-app/src/types.ts",
+      "bytes": 3849,
+      "sha256": "fe12d48ab304058261ca3168baa87a366fcb9d91aa9ab8d83e0353bfe889be54"
+    },
+    {
+      "path": "web/mail-app/src/useComposerSession.test.tsx",
+      "bytes": 11441,
+      "sha256": "0d672169db3b9e4b936c53d31d04f2a297ed627b2ad08be9de09080608eb5500"
+    },
+    {
+      "path": "web/mail-app/src/useComposerSession.ts",
+      "bytes": 22131,
+      "sha256": "03ce51924cc04993aa3ba6dd91d9ab31db7868be3e1fb537605844e089eae25e"
+    },
+    {
+      "path": "web/mail-app/src/useDraftDirectory.test.tsx",
+      "bytes": 12952,
+      "sha256": "78f49fa9526ecfa1776582fe9f3d00feeda858382f1bb51fc6fc40c065eb43af"
+    },
+    {
+      "path": "web/mail-app/src/useDraftDirectory.ts",
+      "bytes": 16212,
+      "sha256": "3263933032c32623360cdaee8817dcb147ee065a591de4ce27fe7d796e16ad69"
+    },
+    {
+      "path": "web/mail-app/src/useSentDirectory.test.tsx",
+      "bytes": 8464,
+      "sha256": "e87f4bbe3616b74039ddb68a8d1a0463916262335c072ec2e6edd4bee9d61ed9"
+    },
+    {
+      "path": "web/mail-app/src/useSentDirectory.ts",
+      "bytes": 8582,
+      "sha256": "776265183e7766a998fa9aa1b6e0c84fdbb2ff3645d9fec9e2e6a4fd73559b88"
+    },
+    {
+      "path": "web/mail-app/tsconfig.json",
+      "bytes": 412,
+      "sha256": "f0213b4a9d4ebf364df8620d09821e8c36fe8dd9f067bc51b6672a07cbfbdb9d"
+    },
+    {
+      "path": "web/mail-app/vite.config.ts",
+      "bytes": 565,
+      "sha256": "2aada693af9fdcf3d210adc016842bef40a7ce6a7bc979d36fd67dce524ba289"
+    },
+    {
+      "path": "web/package-lock.json",
+      "bytes": 108497,
+      "sha256": "20a33d3b0e98a0cedc9445fc57544adfb7343f32e02a2d901dbfcdc4d5cdb6ed"
+    },
+    {
+      "path": "web/package.json",
+      "bytes": 1553,
+      "sha256": "15bae1a2cad33152d31fb1d4d244ebc7b4168be73a8766012f6b32f20d7d2aa3"
+    },
+    {
+      "path": "web/playwright.config.ts",
+      "bytes": 2292,
+      "sha256": "4a93166ed1a0cdce996f467ad47c85f4901e739e8b876f4ba8da39d80c0029ca"
+    },
+    {
+      "path": "web/scripts/check-bundle-budget.mjs",
+      "bytes": 17995,
+      "sha256": "17baacdffcd7c6e48744ae4abb1a9364cc0fbda6d464e58c1229826d464e5b36"
+    }
+  ]
+}

@@ -1,60 +1,43 @@
-import { useId, useLayoutEffect, useRef, type ChangeEvent } from "react";
-import type { Translator } from "../i18n";
-
-const FOCUSABLE_SELECTOR = [
-  "a[href]",
-  "button:not([disabled])",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "textarea:not([disabled])",
-  "summary",
-  "[tabindex]:not([tabindex='-1'])",
-].join(",");
-
-interface AttributeSnapshot {
-  element: HTMLElement;
-  ariaHidden: string | null;
-  inert: string | null;
-}
-
-function focusableElements(dialog: HTMLElement): HTMLElement[] {
-  return Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-    .filter((element) => {
-      if (element.hidden || element.closest("[hidden]")) return false;
-      if (element.getAttribute("aria-hidden") === "true") return false;
-
-      const closedDetails = element.closest("details:not([open])");
-      return !closedDetails || element.tagName === "SUMMARY";
-    });
-}
-
-function restoreAttribute(
-  element: HTMLElement,
-  name: "aria-hidden" | "inert",
-  value: string | null,
-) {
-  if (value === null) {
-    element.removeAttribute(name);
-  } else {
-    element.setAttribute(name, value);
-  }
-}
+import { useRef, type ChangeEvent } from "react";
+import {
+  ContextBar,
+  Dialog,
+  Icon,
+  IdentityBadge,
+  Input,
+  StatusIndicator,
+  Textarea,
+  type BadgeTone,
+} from "@copilotmail/design-system";
+import { type Locale, type Translator } from "../i18n";
+import type { MailboxDirectoryItem } from "../types";
+import type { ComposerSubmissionEvidence } from "../useComposerSession";
+import { ComposerSubmissionEvidence as ComposerSubmissionEvidencePanel } from "./ComposerSubmissionEvidence";
 
 const hasRecipient = (value: string) =>
   value.split(/[;,]/).some((recipient) => recipient.trim().length > 0);
 
 export interface ComposerDialogProps {
   t: Translator;
+  locale: Locale;
   replyMode: boolean;
   restoredMode?: boolean;
   initialFocus?: "recipient" | "body";
-  fromAddress: string;
+  /**
+   * The authenticated mailbox directory is the sole source of the mail
+   * identity shown in the composer. Do not add client-inferred actor,
+   * delegation, owner, or authorization fields here.
+   */
+  mailbox: MailboxDirectoryItem;
   to: string;
   cc: string;
   bcc: string;
   subject: string;
   textBody: string;
   draftStatus: string;
+  draftStatusTone: BadgeTone;
+  /** Safe projection from an exact, server-returned submission state. */
+  submissionEvidence?: ComposerSubmissionEvidence;
   submissionLocked: boolean;
   sendBusy: boolean;
   terminalSubmission: boolean;
@@ -70,15 +53,18 @@ export interface ComposerDialogProps {
 export function ComposerDialog({
   t,
   replyMode,
+  locale,
   restoredMode = false,
   initialFocus = "recipient",
-  fromAddress,
+  mailbox,
   to,
   cc,
   bcc,
   subject,
   textBody,
   draftStatus,
+  draftStatusTone,
+  submissionEvidence,
   submissionLocked,
   sendBusy,
   terminalSubmission,
@@ -90,83 +76,13 @@ export function ComposerDialog({
   onClose,
   onSend,
 }: ComposerDialogProps) {
-  const titleId = `${useId()}-compose-title`;
-  const dialogRef = useRef<HTMLElement>(null);
   const recipientRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
-  const onCloseRef = useRef(onClose);
-  const sendBusyRef = useRef(sendBusy);
-  onCloseRef.current = onClose;
-  sendBusyRef.current = sendBusy;
-
-  useLayoutEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-
-    const previouslyFocused = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
-    const backgrounds = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-dialog-background]"),
-      (element): AttributeSnapshot => ({
-        element,
-        ariaHidden: element.getAttribute("aria-hidden"),
-        inert: element.getAttribute("inert"),
-      }),
-    );
-
-    for (const { element } of backgrounds) {
-      element.setAttribute("inert", "");
-      element.setAttribute("aria-hidden", "true");
-    }
-    const preferred = initialFocus === "body" ? bodyRef.current : recipientRef.current;
-    if (preferred && !preferred.disabled) {
-      preferred.focus();
-    } else {
-      (focusableElements(dialog)[0] ?? dialog).focus();
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        if (sendBusyRef.current) return;
-        event.preventDefault();
-        event.stopPropagation();
-        onCloseRef.current();
-        return;
-      }
-      if (event.key !== "Tab") return;
-
-      const focusable = focusableElements(dialog);
-      if (focusable.length === 0) {
-        event.preventDefault();
-        dialog.focus();
-        return;
-      }
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const active = document.activeElement;
-      if (event.shiftKey && (active === first || !dialog.contains(active))) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && (active === last || !dialog.contains(active))) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown, true);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown, true);
-      for (const { element, ariaHidden, inert } of backgrounds) {
-        restoreAttribute(element, "aria-hidden", ariaHidden);
-        restoreAttribute(element, "inert", inert);
-      }
-      if (previouslyFocused?.isConnected) {
-        previouslyFocused.focus();
-      }
-    };
-  }, [initialFocus]);
+  const title = t(restoredMode
+    ? "compose.editDraftTitle"
+    : replyMode
+      ? "compose.replyTitle"
+      : "compose.newTitle");
 
   const valueFrom = (callback: (value: string) => void) =>
     (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -174,43 +90,55 @@ export function ComposerDialog({
     };
 
   return (
-    <section
-      ref={dialogRef}
+    <Dialog
+      backdropClassName="dialog-layer"
+      busy={sendBusy}
       className="composer"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      tabIndex={-1}
+      closeLabel={t("compose.closeAria")}
+      dismissDisabled={sendBusy}
+      initialFocusRef={initialFocus === "body" ? bodyRef : recipientRef}
+      title={title}
+      onClose={onClose}
     >
-      <header>
-        <h2 id={titleId}>
-          {t(restoredMode
-            ? "compose.editDraftTitle"
-            : replyMode
-              ? "compose.replyTitle"
-              : "compose.newTitle")}
-        </h2>
-        <button
-          type="button"
-          disabled={sendBusy}
-          aria-label={t("compose.closeAria")}
-          onClick={onClose}
-        >
-          {t("icon.close")}
-        </button>
-      </header>
       {replyMode && <p className="reply-context">{t("compose.replyContext")}</p>}
-      <label>
-        {t("compose.from")}
-        <input
-          aria-readonly="true"
-          readOnly
-          value={fromAddress}
-        />
-      </label>
+      <ContextBar
+        className="composer-context"
+        facts={[
+          {
+            id: "scope",
+            label: t("compose.scopeLabel"),
+            value: (
+              <span className="composer-context__address" title={mailbox.primary_address}>
+                {mailbox.primary_address}
+              </span>
+            ),
+          },
+          {
+            id: "identity",
+            label: t("compose.identityFactLabel"),
+            value: (
+              <IdentityBadge
+                kind={mailbox.kind}
+                label={t(`mailbox.kind.${mailbox.kind}`)}
+              />
+            ),
+          },
+        ]}
+        headingLevel={3}
+        status={(
+          <StatusIndicator
+            data-sendable={mailbox.can_send ? "true" : "false"}
+            label={t(mailbox.can_send
+              ? "compose.serverSendAllowed"
+              : "compose.serverReadOnly")}
+            tone={mailbox.can_send ? "positive" : "warning"}
+          />
+        )}
+        title={t("compose.contextTitle")}
+      />
       <label>
         {t("compose.to")}
-        <input
+        <Input
           ref={recipientRef}
           disabled={submissionLocked}
           value={to}
@@ -218,11 +146,11 @@ export function ComposerDialog({
           placeholder={t("compose.toPlaceholder")}
         />
       </label>
-      <details>
+      <details className="composer-recipients">
         <summary>{t("compose.ccBcc")}</summary>
         <label>
           {t("compose.cc")}
-          <input
+          <Input
             disabled={submissionLocked}
             value={cc}
             onChange={valueFrom(onCcChange)}
@@ -230,7 +158,7 @@ export function ComposerDialog({
         </label>
         <label>
           {t("compose.bcc")}
-          <input
+          <Input
             disabled={submissionLocked}
             value={bcc}
             onChange={valueFrom(onBccChange)}
@@ -239,7 +167,7 @@ export function ComposerDialog({
       </details>
       <label>
         {t("compose.subject")}
-        <input
+        <Input
           disabled={submissionLocked}
           value={subject}
           maxLength={998}
@@ -248,7 +176,7 @@ export function ComposerDialog({
       </label>
       <label className="body-label">
         <span className="sr-only">{t("compose.body")}</span>
-        <textarea
+        <Textarea
           ref={bodyRef}
           disabled={submissionLocked}
           value={textBody}
@@ -257,22 +185,37 @@ export function ComposerDialog({
           placeholder={t("compose.bodyPlaceholder")}
         />
       </label>
+      {submissionEvidence ? (
+        <ComposerSubmissionEvidencePanel
+          evidence={submissionEvidence}
+          locale={locale}
+          t={t}
+        />
+      ) : null}
       <footer>
+        <StatusIndicator
+          className="composer-status"
+          label={draftStatus}
+          live="polite"
+          tone={draftStatusTone}
+        />
         <button
           type="button"
-          disabled={sendBusy || terminalSubmission || !hasRecipient(to)}
+          disabled={sendBusy || terminalSubmission || !mailbox.can_send || !hasRecipient(to)}
           onClick={() => {
             void onSend();
           }}
         >
+          <Icon aria-hidden name="send" size={17} />
           {sendBusy
             ? t("compose.sending")
-            : submissionLocked
+            : terminalSubmission
+              ? t("compose.sendLocked")
+              : submissionLocked
               ? t("compose.retrySend")
               : t("compose.send")}
         </button>
-        <span role="status">{draftStatus}</span>
       </footer>
-    </section>
+    </Dialog>
   );
 }

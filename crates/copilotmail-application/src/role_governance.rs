@@ -125,7 +125,7 @@ where
             .find(|role| role.role_id == command.role_id)
             .ok_or(RoleGovernanceError::NotFound)?;
 
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         ensure_active_human(
             &mut transaction,
             command.context.organization_id,
@@ -236,7 +236,7 @@ where
             .get_role_assignment(command.context.organization_id, command.assignment_id)
             .await?
             .ok_or(RoleGovernanceError::NotFound)?;
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         ensure_active_human(
             &mut transaction,
             command.context.organization_id,
@@ -414,7 +414,11 @@ async fn ensure_active_human(
     principal_id: PrincipalId,
 ) -> Result<(), RoleGovernanceError> {
     if !transaction
-        .active_human_principal_exists(organization_id, principal_id)
+        .authorize_human_permission(
+            organization_id,
+            principal_id,
+            Permission::AuthorizationManage,
+        )
         .await?
     {
         return Err(RoleGovernanceError::Forbidden);
@@ -432,7 +436,7 @@ async fn append_read_evidence<S>(
 where
     S: ControlPlaneStore,
 {
-    let mut transaction = store.begin().await?;
+    let mut transaction = store.begin_authorized(context).await?;
     ensure_active_human(
         &mut transaction,
         context.organization_id,

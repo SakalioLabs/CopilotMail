@@ -5,10 +5,12 @@
 mod agent_event_cursor;
 mod agent_identity;
 mod agent_ingress;
+mod agent_inspector;
 mod agent_mail_content;
 mod agent_mail_policy;
 mod agent_mail_policy_query;
 mod agent_mail_sandbox;
+mod agent_mail_submission_evidence;
 mod agent_processing;
 mod approval;
 mod audit_archive;
@@ -51,6 +53,13 @@ pub use agent_identity::{
     RevokeAgentCredentialService,
 };
 pub use agent_ingress::{AgentIngressRateLimitError, AgentIngressRateLimiter};
+pub use agent_inspector::{
+    AGENT_INSPECTOR_SNAPSHOT_VERSION, AgentInspectorAgent, AgentInspectorControlPlane,
+    AgentInspectorError, AgentInspectorMailAdmissionState, AgentInspectorOwner,
+    AgentInspectorProfile, AgentInspectorReviewState, AgentInspectorService,
+    AgentInspectorSnapshot, AgentInspectorTokenAccess, AgentInspectorTokenAccessState,
+    GetAgentInspectorCommand,
+};
 pub use agent_mail_content::{
     AgentMailContent, AgentMailContentError, AgentMailContentService, ReadAgentMailContentCommand,
 };
@@ -64,6 +73,12 @@ pub use agent_mail_policy_query::{
 pub use agent_mail_sandbox::{
     AgentMailSandboxError, AgentMailSandboxService, CaptureAgentMailSandboxCommand,
     CapturedAgentMailSandboxSubmission,
+};
+pub use agent_mail_submission_evidence::{
+    AgentMailSubmissionAdmissionEvidence, AgentMailSubmissionAuditReference,
+    AgentMailSubmissionDeliveryEvidence, AgentMailSubmissionEvidence,
+    AgentMailSubmissionEvidenceError, AgentMailSubmissionEvidenceService,
+    AgentMailSubmissionStatusEvidence, GetAgentMailSubmissionEvidenceCommand,
 };
 pub use agent_processing::{
     AcknowledgeAgentMessageCommand, AgentProcessingDeadLetterPage, AgentProcessingError,
@@ -162,11 +177,15 @@ pub use mailbox_authorization::{
 pub use ports::{
     ActiveApprovalPolicy, AgentCredentialStore, AgentCursorEvent, AgentEventCursorQueryStore,
     AgentEventStreamLease, AgentEventStreamLeaseAcquisition, AgentIngressRateLimitDecision,
-    AgentIngressRateLimitStore, AgentMailAdmissionFailure, AgentMailAdmissionRecord,
-    AgentMailContentQueryStore, AgentMailContentTarget, AgentMailPolicyQueryStore,
-    AgentMailPolicyRuntimeSnapshot, AgentMailPolicyVersionRecord,
+    AgentIngressRateLimitStore, AgentInspectorControlPlaneCandidate,
+    AgentInspectorPrincipalCandidate, AgentInspectorProfileCandidate,
+    AgentInspectorSnapshotCandidate, AgentInspectorTokenAccessCandidate, AgentMailAdmissionFailure,
+    AgentMailAdmissionRecord, AgentMailContentQueryStore, AgentMailContentTarget,
+    AgentMailPolicyQueryStore, AgentMailPolicyRuntimeSnapshot, AgentMailPolicyVersionRecord,
     AgentMailSandboxSubmissionCreation, AgentMailSandboxSubmissionRecord,
-    AgentMailSandboxSubmissionWrite, AgentMessageClaimWrite, AgentMessageProcessingOperation,
+    AgentMailSandboxSubmissionWrite, AgentMailSubmissionAdmissionEvidenceCandidate,
+    AgentMailSubmissionAuditReferenceCandidate, AgentMailSubmissionDeliveryEvidenceCandidate,
+    AgentMailSubmissionEvidenceCandidate, AgentMessageClaimWrite, AgentMessageProcessingOperation,
     AgentMessageProcessingResult, AgentMessageProcessingState, AgentMessageTransitionWrite,
     AgentProcessingDeadLetterBatch, AgentProcessingDeadLetterQuery,
     AgentProcessingDeadLetterRecord, AgentProcessingQueryStore,
@@ -200,14 +219,14 @@ pub use ports::{
     MailEventIngestionStore, MailEventIngestionTransaction, MailReplyTarget,
     MailReplyTargetQueryStore, MailSubmissionIntentCreation, MailSubmissionIntentRecord,
     MailSubmissionIntentWrite, MailSubmissionLease, MailSubmissionQueryStore, MailSubmissionStatus,
-    MailSubmissionTerminalWrite, MailboxAuthorizationStore, MailboxQueryStore, MailboxSummary,
-    OrganizationQueryStore, OrganizationSummary, OutboundMailEventInsert, OutboundMailEventKind,
-    OutboundMailEventRecord, RetentionPolicyActivationRecord, RetentionPolicyDetail,
-    RetentionPolicyQueryStore, RetentionPolicyRecord, RoleAssignmentGrantRecord,
-    RoleAssignmentListQuery, RoleAssignmentRevocationResult, RoleAssignmentSummary,
-    RoleGovernanceQueryStore, RoleSummary, ScimCredential, ScimDirectoryQueryStore, StoreError,
-    WebhookDeadLetterQueryStore, WebhookDeadLetterSummary, WebhookSubscriptionQueryStore,
-    WebhookSubscriptionSummary,
+    MailSubmissionTerminalTransition, MailSubmissionTerminalWrite, MailboxAuthorizationStore,
+    MailboxQueryStore, MailboxSummary, OrganizationQueryStore, OrganizationSummary,
+    OutboundMailEventInsert, OutboundMailEventKind, OutboundMailEventRecord,
+    RetentionPolicyActivationRecord, RetentionPolicyDetail, RetentionPolicyQueryStore,
+    RetentionPolicyRecord, RoleAssignmentGrantRecord, RoleAssignmentListQuery,
+    RoleAssignmentRevocationResult, RoleAssignmentSummary, RoleGovernanceQueryStore, RoleSummary,
+    ScimCredential, ScimDirectoryQueryStore, StoreError, WebhookDeadLetterQueryStore,
+    WebhookDeadLetterSummary, WebhookSubscriptionQueryStore, WebhookSubscriptionSummary,
 };
 pub use register_principal::{
     RegisterPrincipalCommand, RegisterPrincipalError, RegisterPrincipalService,

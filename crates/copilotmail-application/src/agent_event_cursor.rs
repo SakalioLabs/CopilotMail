@@ -127,7 +127,7 @@ where
             .map(|event| event.event_id)
             .or(command.after_event_id);
         if let (Some(first), Some(last)) = (items.first(), items.last()) {
-            let mut transaction = self.store.begin().await?;
+            let mut transaction = self.store.begin_authorized(context).await?;
             if !transaction
                 .active_agent_principal_exists(command.organization_id, context.principal_id)
                 .await?
@@ -209,7 +209,7 @@ where
             })
             .ok_or(AgentEventCursorError::NotFound)?;
 
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(context).await?;
         if !transaction
             .active_agent_principal_exists(command.organization_id, context.principal_id)
             .await?
@@ -501,6 +501,7 @@ mod tests {
                 organization_id,
                 principal_id,
                 permissions: BTreeSet::from([Permission::AgentOperate]),
+                authentication: None,
             },
             subscription_id,
         )

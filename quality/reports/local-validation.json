@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "tool_observed_local_validation_summary_not_release_signoff",
+  "date": "2026-10-12",
+  "git_head": "fabf73ec02ecb1573b744b18e823db3631c7cc5d",
+  "candidate_revision": "unsealed_dirty_working_tree",
+  "environment": {
+    "os": "Windows",
+    "shell": "PowerShell",
+    "rust": "1.97.1",
+    "node": "22.16.0",
+    "vitest": "4.1.11"
+  },
+  "source_fingerprints": {
+    "Cargo.lock": "27ac51237b44f05ada137867ef9418a8d1430325e36752dfc42c6e04c4360a76",
+    "web/package-lock.json": "58e0b92507e197af24a76cda2885f40b090ce840496610967b83a0af907c6745",
+    "quality/reports/rust-function-inventory.json": "76430669e814ac831123c545e14301ecd21f0aef89096959c66216c34a00cc76",
+    "quality/reports/typescript-function-inventory.json": "9d9b45cc7ecd414ba7df3e68867e92e545dfceda668508c3fe72ad458a8deada",
+    "quality/reports/typescript-test-inventory.json": "6af669ac51def9f8af24933ea663248220044a2aa8a29e30921dc1b0203d8cba",
+    "quality/reports/rust-coverage.json": "3c016b172e626ff922ac678e2039fc3ff8bb2b03b067e01a546cf82391365500",
+    "quality/reports/web-coverage.json": "7f7ffe45291fb39ea87c72a89b824e9a4b8f3e761e470d621ef2058498261736",
+    "quality/reports/rust-dependency-audit.json": "4e6a1ad5d429386524f54ad795c9d8cfeb4beadf48696e14fb7b047570512a01"
+  },
+  "checks": [
+    {
+      "name": "rust_workspace_tests",
+      "command": "cargo test --workspace --locked --jobs 1 --quiet",
+      "result": "passed",
+      "exit_code": 0,
+      "passed": 389,
+      "failed": 0,
+      "ignored": 43,
+      "notes": "Windows isolated target-quality; CARGO_INCREMENTAL=0 and CARGO_PROFILE_TEST_DEBUG=0. Ignored tests are not runtime evidence."
+    },
+    {
+      "name": "rust_clippy",
+      "command": "cargo clippy --workspace --all-targets --locked --jobs 1 -- -D warnings",
+      "result": "passed",
+      "exit_code": 0
+    },
+    {
+      "name": "rust_format",
+      "command": "cargo fmt --all --check",
+      "result": "passed",
+      "exit_code": 0
+    },
+    {
+      "name": "rust_coverage",
+      "command": "cargo llvm-cov --workspace --locked --json --output-path quality/coverage/rust-workspace.json --jobs 1 --quiet",
+      "result": "passed",
+      "tool_version": "0.9.1",
+      "exit_code": 0,
+      "passed": 389,
+      "ignored": 43,
+      "evidence": "quality/reports/rust-coverage.json",
+      "line_percent": 54.02169922910634,
+      "function_percent": 50.99664053751399,
+      "branch_coverage": "not_measured"
+    },
+    {
+      "name": "web_types",
+      "command": "npm run check",
+      "cwd": "web",
+      "result": "passed",
+      "exit_code": 0
+    },
+    {
+      "name": "web_unit_and_coverage",
+      "command": "npm run test:coverage",
+      "cwd": "web",
+      "result": "passed",
+      "exit_code": 0,
+      "passed": 416,
+      "failed": 0,
+      "suites": {
+        "design_system": 18,
+        "admin": 207,
+        "mail": 191
+      }
+    },
+    {
+      "name": "web_build_and_budgets",
+      "command": "npm run build",
+      "cwd": "web",
+      "result": "passed",
+      "exit_code": 0
+    },
+    {
+      "name": "web_browser",
+      "command": "npm run e2e:run",
+      "cwd": "web",
+      "result": "passed",
+      "exit_code": 0,
+      "passed": 109,
+      "notes": "Local loopback Chromium and deterministic in-memory BFF; not live IdP/API/PG or deployment. No snapshot update."
+    },
+    {
+      "name": "legacy_prototype_e2e",
+      "command": "cargo build --locked -p copilotmail --jobs 1 && python tests/e2e.py",
+      "result": "passed",
+      "exit_code": 0,
+      "notes": "Loopback HTTP/SMTP/WebSocket with disposable SQLite; no public mail. Existing MSVC LNK4209 warning was non-fatal."
+    },
+    {
+      "name": "offline_mail_transport",
+      "command": "python -m unittest discover -s tests -p test_mail_client_transport.py",
+      "result": "passed",
+      "exit_code": 0,
+      "passed": 21
+    },
+    {
+      "name": "audit_governance",
+      "command": "python scripts/check_audit_governance.py",
+      "result": "passed",
+      "exit_code": 0,
+      "catalog_events": 85,
+      "producers": 85
+    },
+    {
+      "name": "audit_governance_self_tests",
+      "command": "python -m unittest discover -s scripts -p test_audit_governance.py",
+      "result": "passed",
+      "exit_code": 0,
+      "passed": 14
+    },
+    {
+      "name": "postgres_grammar",
+      "command": "python scripts/check_postgres_syntax.py --self-test",
+      "result": "passed",
+      "exit_code": 0,
+      "passed": 4,
+      "migrations_parsed": 60,
+      "schema_queries_parsed": 1,
+      "sql_executed": false,
+      "parser": "pglast 7.18 / PostgreSQL 17"
+    },
+    {
+      "name": "crypto_boundary",
+      "command": "python scripts/check_crypto_boundary.py --self-test",
+      "result": "passed",
+      "exit_code": 0,
+      "passed": 4
+    },
+    {
+      "name": "function_matrix",
+      "command": "python scripts/check_function_test_matrix.py --self-test",
+      "result": "passed_references_only",
+      "exit_code": 0,
+      "passed": 2,
+      "capabilities": 105,
+      "inventory_scope": "complete"
+    },
+    {
+      "name": "release_matrix",
+      "command": "python scripts/check_function_test_matrix.py --release",
+      "result": "blocked_as_expected",
+      "exit_code": 1,
+      "notes": "Unreviewed evidence and unexecuted integration scenarios are intentionally not release-approved."
+    },
+    {
+      "name": "architecture",
+      "command": "python scripts/check_architecture.py --self-test",
+      "result": "passed",
+      "exit_code": 0
+    },
+    {
+      "name": "compose_security_static",
+      "command": "python scripts/check_compose_security.py --self-test",
+      "result": "passed",
+      "exit_code": 0,
+      "containers_started": false
+    },
+    {
+      "name": "design_governance",
+      "command": "python scripts/check_design_governance.py --self-test",
+      "result": "passed",
+      "exit_code": 0
+    },
+    {
+      "name": "web_i18n",
+      "command": "python scripts/check_web_i18n.py --self-test",
+      "result": "passed",
+      "exit_code": 0
+    },
+    {
+      "name": "agent_skill_contract",
+      "command": "python scripts/check_agent_skill.py",
+      "result": "passed",
+      "exit_code": 0,
+      "workflows": 11
+    },
+    {
+      "name": "mail_probe_self_tests",
+      "command": "python scripts/render_stalwart_poc_plan.py --self-test; python tests/stalwart_poc.py self-test",
+      "result": "passed",
+      "exit_code": 0,
+      "network_calls": false
+    },
+    {
+      "name": "npm_audit",
+      "command": "npm audit --audit-level=moderate",
+      "cwd": "web",
+      "result": "passed",
+      "exit_code": 0,
+      "vulnerabilities": 0
+    },
+    {
+      "name": "cargo_audit",
+      "command": "cargo audit --json",
+      "result": "passed",
+      "exit_code": 0,
+      "vulnerabilities": 0,
+      "advisory_ignores": [],
+      "evidence": "quality/reports/rust-dependency-audit.json"
+    },
+    {
+      "name": "documentation",
+      "command": "python scripts/check_documentation.py",
+      "result": "passed",
+      "exit_code": 0
+    },
+    {
+      "name": "whitespace",
+      "command": "git diff --check",
+      "result": "passed",
+      "exit_code": 0
+    }
+  ],
+  "release_ready": false,
+  "code_quality_complete": false,
+  "deployment_started": false,
+  "remaining_code_review": [
+    "Complete per-function assertion mapping and independent final candidate review"
+  ],
+  "deferred_runtime": {
+    "postgres_tests": 37,
+    "minio_tests": 4,
+    "control_http_tests": 2,
+    "other": [
+      "Docker runtime",
+      "IdP",
+      "real SMTP/IMAP clients",
+      "public DNS/mail delivery",
+      "load and disaster recovery"
+    ]
+  },
+  "notes": [
+    "This refresh reran Rust workspace tests, format, Clippy, LLVM coverage, Cargo audit, PostgreSQL grammar, architecture, crypto boundary, audit governance, function matrix, Compose security, design governance, documentation, and whitespace checks. Web and legacy runtime results retain the preceding local quality-pass evidence; those suites were not rerun during the GitHub submission refresh.",
+    "Passing test counts do not imply every function/path is adequately verified.",
+    "No SSH, WSL, NixOS, production data, public mail or deployment was used.",
+    "Failed intermediate runs (including Windows compiler/linker and one Vitest worker crash) are excluded from passing evidence; successful reruns are recorded separately."
+  ],
+  "recorded_at": "2026-10-12T01:01:22+08:00"
+}

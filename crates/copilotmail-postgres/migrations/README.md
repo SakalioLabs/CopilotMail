@@ -195,3 +195,37 @@ private schema.
   migration advisory lock remains in effect. A retry after a process failure
   uses `IF NOT EXISTS`; runtime readiness independently requires the resulting
   index to be valid and ready before serving this binary.
+- `0057_agent_inspector.sql` registers the successful, privileged,
+  content-free single-Agent Inspector read. The inspector remains a
+  transaction-bound projection of existing identity, credential, RBAC, mail
+  policy, and processing records; it creates no mutable snapshot table.
+- `0058_agent_mail_submission_evidence.sql` registers the successful,
+  privileged, Human-only exact production-Agent mail-submission evidence read.
+  It creates no mutable evidence projection: the read is bound to an explicit
+  Agent UUID and submission UUID, and can disclose only immutable
+  admission/policy-approval facts, an optional latest aggregate delivery
+  observation, and minimal audit references. Runtime health, execution,
+  delegation, mailbox, recipient, provider/SMTP, and message-content data stay
+  outside this contract.
+- `0059_retention_runtime_authorization.sql` keeps existing retention history
+  immutable, but assigns new activation timestamps from the database after
+  approval lock waits and rejects expired approval evidence when advancing an
+  active version. Application audit/outbox uses the returned stored timestamp.
+  This migration must be applied and exercised on an isolated database during
+  the deferred deployment-validation stage; compilation is not SQL execution.
+- `0060_audit_export_runtime_clock.sql` assigns grant/download timestamps from
+  the database after mutable actor/approval locks. Backdated application input
+  cannot revive an expired approval or export grant; returned timestamps are
+  used by audit/outbox records. Historical immutable evidence is not rewritten.
+
+Offline SQL and PL/pgSQL grammar checks use the pinned PostgreSQL 17 parser in
+`scripts/requirements-quality.txt`: run
+`python scripts/check_postgres_syntax.py --self-test` after installing those
+development-only dependencies. Parsing does not execute migrations. Runtime
+readiness now also requires the complete compiled migration ledger with exact
+checksums, so an older schema cannot silently miss these trigger changes.
+
+Integration tests require `COPILOTMAIL_ALLOW_ISOLATED_DB_TESTS=1` and a dedicated
+`copilotmail_test_<suffix>` database URI without query/fragment overrides.
+The only exception is the loopback `copilotmail` service in CI. Never point
+this write/migration suite at a shared or production database.

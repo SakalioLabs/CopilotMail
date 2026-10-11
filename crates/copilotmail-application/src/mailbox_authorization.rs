@@ -97,7 +97,7 @@ impl<S: ControlPlaneStore> MailboxManagementService<S> {
         if !context.permits(command.organization_id, Permission::MailAdmin) {
             return Err(MailboxAuthorizationError::Forbidden);
         }
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(context).await?;
         if !transaction
             .active_principal_exists(command.organization_id, context.principal_id)
             .await?
@@ -185,7 +185,7 @@ impl<S: ControlPlaneStore> MailboxDelegationService<S> {
             .await?
             .ok_or(StoreError::MissingReference)?;
         drop(transaction);
-        self.grant_as(command, owner.principal_id).await
+        self.grant_as(command, owner.principal_id, None).await
     }
 
     pub async fn grant_authorized(
@@ -196,15 +196,20 @@ impl<S: ControlPlaneStore> MailboxDelegationService<S> {
         if !context.permits(command.organization_id, Permission::AuthorizationManage) {
             return Err(MailboxAuthorizationError::Forbidden);
         }
-        self.grant_as(command, context.principal_id).await
+        self.grant_as(command, context.principal_id, Some(context))
+            .await
     }
 
     async fn grant_as(
         &self,
         command: GrantMailboxDelegationCommand,
         actor: PrincipalId,
+        context: Option<&AuthorizationContext>,
     ) -> Result<GrantMailboxDelegationResult, MailboxAuthorizationError> {
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = match context {
+            Some(context) => self.store.begin_authorized(context).await?,
+            None => self.store.begin().await?,
+        };
         if !transaction
             .mailbox_owned_by(
                 command.organization_id,
@@ -288,7 +293,7 @@ impl<S: ControlPlaneStore> MailboxDelegationService<S> {
             .await?
             .ok_or(StoreError::MissingReference)?;
         drop(transaction);
-        self.revoke_as(command, owner.principal_id).await
+        self.revoke_as(command, owner.principal_id, None).await
     }
 
     pub async fn revoke_authorized(
@@ -299,15 +304,20 @@ impl<S: ControlPlaneStore> MailboxDelegationService<S> {
         if !context.permits(command.organization_id, Permission::AuthorizationManage) {
             return Err(MailboxAuthorizationError::Forbidden);
         }
-        self.revoke_as(command, context.principal_id).await
+        self.revoke_as(command, context.principal_id, Some(context))
+            .await
     }
 
     async fn revoke_as(
         &self,
         command: RevokeMailboxDelegationCommand,
         actor: PrincipalId,
+        context: Option<&AuthorizationContext>,
     ) -> Result<(), MailboxAuthorizationError> {
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = match context {
+            Some(context) => self.store.begin_authorized(context).await?,
+            None => self.store.begin().await?,
+        };
         if !transaction
             .mailbox_delegation_managed_by(
                 command.organization_id,
@@ -439,6 +449,7 @@ mod tests {
             principal_id,
             organization_id,
             permissions: BTreeSet::new(),
+            authentication: None,
         };
         assert!(
             service
@@ -451,6 +462,7 @@ mod tests {
             principal_id,
             organization_id,
             permissions: [Permission::MailboxUse].into_iter().collect(),
+            authentication: None,
         };
         assert!(
             service

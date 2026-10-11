@@ -650,6 +650,37 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v2/audit-archives/{archive_id}/export-grants/{approval_request_id}:
+    get:
+      operationId: reconcileAuditArchiveExportGrant
+      summary: Reconcile one exact audit export authorization without creating anything.
+      description: >
+        Read-only exact reconciliation for a client whose authorization POST
+        outcome is unknown. Active Human-only access requires audit.export and
+        returns metadata only when the canonical archive ID, canonical approval
+        request ID, tenant, and requesting Human all match the already
+        persisted immutable grant. This endpoint never creates or replays a
+        grant and never writes Audit, Outbox, or download-ledger evidence.
+      security: [{ adminBrowserSession: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: archive_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: approval_request_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The caller's exact immutable export authorization metadata.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditExportGrant" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /api/v2/audit-export-grants/{grant_id}:
     get:
       operationId: getAuditExportGrant
@@ -931,6 +962,82 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v2/agents/{agent_id}/inspector:
+    get:
+      operationId: getAgentInspector
+      summary: Read one privileged, evidence-backed Agent control-plane snapshot.
+      description: >
+        Human-only operation requiring identity.manage. The server rechecks the
+        Active Human and current permission in the same transaction before it
+        reads the target and again before it commits High Audit and Outbox
+        evidence. This is not an Agent heartbeat, runtime-health, execution,
+        mailbox-grant, credential-material, or mail-content API. Cross-tenant,
+        non-Agent, and missing-profile targets are intentionally indistinguishable.
+      security: [{ adminBrowserSession: [] }, { bearerAuth: [identity.manage] }]
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Bounded control-plane observation. Responses are not cacheable.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+            Referrer-Policy:
+              schema: { type: string, enum: [no-referrer] }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentInspector" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v2/agents/{agent_id}/mail-submissions/{submission_id}/evidence:
+    post:
+      operationId: readAgentMailSubmissionEvidence
+      summary: Read one exact production Agent mail-admission evidence chain.
+      description: >
+        Human-only operation requiring identity.manage and audit.read. The
+        server verifies an Active Human and both permissions in the same
+        transaction before the exact Agent/submission pair is read and again
+        before it commits High Audit and Outbox evidence. It exposes only
+        immutable policy-activation and approval references, aggregate latest
+        delivery observation, and minimal audit references. It is not a list,
+        runtime-health, execution, delegation, mailbox, recipient, provider,
+        SMTP, or mail-content API. Missing, cross-tenant, non-Agent,
+        mismatched, and non-production-admission pairs are indistinguishable.
+        POST is required because a successful observation appends immutable
+        audit evidence; Admin browser sessions therefore receive the existing
+        Origin/CSRF protection for state-changing operations.
+      security: [{ adminBrowserSession: [] }, { bearerAuth: [identity.manage, audit.read] }]
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: submission_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Exact bounded evidence observation. Responses are not cacheable.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+            Referrer-Policy:
+              schema: { type: string, enum: [no-referrer] }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentMailSubmissionEvidence" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
   /api/v2/legal-holds/{hold_id}:
     get:
@@ -3551,6 +3658,201 @@ components:
           type: [integer, "null"]
           minimum: 0
           maximum: 10000
+    AgentInspector:
+      type: object
+      additionalProperties: false
+      required:
+        - agent_id
+        - display_name
+        - principal_status
+        - owner
+        - profile
+        - token_access
+        - control_plane
+        - observed_at
+      properties:
+        agent_id: { type: string, format: uuid }
+        display_name: { type: string, minLength: 1, maxLength: 200 }
+        principal_status:
+          type: string
+          enum: [draft, active, suspended, retired]
+        owner:
+          $ref: "#/components/schemas/AgentInspectorOwner"
+        profile:
+          $ref: "#/components/schemas/AgentInspectorProfile"
+        token_access:
+          $ref: "#/components/schemas/AgentInspectorTokenAccess"
+        control_plane:
+          $ref: "#/components/schemas/AgentInspectorControlPlane"
+        observed_at: { type: string, format: date-time }
+    AgentInspectorOwner:
+      type: object
+      additionalProperties: false
+      required: [principal_id, display_name, principal_status]
+      properties:
+        principal_id: { type: string, format: uuid }
+        display_name: { type: string, minLength: 1, maxLength: 200 }
+        principal_status:
+          type: string
+          enum: [draft, active, suspended, retired]
+    AgentInspectorProfile:
+      type: object
+      additionalProperties: false
+      required: [environment, risk_level, purpose, review_due_at, review_state]
+      properties:
+        environment:
+          type: string
+          enum: [development, testing, production]
+        risk_level:
+          type: string
+          enum: [low, medium, high]
+        purpose: { type: string, minLength: 1, maxLength: 1000 }
+        review_due_at: { type: string, format: date-time }
+        review_state:
+          type: string
+          enum: [scheduled, due]
+    AgentInspectorTokenAccess:
+      type: object
+      additionalProperties: false
+      required:
+        - state
+        - effective_scopes
+        - active_credential_count
+        - next_credential_expiry_at
+        - last_authenticated_at
+      properties:
+        state:
+          type: string
+          enum: [identity_inactive, no_active_credential, no_effective_scope, effective]
+        effective_scopes:
+          type: array
+          maxItems: 4
+          uniqueItems: true
+          items:
+            type: string
+            enum: [organization.read, agent.operate, agent.mail.read, mailbox.use]
+        active_credential_count: { type: integer, minimum: 0 }
+        next_credential_expiry_at:
+          type: [string, "null"]
+          format: date-time
+        last_authenticated_at:
+          type: [string, "null"]
+          format: date-time
+    AgentInspectorControlPlane:
+      type: object
+      additionalProperties: false
+      required:
+        - mail_admission_state
+        - active_processing_subscription_count
+        - paused_processing_subscription_count
+        - retired_processing_subscription_count
+        - last_processing_activity_at
+      properties:
+        mail_admission_state:
+          type: string
+          enum: [not_required, blocked_no_active_policy, active]
+        active_processing_subscription_count: { type: integer, minimum: 0 }
+        paused_processing_subscription_count: { type: integer, minimum: 0 }
+        retired_processing_subscription_count: { type: integer, minimum: 0 }
+        last_processing_activity_at:
+          type: [string, "null"]
+          format: date-time
+    AgentMailSubmissionEvidence:
+      type: object
+      additionalProperties: false
+      required: [agent_id, submission, admission, delivery, audit_references, observed_at]
+      properties:
+        agent_id: { type: string, format: uuid }
+        submission:
+          $ref: "#/components/schemas/AgentMailSubmissionEvidenceSubmission"
+        admission:
+          $ref: "#/components/schemas/AgentMailSubmissionEvidenceAdmission"
+        delivery:
+          oneOf:
+            - { $ref: "#/components/schemas/AgentMailSubmissionEvidenceDelivery" }
+            - { type: "null" }
+        audit_references:
+          type: array
+          minItems: 2
+          maxItems: 3
+          items:
+            $ref: "#/components/schemas/AgentMailSubmissionEvidenceAuditReference"
+        observed_at: { type: string, format: date-time }
+    AgentMailSubmissionEvidenceSubmission:
+      type: object
+      additionalProperties: false
+      required: [submission_id, status, created_at, updated_at]
+      properties:
+        submission_id: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [pending, reconciling, accepted, rejected, manual_review]
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    AgentMailSubmissionEvidenceAdmission:
+      type: object
+      additionalProperties: false
+      required:
+        - admission_id
+        - admitted_at
+        - policy
+        - recipient_count
+        - first_contact_count
+        - first_contact_approval_request_id
+      properties:
+        admission_id: { type: string, format: uuid }
+        admitted_at: { type: string, format: date-time }
+        policy:
+          $ref: "#/components/schemas/AgentMailSubmissionEvidencePolicy"
+        recipient_count: { type: integer, minimum: 1, maximum: 100 }
+        first_contact_count: { type: integer, minimum: 0, maximum: 100 }
+        first_contact_approval_request_id:
+          type: [string, "null"]
+          format: uuid
+    AgentMailSubmissionEvidencePolicy:
+      type: object
+      additionalProperties: false
+      required: [activation_id, activated_at, version_id, version, approval_request_id]
+      properties:
+        activation_id: { type: string, format: uuid }
+        activated_at: { type: string, format: date-time }
+        version_id: { type: string, format: uuid }
+        version: { type: integer, minimum: 1 }
+        approval_request_id: { type: string, format: uuid }
+    AgentMailSubmissionEvidenceDelivery:
+      type: object
+      additionalProperties: false
+      required:
+        - observed_at
+        - terminal
+        - recipient_count
+        - delivered_count
+        - failed_count
+        - queued_count
+        - unknown_count
+      properties:
+        observed_at: { type: string, format: date-time }
+        terminal: { type: boolean }
+        recipient_count: { type: integer, minimum: 1, maximum: 100 }
+        delivered_count: { type: integer, minimum: 0, maximum: 100 }
+        failed_count: { type: integer, minimum: 0, maximum: 100 }
+        queued_count: { type: integer, minimum: 0, maximum: 100 }
+        unknown_count: { type: integer, minimum: 0, maximum: 100 }
+    AgentMailSubmissionEvidenceAuditReference:
+      type: object
+      additionalProperties: false
+      required: [event_id, action, occurred_at]
+      properties:
+        event_id: { type: string, format: uuid }
+        action:
+          type: string
+          enum:
+            - mail.submission.requested
+            - agent.mail.admitted
+            - mail.submission.accepted
+            - mail.submission.rejected
+            - mail.submission.review_required
+        occurred_at: { type: string, format: date-time }
     RetentionPolicyVersion:
       type: object
       additionalProperties: false

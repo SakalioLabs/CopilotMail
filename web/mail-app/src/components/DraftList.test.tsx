@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTranslator } from "../i18n";
 import type { HumanDraftPage } from "../types";
@@ -56,6 +56,53 @@ describe("DraftList", () => {
     expect(onLoadMore).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps drafts as one explicit recovery action with safe, human-readable metadata", () => {
+    const onRestore = vi.fn();
+    const internalOnlyDraft: HumanDraftPage = {
+      items: [{
+        draft_id: "draft-internal-id-not-for-display",
+        version: 987,
+        reply_to_message_id: "source-message-id-not-for-display",
+        recipient_count: 4,
+        created_at: "2026-07-20T08:00:00Z",
+        updated_at: "2026-07-27T11:00:00Z",
+      }],
+      next_cursor: "cursor-not-for-display",
+      has_more: false,
+    };
+    render(<DraftList
+      draftButtonRef={() => () => undefined}
+      headingRef={{ current: null }}
+      listBusy={false}
+      locale="en"
+      page={internalOnlyDraft}
+      t={t}
+      onLoadMore={vi.fn()}
+      onRefresh={vi.fn()}
+      onRestore={onRestore}
+    />);
+
+    expect(screen.getByText("Select a draft to resume editing")).toBeInTheDocument();
+    const restore = screen.getByRole("button", { name: /Reply draft/ });
+    expect(restore).toHaveAccessibleName(/4 recipients/);
+    expect(restore.querySelector("a, input, select, textarea")).toBeNull();
+    expect(document.querySelector('time[datetime="2026-07-27T11:00:00Z"]')).not.toBeNull();
+
+    [
+      "draft-internal-id-not-for-display",
+      "source-message-id-not-for-display",
+      "2026-07-20T08:00:00Z",
+      "cursor-not-for-display",
+      "987",
+    ].forEach((internalValue) => {
+      expect(screen.queryByText(internalValue, { exact: false })).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(restore);
+    expect(onRestore).toHaveBeenCalledWith(internalOnlyDraft.items[0]);
+    expect(onRestore).toHaveBeenCalledTimes(1);
+  });
+
   it("locks refresh, rows, and pagination while one restore is in flight", () => {
     render(<DraftList
       draftButtonRef={() => () => undefined}
@@ -74,5 +121,60 @@ describe("DraftList", () => {
     screen.getAllByRole("button", { name: /editing|Restoring/ })
       .forEach((row) => expect(row).toBeDisabled());
     expect(screen.getByRole("button", { name: "Load more drafts" })).toBeDisabled();
+  });
+
+  it("announces refresh state and provides real recovery actions for errors and an empty list", () => {
+    const onRefresh = vi.fn();
+    const { container, rerender } = render(<DraftList
+      draftButtonRef={() => () => undefined}
+      error="Drafts are temporarily unavailable"
+      headingRef={{ current: null }}
+      listBusy
+      locale="en"
+      page={page}
+      t={t}
+      onLoadMore={vi.fn()}
+      onRefresh={onRefresh}
+      onRestore={vi.fn()}
+    />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("Syncing…");
+    expect(container.querySelector(".draft-items")).toHaveAttribute("aria-busy", "true");
+
+    rerender(<DraftList
+      draftButtonRef={() => () => undefined}
+      headingRef={{ current: null }}
+      listBusy={false}
+      locale="en"
+      page={{ ...page, items: [], has_more: false, next_cursor: null }}
+      t={t}
+      onLoadMore={vi.fn()}
+      onRefresh={onRefresh}
+      onRestore={vi.fn()}
+    />);
+
+    const empty = container.querySelector<HTMLElement>(".empty--actionable");
+    expect(empty).not.toBeNull();
+    fireEvent.click(within(empty!).getByRole("button", { name: "Refresh drafts" }));
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a draft directory error in place", () => {
+    const onRefresh = vi.fn();
+    render(<DraftList
+      draftButtonRef={() => () => undefined}
+      error="Drafts are temporarily unavailable"
+      headingRef={{ current: null }}
+      listBusy={false}
+      locale="en"
+      page={page}
+      t={t}
+      onLoadMore={vi.fn()}
+      onRefresh={onRefresh}
+      onRestore={vi.fn()}
+    />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,0 +1,2 @@
+# Offline PostgreSQL 17 grammar checks only; never shipped in the service image.
+pglast==7.18

@@ -4,9 +4,20 @@
 
 CopilotMail 正在从面向 AI Agent 的自托管邮件 MVP 演进为人与 Agent 均为第一公民的企业邮件系统。仓库当前同时保留可回归的 V1 原型与正在建设的 V2 企业控制平面；V1 的手写 SMTP 不会直接扩展为生产邮件数据平面。
 
-项目的统一目标入口见 [项目目标](GOAL.md)，V2 的完整范围、架构决策和阶段验收标准见 [企业级实施计划](docs/IMPLEMENTATION_PLAN.zh-CN.md)，当前完成度和下一步见 [实施状态](docs/IMPLEMENTATION_STATUS.zh-CN.md)，系统信任边界、威胁与剩余风险见 [企业威胁模型](docs/THREAT_MODEL.zh-CN.md)，需要公司确认的容量、IdP、域名、合规及恢复参数见 [P0 输入与签字清单](docs/ENTERPRISE_INPUT_CHECKLIST.zh-CN.md)，同步接口见 [V2 OpenAPI](docs/openapi-v2.yaml)，Agent 事件信封见 [V2 AsyncAPI](docs/asyncapi-v2.yaml)，Stalwart 入站事件配置见 [邮件事件接入指南](docs/MAIL_EVENT_INGRESS.zh-CN.md)，订阅、签名、SSE、死信与重放运维见 [Agent 事件投递指南](docs/WEBHOOK_DELIVERY.zh-CN.md)。
+项目的统一目标入口见 [项目目标](GOAL.md)，V2 的完整范围、架构决策和阶段验收标准见 [企业级实施计划](docs/IMPLEMENTATION_PLAN.zh-CN.md)，当前完成度和下一步见 [实施状态](docs/IMPLEMENTATION_STATUS.zh-CN.md)，系统信任边界、威胁与剩余风险见 [企业威胁模型](docs/THREAT_MODEL.zh-CN.md)，需要公司确认的容量、IdP、域名、合规及恢复参数见 [P0 输入与签字清单](docs/ENTERPRISE_INPUT_CHECKLIST.zh-CN.md)，同步接口见 [V2 OpenAPI](docs/openapi-v2.yaml)，Agent Inspector 的最小安全控制面契约见 [实施计划](docs/AGENT_INSPECTOR_API_PLAN.zh-CN.md)，Agent 事件信封见 [V2 AsyncAPI](docs/asyncapi-v2.yaml)，Stalwart 入站事件配置见 [邮件事件接入指南](docs/MAIL_EVENT_INGRESS.zh-CN.md)，订阅、签名、SSE、死信与重放运维见 [Agent 事件投递指南](docs/WEBHOOK_DELIVERY.zh-CN.md)。
+
+Web 设计契约见 [设计与交互契约](DESIGN.md)、[设计系统开发规范](docs/DESIGN_SYSTEM.zh-CN.md)、[V2 视觉重构与开发规格](docs/DESIGN_DEVELOPMENT_SPEC_V2.zh-CN.md)、[设计开发蓝图](docs/DESIGN_DEVELOPMENT_BLUEPRINT.zh-CN.md) 和 [设计治理门禁](docs/DESIGN_GOVERNANCE.zh-CN.md)。
 
 ## V2 开发预览
+
+当前先完成代码，不部署。验证码生成/校验由业务应用处理，平台保留 Human/Agent/管理 API，
+通过标准 SMTP/IMAP 支持应用发信与第三方邮件客户端。托管验证码原型已归档、不进入构建。
+见 [当前代码范围](docs/CODE_DEVELOPMENT_SCOPE.zh-CN.md) 与
+[外部客户端接入及限制](docs/EXTERNAL_MAIL_CLIENTS.zh-CN.md)。
+
+本轮模块化、权限/事务修复、测试矩阵和实测覆盖率见
+[代码质量审查记录](docs/CODE_QUALITY_REVIEW.zh-CN.md)。部署验收放在最后；未运行的 PG、
+Object Lock、真实客户端和生产场景不算通过，最终质量签字未被静态门禁替代。
 
 V2 已建立 Rust Cargo Workspace、统一 `Principal` 领域模型、人与 Agent 独立消息状态、PostgreSQL migration、事务型 Outbox、结构化审计骨架，以及可分别运行的 API、Worker 和迁移命令。邮件数据平面的不透明引用由稳定 UUID `MailDataPlaneId` 划分命名空间，该值不等于供应商；邮箱绑定调用方只能提交 `account_ref` 与期望版本，服务端注入已治理的数据平面身份。管理、内容、写信与提交 adapter 必须共享显式配置的 canonical origin。当前仅实现 Stalwart v0.16 adapter，不能据此宣称已支持多供应商；详见 [ADR 0037](docs/adr/0037-stable-mail-data-plane-identity.md)。
 
@@ -15,8 +26,8 @@ V2 已建立 Rust Cargo Workspace、统一 `Principal` 领域模型、人与 Age
 > 单独运行新版本 `migrate` 并核对数据平面 Origin 绑定，再只启动新版本进程。完整顺序见
 > [Ubuntu / WSL Pilot 部署手册](docs/UBUNTU_WSL_PILOT.zh-CN.md)。
 
-> 当前仓库最新迁移为 `0056_human_mail_sent_directory_index.sql`。0053 的停写规则仍只适用于
-> 跨越 0053 的升级；0054、0055、0056 及完整动态迁移链必须在干净、隔离的 PostgreSQL 环境重新验收。
+> 当前仓库最新迁移为 `0060_audit_export_runtime_clock.sql`，新增迁移尚未部署。0053 的停写规则仍只适用于跨越 0053 的
+> 升级；0054–0060 及完整动态迁移链必须在干净、隔离的 PostgreSQL 环境重新验收。
 > 0056 使用 `CREATE INDEX CONCURRENTLY`，必须由单一迁移进程完成后再通过只读 `check`；
 > 不得在生产提交表上手工改用阻塞式建索引。
 > NixOS 目前仅可作为受限开发/隔离测试节点，不能将源码同步视作已获部署授权；详见
@@ -68,8 +79,18 @@ PostgreSQL 客户端，不依赖 Docker 执行备份。
 
 企业管理端默认位于 `http://127.0.0.1:8083`。配置企业 OIDC 和管理租户后，可在
 同一界面处理“待我审批”、查看和取消“我的申请”、检索不可变审计证据，并管理
-九个内置角色及限时授权分配、合规案件与审计归档 Legal Hold；角色授予消费精确
-双人审批，撤销保护最后一个有效 Owner。登录由 Rust BFF 执行 Authorization
+九个内置角色及限时授权分配、合规案件与审计归档 Legal Hold；还可显式输入单个
+Agent UUID 检视受控控制面快照。该检视不预取、轮询或伪造运行状态；角色授予消费精确
+双人审批，撤销保护最后一个有效 Owner。Admin Locale 只接受 `zh-CN`/`en` 并严格持久化，
+刷新后同步恢复 `<html lang>`。Admin 会在会话到期、窗口重新聚焦和受保护请求返回 `401`
+时重新校验会话；身份或有效期上下文变化会重建工作区并清除旧操作者证据。案件与 Legal Hold
+终态台账及已提交证据可在同一会话内跨路由恢复；未知写入结果只有在精确读取证明后才解锁。
+审批创建、决策和取消尚无后端幂等账本，因此未知结果会冻结全部审批写入口，只允许 GET
+列表/详情对账，绝不再次 POST；其他已具备精确幂等契约的操作才能冻结为同请求重试。懒加载
+路由提供有界的重试或整页刷新恢复。Agent Inspector 会在本地
+拒绝畸形/全零 UUID 而不发请求，
+统一隐藏 `404` 成因，只按 `503 retryable` 提供重试，并在刷新失败时保留旧快照和焦点，
+不会显示内部错误、Trace 或敏感响应。登录由 Rust BFF 执行 Authorization
 Code + S256 PKCE，浏览器只持有 Host-only HttpOnly Session Cookie，Provider
 Token 不进入前端 JavaScript。配置、CSRF、会话撤销和剩余 Pilot 边界见
 [Human OIDC BFF 会话](docs/HUMAN_OIDC_SESSION.zh-CN.md)与
@@ -83,6 +104,10 @@ Mail Session-only 的 `GET /api/v2/mailboxes` 要求 Active Human 与 `mailbox.u
 主地址和由 `Send(None)` 推导的 `can_send`，canonical Cursor 不能跨授权或绑定漂移复用。
 `SendAs`-only 邮箱保持只读；写信框明确显示不可编辑 From，切换邮箱会作废旧异步请求并
 清空搜索、详情、选择与写信草稿。部署 `mailboxId` 只是初始偏好，不能扩展目录授权。
+邮箱选择器按 Human、Agent、Shared、Group 四类 `optgroup` 呈现服务端目录；切换到 Agent
+后，可见身份、地址和收件箱请求精确绑定所选邮箱。搜索无命中使用专用空状态；详情
+`503` 保留所选邮件上下文并在原位重试。恢复草稿会先确认是否覆盖当前编辑，`409` 后刷新
+服务端最新 metadata，再只以该精确版本执行 CAS 恢复；当前浏览器契约以 v5 验证且不派生副本。
 Shared Mailbox 的成员关系不会授予其他人的草稿：目录只列出调用人创建的 active Draft，
 且不含主题、地址或正文；目录页只有在 `mail.drafts.queried` Audit/Outbox 原子提交成功后
 才披露。恢复只按 PostgreSQL 已证明的单个 Draft 执行 JMAP
@@ -99,7 +124,10 @@ Message UUID；原始 JMAP Account/Email/Thread/Query State 不进入浏览器�
 邮件响应默认 `no-store`，快速切换详情也会中止并丢弃过期响应。Human-only 身份门禁、
 邮箱资源授权和数据平面命名空间内的 Account 永久租户归属共同保护读取边界，内容/草稿/提交
 凭据相互隔离；冻结 Draft、持久化 Intent、查询优先的 EmailSubmission 对账、租约
-接管以及终态审计/Outbox 共同避免响应丢失后的盲目重复投递。JMAP 接受后由 Worker
+接管以及终态审计/Outbox 共同避免响应丢失后的盲目重复投递。`manual_review` 虽是服务端
+终态，但在 Human 界面中会锁定为“需要人工关注”的精确证据：关闭写信框只会隐藏证据，
+再次写信会恢复完全相同的收件人、主题、正文与 Submission UUID，在处理前不允许新建草稿、
+再次提交、切换邮箱、回复或恢复其他草稿。JMAP 接受后由 Worker
 读取精确 Submission 的收件人级 `deliveryStatus`，追加不可变快照并明确区分排队、
 对端接受和永久失败。Stalwart 队列级 Webhook 已进入独立不可变运维账本，且不会
 用弱关联改写用户状态；真实公网退信与 DSN 演练仍待完成。配置、返回数据最小化和
@@ -218,7 +246,7 @@ Migration 0001→0053 与针对数据平面身份、Origin、Domain、Outbox 的
 套件、目标 Pilot 升级或真实 Stalwart 互操作已经完成。真实域名邮件收发仍需完成公网
 PoC、域名认证、反垃圾、队列持久性、真实退信与故障恢复测试。
 
-当前仓库已新增 0054、0055、0056；上述 0001→0053 动态证据不覆盖它们，故不能作为最新迁移链或
+当前仓库已新增 0054–0060；上述 0001→0053 动态证据不覆盖它们，故不能作为最新迁移链或
 NixOS 目标机的运行态验收结论。
 
 ## V1 原型
@@ -236,7 +264,8 @@ NixOS 目标机的运行态验收结论。
 ## Docker 启动
 
 > 以下为保留 V1 原型的历史回归说明，不得在共享 NixOS/生产宿主机执行；V2 不使用
-> 根目录 `docker-compose.yaml`。
+> 根目录 `docker-compose.yaml`。V1 二进制不是生产入口：Compose 端口默认绑定
+> `127.0.0.1`，禁止通过 `BIND_ADDR` 将其发布到非回环网络。
 
 ```bash
 cp .env.example .env
@@ -245,7 +274,7 @@ docker compose up -d --build
 curl http://127.0.0.1:8080/healthz
 ```
 
-打开 `http://服务器:8080` 使用控制台。SMTP 默认映射到主机 `2525`；正式收取公网邮件时，将 `.env` 的 `SMTP_PORT` 设置为 `25`。
+打开 `http://127.0.0.1:8080` 使用控制台。SMTP 默认映射到主机回环 `2525`；端口默认仅绑定 `127.0.0.1`（原型回归基线不得对外发布）。
 
 ## 第一个邮箱
 
@@ -273,10 +302,12 @@ python tests/e2e.py
 python scripts/check_architecture.py --self-test
 npm --prefix web ci
 python scripts/check_web_i18n.py --self-test
+python scripts/check_design_governance.py --self-test
 npm --prefix web audit --audit-level=moderate
 npm --prefix web run check
 npm --prefix web test
-npm --prefix web run build
+npm --prefix web run e2e:install
+npm --prefix web run e2e
 python scripts/check_audit_governance.py
 python scripts/check_agent_skill.py
 python scripts/check_compose_security.py --self-test
@@ -293,6 +324,31 @@ Mail Engine 的全部 Rust 源码，确保邮件无关 ports 只由 Application 
 
 `check_web_i18n.py` 同样由 CI 强制执行：Human Mail 生产组件中的可见文案必须来自
 类型安全的简体中文/英语词典，避免新功能绕过本地化与安全回退约束。
+
+`check_design_governance.py` 同样由 CI 强制执行：它拒绝 token 层以外的功能 CSS 原始
+颜色、未登记的 Image 2 交付素材、翻译目录中的 emoji/dingbat 伪图标，以及未显式提供
+Alt 的 `EmptyState` 插画。不能由静态分析可靠判断的边界见 [设计治理门禁](docs/DESIGN_GOVERNANCE.zh-CN.md)。
+
+两个 Web Dockerfile 会在镜像构建阶段执行各自的 bundle 门禁，拒绝 source map 文件或
+`sourceMappingURL`，并限制首屏/总 JS、CSS 及 Image 2 WebP/AVIF 素材体积；门禁自测含 13 个
+反例。Nginx 模板对不存在的 `/assets/` 精确返回 `404`，成功静态资源才使用一年 immutable
+缓存，HTML、其他响应及资源 `404` 均为 `no-store`。这些是仓库内的构建与配置证据，不表示
+已在 Docker 或 NixOS 生产环境完成部署验收。
+
+Web Vitest 共 390 条（共享设计系统 16、Admin 195、Mail 179）。`npm --prefix web run e2e`
+会构建两个 Web 应用，并在仅监听回环地址的 Vite Preview 上执行 82 个隔离 Chromium 测试
+（Admin 53、Mail 29）。浏览器禁用 Service Worker，只允许当前回环 Origin；本地 BFF 夹具
+拒绝未声明 API 和全部外部网络流量。66 张 Windows PNG 基线（Admin 34、Mail 32）覆盖中英
+文、多档响应式布局、管理列表—详情工作流，以及 Mail 搜索、详情失败、草稿冲突和
+`manual_review` 证据锁定等关键状态。浏览器契约还覆盖 Admin 会话重校验、同会话终态证据
+恢复、未知写入冻结/对账、路由恢复与 Inspector fail-closed 矩阵，以及 Mail 邮箱切换绑定、
+详情原位重试、`409 → metadata v5 → 精确 CAS` 恢复、未知提交的精确重放、390px 下 44×44px
+控件几何和 manual-review 精确恢复。代表性页面与状态继续执行严格 Axe A/AA 扫描；这不是
+完整 WCAG 声明。PNG 基线只能通过 `npm --prefix web run e2e:update` 有意更新并人工审图。
+
+这些测试只使用同源固定夹具，不证明真实 RBAC、租户隔离、后端 CAS/幂等或真实依赖，也
+不代表跨操作系统像素基线、完整 WCAG 2.2 AA 或生产 IdP/邮件系统验收。其余 Admin 信息
+架构、真实触屏、屏幕阅读器和真实依赖环境验收仍待完成。
 
 E2E 测试会启动临时服务，并覆盖邮箱创建、登录、SMTP 投递、WebSocket 事件、消息 CRUD、API 本地发信和前端加载。
 

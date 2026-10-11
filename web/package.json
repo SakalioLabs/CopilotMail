@@ -7,8 +7,26 @@
     "design-system"
   ],
   "scripts": {
-    "build": "npm run build --workspace @copilotmail/admin-app && npm run build --workspace @copilotmail/mail-app",
-    "check": "npm run check --workspace @copilotmail/admin-app && npm run check --workspace @copilotmail/mail-app",
-    "test": "npm run test --workspace @copilotmail/admin-app && npm run test --workspace @copilotmail/mail-app -- --passWithNoTests"
+    "build": "npm run build --workspace @copilotmail/design-system && npm run build --workspace @copilotmail/admin-app && npm run build --workspace @copilotmail/mail-app && npm run bundle:check",
+    "bundle:check": "npm run bundle:check:self-test && node scripts/check-bundle-budget.mjs",
+    "bundle:check:admin": "npm run bundle:check:self-test && node scripts/check-bundle-budget.mjs --application admin-app",
+    "bundle:check:mail": "npm run bundle:check:self-test && node scripts/check-bundle-budget.mjs --application mail-app",
+    "bundle:check:self-test": "node scripts/check-bundle-budget.mjs --self-test",
+    "check": "npm run check --workspace @copilotmail/design-system && npm run check --workspace @copilotmail/admin-app && npm run check --workspace @copilotmail/mail-app",
+    "test": "npm run test --workspace @copilotmail/design-system && npm run test --workspace @copilotmail/admin-app && npm run test --workspace @copilotmail/mail-app",
+    "test:coverage": "npm run test --workspace @copilotmail/design-system -- --coverage --maxWorkers=1 && npm run test --workspace @copilotmail/admin-app -- --coverage --maxWorkers=1 && npm run test --workspace @copilotmail/mail-app -- --coverage --maxWorkers=1 && node scripts/summarize-coverage.mjs",
+    "e2e:install": "playwright install chromium",
+    "e2e:check": "tsc --noEmit -p e2e/tsconfig.json",
+    "e2e:run": "npm run e2e:check && playwright test",
+    "e2e": "npm run build && npm run e2e:run",
+    "e2e:update": "npm run build && npm run e2e:check && playwright test --update-snapshots"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.62.1",
+    "@types/node": "26.2.0",
+    "@vitest/coverage-v8": "4.1.11",
+    "vitest": "4.1.11",
+    "istanbul-lib-coverage": "3.2.2"
   }
 }

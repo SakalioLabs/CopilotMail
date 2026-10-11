@@ -414,7 +414,7 @@ const fn map_store_error(error: StoreError) -> DraftError {
         StoreError::Conflict => DraftError::Conflict,
         StoreError::MissingReference => DraftError::NotFound,
         StoreError::AgentMailAdmission(_) => DraftError::InvalidRequest,
-        StoreError::Unavailable => DraftError::Unavailable,
+        StoreError::AuthenticationInvalid | StoreError::Unavailable => DraftError::Unavailable,
     }
 }
 
@@ -664,6 +664,7 @@ mod tests {
                     principal_id,
                     organization_id,
                     permissions: [Permission::MailboxUse].into_iter().collect(),
+                    authentication: None,
                 },
                 command(mailbox_id, now),
             )
@@ -703,12 +704,14 @@ mod tests {
             principal_id: PrincipalId::new(),
             organization_id,
             permissions: BTreeSet::new(),
+            authentication: None,
         };
         let same = context.clone();
         let other_principal = AuthorizationContext {
             principal_id: PrincipalId::new(),
             organization_id,
             permissions: BTreeSet::new(),
+            authentication: None,
         };
         assert_eq!(
             body_reference(&context, "same body"),
@@ -760,6 +763,7 @@ mod tests {
                     permissions: [Permission::MailboxUse]
                         .into_iter()
                         .collect::<BTreeSet<_>>(),
+                    authentication: None,
                 },
                 command(mailbox_id, now),
             )
@@ -843,6 +847,7 @@ mod tests {
                     principal_id,
                     organization_id,
                     permissions: [Permission::MailboxUse].into_iter().collect(),
+                    authentication: None,
                 },
                 update,
             )
@@ -919,6 +924,7 @@ mod tests {
                     principal_id,
                     organization_id,
                     permissions: [Permission::MailboxUse].into_iter().collect(),
+                    authentication: None,
                 },
                 reply,
             )
@@ -964,6 +970,7 @@ mod tests {
                 principal_id: PrincipalId::new(),
                 organization_id,
                 permissions: [Permission::MailboxUse].into_iter().collect(),
+                authentication: None,
             },
             command(mailbox_id, now),
         )

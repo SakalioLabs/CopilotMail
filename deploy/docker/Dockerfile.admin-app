@@ -9,7 +9,9 @@ RUN npm ci
 
 COPY web/admin-app ./admin-app
 COPY web/design-system ./design-system
-RUN npm run build --workspace @copilotmail/admin-app
+COPY web/scripts/check-bundle-budget.mjs ./scripts/check-bundle-budget.mjs
+RUN npm run build --workspace @copilotmail/admin-app \
+    && npm run bundle:check:admin
 
 FROM nginx:1.28.3-alpine3.23
 

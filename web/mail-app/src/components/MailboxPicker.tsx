@@ -1,5 +1,9 @@
+import { Icon } from "@copilotmail/design-system";
 import type { Translator } from "../i18n";
-import type { MailboxDirectoryItem } from "../types";
+import type { MailboxDirectoryItem, MailboxKind } from "../types";
+
+const MAILBOX_KIND_ORDER = ["human", "agent", "shared", "group"] as const satisfies
+  readonly MailboxKind[];
 
 interface MailboxPickerProps {
   activeMailboxId: string;
@@ -26,6 +30,11 @@ export function MailboxPicker({
   onLoadMore,
   t,
 }: MailboxPickerProps) {
+  const mailboxGroups = MAILBOX_KIND_ORDER.map((kind) => ({
+    kind,
+    items: mailboxes.filter((mailbox) => mailbox.kind === kind),
+  })).filter((group) => group.items.length > 0);
+
   return (
     <div className={["mailbox-picker", className].filter(Boolean).join(" ")}>
       <label>
@@ -36,13 +45,17 @@ export function MailboxPicker({
           value={activeMailboxId}
           onChange={(event) => onChange(event.target.value)}
         >
-          {mailboxes.map((mailbox) => (
-            <option key={mailbox.mailbox_id} value={mailbox.mailbox_id}>
-              {t("mailbox.option", {
-                address: mailbox.primary_address,
-                kind: t(`mailbox.kind.${mailbox.kind}`),
-              })}
-            </option>
+          {mailboxGroups.map(({ kind, items }) => (
+            <optgroup key={kind} label={t(`mailbox.group.${kind}`)}>
+              {items.map((mailbox) => (
+                <option key={mailbox.mailbox_id} value={mailbox.mailbox_id}>
+                  {t("mailbox.option", {
+                    address: mailbox.primary_address,
+                    kind: t(`mailbox.kind.${mailbox.kind}`),
+                  })}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </label>
@@ -55,7 +68,10 @@ export function MailboxPicker({
           title={loadMoreBusy ? t("mailbox.loadingMore") : t("mailbox.loadMore")}
           onClick={onLoadMore}
         >
-          {loadMoreBusy ? t("mailbox.loadingMore") : t("mailbox.loadMore")}
+          <Icon aria-hidden name="add" size={18} />
+          <span className="mailbox-load-more__label">
+            {loadMoreBusy ? t("mailbox.loadingMore") : t("mailbox.loadMore")}
+          </span>
         </button>
       )}
       {loadMoreError && <span className="mailbox-page-error" role="alert">{loadMoreError}</span>}

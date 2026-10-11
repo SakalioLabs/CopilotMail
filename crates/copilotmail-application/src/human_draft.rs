@@ -342,7 +342,7 @@ where
     ) -> Result<(), HumanDraftError> {
         let mut transaction = self
             .store
-            .begin()
+            .begin_authorized(&command.context)
             .await
             .map_err(|_| HumanDraftError::Unavailable)?;
         if !transaction
@@ -409,7 +409,7 @@ where
     ) -> Result<(), HumanDraftError> {
         let mut transaction = self
             .store
-            .begin()
+            .begin_authorized(&command.context)
             .await
             .map_err(|_| HumanDraftError::Unavailable)?;
         if !transaction
@@ -522,6 +522,7 @@ const fn map_store_error(error: StoreError) -> HumanDraftError {
     match error {
         StoreError::Conflict => HumanDraftError::Conflict,
         StoreError::MissingReference => HumanDraftError::NotFound,
+        StoreError::AuthenticationInvalid => HumanDraftError::Forbidden,
         StoreError::AgentMailAdmission(_) | StoreError::Unavailable => HumanDraftError::Unavailable,
     }
 }
@@ -751,6 +752,7 @@ mod tests {
             principal_id,
             organization_id,
             permissions: [Permission::MailboxUse].into_iter().collect(),
+            authentication: None,
         };
         let authorization = MailboxAccessSnapshot {
             organization_id,

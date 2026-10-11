@@ -56,6 +56,7 @@ audit_events!(
         true
     ),
     ("identity.agent.registered", "identity.agent", High, true),
+    ("identity.agent.queried", "identity.agent", High, true),
     (
         "identity.agent_credential.added",
         "identity.agent_credential",
@@ -277,6 +278,12 @@ audit_events!(
         "agent.mail.admitted",
         "agent.mail_admission",
         Critical,
+        true
+    ),
+    (
+        "agent.mail_submission_evidence.queried",
+        "agent.mail_submission_evidence",
+        High,
         true
     ),
     (

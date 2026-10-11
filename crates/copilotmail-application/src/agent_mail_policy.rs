@@ -82,11 +82,12 @@ where
         ) {
             return Err(AgentMailPolicyError::Forbidden);
         }
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         if !transaction
-            .active_human_principal_exists(
+            .authorize_human_permission(
                 command.context.organization_id,
                 command.context.principal_id,
+                Permission::AuthorizationManage,
             )
             .await?
         {
@@ -171,11 +172,12 @@ where
         ) {
             return Err(AgentMailPolicyError::Forbidden);
         }
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         if !transaction
-            .active_human_principal_exists(
+            .authorize_human_permission(
                 command.context.organization_id,
                 command.context.principal_id,
+                Permission::AuthorizationManage,
             )
             .await?
         {
@@ -249,18 +251,17 @@ where
             .approved_request_evidence(&command.approval)
             .await?
             .ok_or(AgentMailPolicyError::Forbidden)?;
-        if evidence.required_approvals < 2
-            || evidence.approval_count < evidence.required_approvals
-            || evidence.expires_at <= command.now
+        if evidence.required_approvals < 2 || evidence.approval_count < evidence.required_approvals
         {
             return Err(AgentMailPolicyError::Forbidden);
         }
 
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         if !transaction
-            .active_human_principal_exists(
+            .authorize_human_permission(
                 command.context.organization_id,
                 command.context.principal_id,
+                Permission::AuthorizationManage,
             )
             .await?
         {
@@ -383,6 +384,7 @@ mod tests {
                     principal_id,
                     organization_id,
                     permissions: BTreeSet::new(),
+                    authentication: None,
                 },
                 agent_id: PrincipalId::new(),
                 allowed_recipient_domains: BTreeSet::from(["internal.example".into()]),
@@ -405,6 +407,7 @@ mod tests {
                     principal_id,
                     organization_id,
                     permissions: BTreeSet::new(),
+                    authentication: None,
                 },
                 agent_id: PrincipalId::new(),
                 policy_version_id,
@@ -419,6 +422,7 @@ mod tests {
                     principal_id,
                     organization_id,
                     permissions: BTreeSet::new(),
+                    authentication: None,
                 },
                 agent_id: PrincipalId::new(),
                 policy_version_id,

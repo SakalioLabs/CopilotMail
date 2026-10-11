@@ -4,6 +4,8 @@
 > 目标版本：CopilotMail V2 / Enterprise GA
 > 详细计划：[docs/IMPLEMENTATION_PLAN.zh-CN.md](docs/IMPLEMENTATION_PLAN.zh-CN.md)
 > 实施状态：[docs/IMPLEMENTATION_STATUS.zh-CN.md](docs/IMPLEMENTATION_STATUS.zh-CN.md)
+> 当前范围：[先完成代码，不部署；验证码由业务应用处理](docs/CODE_DEVELOPMENT_SCOPE.zh-CN.md)
+> 代码质量：[修复、验证证据与未关闭项](docs/CODE_QUALITY_REVIEW.zh-CN.md)；部署验收统一最后执行。
 
 ## 总目标
 
@@ -24,6 +26,7 @@ Agent 平等使用的通用企业邮件系统。
    - 人与 Agent 的操作状态相互隔离，所有代理行为可追溯到责任主体。
 
 2. **真实域名邮件收发**
+   - 支持第三方邮件客户端及应用通过标准 SMTP/IMAP 接入；验证码生成/校验不属于平台业务。
    - 支持企业域名验证、DNS 检查、MX、SPF、DKIM、DMARC、PTR 与 TLS。
    - 支持可靠的公网入站、出站、队列、退信、重试和投递状态。
    - 邮件协议与投递能力通过可替换的邮件数据平面适配器集成，不扩展

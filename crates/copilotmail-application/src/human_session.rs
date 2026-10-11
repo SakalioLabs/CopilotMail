@@ -451,7 +451,9 @@ const fn map_store_error(error: StoreError) -> HumanSessionError {
         StoreError::MissingReference | StoreError::AgentMailAdmission(_) => {
             HumanSessionError::NotFound
         }
-        StoreError::Unavailable => HumanSessionError::Unavailable,
+        StoreError::AuthenticationInvalid | StoreError::Unavailable => {
+            HumanSessionError::Unavailable
+        }
     }
 }
 

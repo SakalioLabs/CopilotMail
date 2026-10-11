@@ -104,6 +104,7 @@ impl<S: ControlPlaneStore> RegisterAgentService<S> {
             .find_oidc_owner_binding(command.organization_id)
             .await?
             .ok_or(StoreError::MissingReference)?;
+        ensure_owner_binding(&owner, command.organization_id)?;
         let role_id = transaction
             .find_system_role(command.organization_id, SystemRole::AgentOperator)
             .await?
@@ -230,6 +231,7 @@ impl<S: ControlPlaneStore> AddAgentCredentialService<S> {
             .find_oidc_owner_binding(command.organization_id)
             .await?
             .ok_or(StoreError::MissingReference)?;
+        ensure_owner_binding(&owner, command.organization_id)?;
         if !transaction
             .active_agent_exists(command.organization_id, command.principal_id)
             .await?
@@ -311,6 +313,7 @@ impl<S: ControlPlaneStore> AddAgentMtlsCredentialService<S> {
             .find_oidc_owner_binding(command.organization_id)
             .await?
             .ok_or(StoreError::MissingReference)?;
+        ensure_owner_binding(&owner, command.organization_id)?;
         if !transaction
             .active_agent_exists(command.organization_id, command.principal_id)
             .await?
@@ -390,6 +393,7 @@ impl<S: ControlPlaneStore> RevokeAgentCredentialService<S> {
             .find_oidc_owner_binding(command.organization_id)
             .await?
             .ok_or(StoreError::MissingReference)?;
+        ensure_owner_binding(&owner, command.organization_id)?;
         if !transaction
             .revoke_agent_credential(command.organization_id, command.credential_id, command.now)
             .await?
@@ -437,7 +441,9 @@ fn validate_credential_policy(command: &RegisterAgentCommand) -> Result<(), Agen
         command.credential_expires_at,
         command.now,
     )?;
-    if command.review_due_at > command.now + Duration::days(365) {
+    if command.review_due_at <= command.now
+        || command.review_due_at > command.now + Duration::days(365)
+    {
         return Err(AgentIdentityError::InvalidCredentialPolicy);
     }
     Ok(())
@@ -463,8 +469,30 @@ fn validate_machine_scope_policy(
     expires_at: DateTime<Utc>,
     now: DateTime<Utc>,
 ) -> Result<(), AgentIdentityError> {
-    if allowed_scopes.is_empty() || expires_at <= now || expires_at > now + Duration::days(365) {
+    if allowed_scopes.is_empty()
+        || !allowed_scopes
+            .iter()
+            .all(|scope| Permission::AGENT_TOKEN.contains(scope))
+        || expires_at <= now
+        || expires_at > now + Duration::days(365)
+    {
         return Err(AgentIdentityError::InvalidCredentialPolicy);
     }
     Ok(())
 }
+
+fn ensure_owner_binding(
+    owner: &crate::ExistingOidcOwnerBinding,
+    organization_id: OrganizationId,
+) -> Result<(), AgentIdentityError> {
+    if owner.organization_id != organization_id
+        || owner.principal_id.as_uuid().is_nil()
+        || owner.principal_id.as_uuid().is_max()
+    {
+        return Err(StoreError::Unavailable.into());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests;

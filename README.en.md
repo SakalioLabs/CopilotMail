@@ -8,9 +8,27 @@ principals. The repository preserves the V1 prototype as a regression baseline
 while building a modular Rust V2 control plane. The handwritten V1 SMTP server
 is not intended to become the production mail data plane.
 
+Current work is code-only; deployment is deferred. Business applications own
+verification-code generation and validation. Existing Human, Agent, and Admin
+APIs remain, with standard SMTP/IMAP access for application email and external
+mail clients. The unconnected hosted-verification prototype has been archived
+and removed from the build. See the [current code scope](docs/CODE_DEVELOPMENT_SCOPE.zh-CN.md)
+and [external-client boundaries](docs/EXTERNAL_MAIL_CLIENTS.zh-CN.md).
+
+See the [code-quality review](docs/CODE_QUALITY_REVIEW.zh-CN.md) for modularization,
+authorization/transaction fixes, test traceability and measured coverage.
+Deployment acceptance comes last. Unexecuted PostgreSQL, Object Lock and real-client
+scenarios are not passing evidence, and static gates do not replace final review.
+
 The authoritative product objective is in [GOAL.md](GOAL.md). See the
 [enterprise implementation plan](docs/IMPLEMENTATION_PLAN.zh-CN.md), current
 [implementation status](docs/IMPLEMENTATION_STATUS.zh-CN.md),
+[design and interaction contract](DESIGN.md),
+[Chinese design-system implementation guide](docs/DESIGN_SYSTEM.zh-CN.md),
+[Chinese V2 visual-refactor execution spec](docs/DESIGN_DEVELOPMENT_SPEC_V2.zh-CN.md),
+[Chinese design development blueprint](docs/DESIGN_DEVELOPMENT_BLUEPRINT.zh-CN.md),
+[design governance gate](docs/DESIGN_GOVERNANCE.zh-CN.md),
+[Agent Inspector control-plane plan](docs/AGENT_INSPECTOR_API_PLAN.zh-CN.md),
 [enterprise threat model](docs/THREAT_MODEL.zh-CN.md),
 [P0 enterprise input and sign-off checklist](docs/ENTERPRISE_INPUT_CHECKLIST.zh-CN.md),
 [V2 OpenAPI](docs/openapi-v2.yaml), and [V2 AsyncAPI](docs/asyncapi-v2.yaml)
@@ -24,9 +42,9 @@ Chinese-first and is being translated incrementally.
 > and then start only the new binaries. Follow the
 > [Ubuntu / WSL Pilot runbook](docs/UBUNTU_WSL_PILOT.zh-CN.md).
 
-> The latest repository migration is `0056_human_mail_sent_directory_index.sql`. The
+> The latest repository migration is `0060_audit_export_runtime_clock.sql`; the new migrations have not been deployed. The
 > 0053 stop-the-world rule still applies only to upgrades that cross 0053;
-> Migrations 0054, 0055, 0056, and the full dynamic chain require a clean, isolated
+> Migrations 0054 through 0060 and the full dynamic chain require a clean, isolated
 > PostgreSQL acceptance run. NixOS is currently a constrained development or
 > isolated-test node only, not an approved deployment target; see the
 > [NixOS development-node boundary](docs/NIXOS_DEVELOPMENT_NODE.zh-CN.md).
@@ -109,6 +127,14 @@ Chinese-first and is being translated incrementally.
   explicit immutable From address, while switching mailboxes invalidates stale
   requests and clears search, detail, selection, and draft state. The optional
   deployment `mailboxId` is only an initial preference and grants no access.
+  The picker groups server-returned mailboxes into Human, Agent, Shared, and
+  Group `optgroup` sections. Selecting an Agent mailbox binds the visible
+  identity, address, and subsequent inbox request to that exact mailbox. A
+  zero-result search has its own empty state; a detail `503` retains the
+  selected-message context and retries in place. Draft restore confirms before
+  replacing local edits; after a `409`, it refreshes the latest server metadata
+  and retries CAS only against that exact version without forking the draft.
+  The current browser contract proves this path with metadata version 5.
   Shared Mailbox membership never exposes another principal's drafts: list
   items contain no subject, address, or body, and a directory page is disclosed
   only after its atomic `mail.drafts.queried` audit/Outbox commit. Restore performs one exact
@@ -134,7 +160,12 @@ Chinese-first and is being translated incrementally.
   credentials are isolated; a frozen Draft, durable Intent,
   query-before-create JMAP reconciliation, lease takeover, and atomic terminal
   audit/Outbox evidence prevent blind duplicate submission after an ambiguous
-  response. After JMAP acceptance, the Worker reconciles exact per-recipient
+  response. Although `manual_review` is a server-terminal state, the Human UI
+  locks it as exact attention-required evidence: closing the composer only hides
+  that evidence, and Compose restores the identical recipients, subject, body,
+  and Submission UUID. Creating another draft or submission, switching mailbox,
+  replying, and restoring a different draft remain blocked until it is handled.
+  After JMAP acceptance, the Worker reconciles exact per-recipient
   delivery state into immutable snapshots. Queue-level Stalwart Webhooks are
   retained in a separate immutable operational ledger without heuristically
   changing user-visible state; public-network bounce and DSN drills remain open.
@@ -144,8 +175,25 @@ Chinese-first and is being translated incrementally.
 - Optional OTLP/HTTP span export with W3C Trace Context, an OpenTelemetry
   Collector/Tempo development overlay, and local Prometheus/Grafana.
 - A bilingual React/TypeScript administration workflow for approvals, role
-  governance, immutable audit search, compliance cases, and Legal Holds, using
-  the server-side OIDC BFF session boundary.
+  governance, immutable audit search, compliance cases, Legal Holds, and an
+  explicit, single-Agent control-plane inspector. The Inspector never
+  prefetches or invents runtime health; it reads an entered UUID only through
+  the server-side OIDC BFF session boundary. Admin locale is restricted to
+  `zh-CN`/`en`, persisted strictly, and restores `<html lang>` after reload.
+  The session is revalidated at expiry, on window focus, and after a protected
+  `401`; an identity or expiry-context change remounts the workspace and removes
+  the prior operator's evidence. Case and Legal Hold terminal ledgers and
+  committed evidence survive navigation within the same session. Ambiguous
+  writes unlock only after exact-read reconciliation. Approval create,
+  decision, and cancellation do not yet have a backend idempotency ledger, so
+  an unknown result freezes every approval write and permits GET-only
+  reconciliation, never another POST. Only operations with an exact
+  idempotency contract may retain the identical request for replay; lazy routes
+  expose bounded retry or reload recovery.
+  Malformed and all-zero Inspector UUIDs are rejected locally without a
+  request; `404` causes remain unified, `503` retry follows the response flag,
+  and a failed refresh retains the prior snapshot and focus without rendering
+  internal errors, traces, or sensitive response fields.
 
 This is active development and has not reached Enterprise GA. Production
 internet mail delivery, a complete Human mail application, enterprise IdP
@@ -205,11 +253,13 @@ See also the Chinese-first
 ```bash
 npm --prefix web ci
 python scripts/check_web_i18n.py --self-test
+python scripts/check_design_governance.py --self-test
 cd web
 npm audit --audit-level=moderate
 npm run check
 npm test
-npm run build
+npm run e2e:install
+npm run e2e
 ```
 
 ## Rust verification
@@ -236,13 +286,51 @@ Application-owned and privately imported by the adapter.
 cannot bypass the typed Simplified Chinese/English catalog and its safe
 fallback behavior.
 
+`check_design_governance.py` is also enforced by CI. It prevents raw feature
+colours outside the shared token layer, unregistered Image 2 delivery assets,
+emoji/dingbat pseudo-icons in locale catalogs, and `EmptyState` illustrations
+without explicit Alt text. Its deliberate non-mechanical review boundaries are
+documented in the [design governance gate](docs/DESIGN_GOVERNANCE.zh-CN.md).
+
+Each Web Dockerfile runs its application-specific bundle gate during image
+construction. The gate rejects source-map files and `sourceMappingURL`, caps
+initial and total JavaScript, CSS, and Image 2 WebP/AVIF asset sizes, and has 13
+negative self-test fixtures. The Nginx templates return an exact `404` for a
+missing `/assets/` path; only successful static assets receive a one-year
+immutable cache, while HTML, other responses, and asset `404`s are `no-store`.
+These are repository build/configuration guarantees, not evidence of a completed
+Docker or production NixOS deployment.
+
+Web Vitest has 390 passing tests (shared design system 16, Admin 195, Mail 179).
+`npm run e2e` builds both Web applications and runs 82 isolated Chromium tests
+(Admin 53, Mail 29) against loopback-only Vite previews. Service workers are
+blocked; a browser network allowlist and local BFF fixtures reject undeclared
+APIs and every external request. The 66 Windows PNG baselines (Admin 34, Mail
+32) cover both languages, responsive layouts, management list-detail flows,
+and important Mail states including search, detail failure, draft conflict,
+and locked `manual_review` evidence. Browser contracts also cover Admin session
+revalidation, same-session terminal-evidence recovery, ambiguous-write
+freeze/reconciliation, route recovery, and the Inspector fail-closed matrix.
+Mail covers mailbox-switch binding, in-place detail retry,
+`409 → metadata v5 → exact CAS` restore, exact replay after an unknown
+submission, rendered 44×44px targets at 390px, and exact manual-review recovery.
+Representative pages and states continue to receive strict Axe A/AA scans;
+this is not a complete WCAG claim. Use `npm run e2e:update` only for an
+intentional, manually reviewed update to those baselines.
+
+These same-origin fixtures do not prove real RBAC, tenant isolation, backend
+CAS/idempotency, or real dependencies. They are not a cross-OS pixel baseline
+or a claim of complete WCAG 2.2 AA or production IdP/mail-system acceptance.
+The remaining Admin information architecture, real touch and screen-reader
+testing, and real-dependency acceptance remain open.
+
 The complete Migration 0001→0053 chain and direct SQL invariant checks for
 data-plane identity, origin, domain, and Outbox routing have been exercised on
 disposable PostgreSQL 17. That evidence does not claim the complete ignored
 PostgreSQL suite, a target Pilot upgrade, or the S3-compatible Object Lock
 scenarios; those external-runtime acceptance criteria remain separate CI or
 Pilot gates.
-The repository now contains Migrations 0054, 0055, and 0056; the existing 0001→0053
+The repository now contains Migrations 0054 through 0060; the existing 0001→0053
 evidence does not cover them or constitute a NixOS target-host runtime
 acceptance result.
 

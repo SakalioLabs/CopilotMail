@@ -99,7 +99,7 @@ where
         command: CreateComplianceCaseCommand,
     ) -> Result<ComplianceCase, ComplianceGovernanceError> {
         ensure_base_authorized(&command.context)?;
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         ensure_active_human(&mut transaction, &command.context).await?;
         let case = ComplianceCase::new(
             command.context.organization_id,
@@ -134,7 +134,7 @@ where
         command: CloseComplianceCaseCommand,
     ) -> Result<ComplianceCase, ComplianceGovernanceError> {
         ensure_base_authorized(&command.context)?;
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         ensure_active_human(&mut transaction, &command.context).await?;
         let mut case = transaction
             .find_compliance_case_for_update(command.context.organization_id, command.case_id)
@@ -180,7 +180,7 @@ where
             &command.archive_id.to_string(),
         )
         .await?;
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         ensure_active_human(&mut transaction, &command.context).await?;
         if let Some(existing) = transaction
             .find_legal_hold_by_apply_approval_for_update(
@@ -261,7 +261,7 @@ where
             &command.hold_id.to_string(),
         )
         .await?;
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         ensure_active_human(&mut transaction, &command.context).await?;
         let mut hold = transaction
             .find_legal_hold_for_update(command.context.organization_id, command.hold_id)
@@ -320,7 +320,7 @@ where
         command: RecordComplianceReadCommand,
     ) -> Result<(), ComplianceGovernanceError> {
         ensure_base_authorized(&command.context)?;
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(&command.context).await?;
         ensure_active_human(&mut transaction, &command.context).await?;
         let (action, resource_kind) = match command.kind {
             ComplianceReadKind::Case => ("compliance.case.queried", "compliance.case_query"),
@@ -358,7 +358,11 @@ async fn ensure_active_human(
     context: &AuthorizationContext,
 ) -> Result<(), ComplianceGovernanceError> {
     if !transaction
-        .active_human_principal_exists(context.organization_id, context.principal_id)
+        .authorize_human_permission(
+            context.organization_id,
+            context.principal_id,
+            Permission::LegalHoldManage,
+        )
         .await?
     {
         return Err(ComplianceGovernanceError::Forbidden);
@@ -529,11 +533,13 @@ mod tests {
             Err(StoreError::Unavailable)
         }
 
-        async fn active_human_principal_exists(
+        async fn authorize_human_permission(
             &mut self,
             _: OrganizationId,
             _: PrincipalId,
+            permission: Permission,
         ) -> Result<bool, StoreError> {
+            assert_eq!(permission, Permission::LegalHoldManage);
             Ok(true)
         }
 
@@ -560,6 +566,7 @@ mod tests {
             } else {
                 BTreeSet::new()
             },
+            authentication: None,
         }
     }
 

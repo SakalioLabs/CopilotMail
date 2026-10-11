@@ -5,8 +5,11 @@ services:
     restart: unless-stopped
     env_file: .env
     ports:
-      - "${HTTP_PORT:-8080}:8080"
-      - "${SMTP_PORT:-2525}:2525"
+      # V1 regression baseline: default to loopback so the prototype is never
+      # exposed to a non-loopback network by accident. BIND_ADDR=0.0.0.0 is a
+      # deliberate, explicit opt-in only.
+      - "${BIND_ADDR:-127.0.0.1}:${HTTP_PORT:-8080}:8080"
+      - "${BIND_ADDR:-127.0.0.1}:${SMTP_PORT:-2525}:2525"
     volumes:
       - copilotmail-data:/data
     healthcheck:

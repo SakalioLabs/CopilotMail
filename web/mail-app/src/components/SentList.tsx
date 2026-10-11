@@ -1,6 +1,8 @@
 import type { RefObject } from "react";
-import { formatCount, formatDate, type Locale, type Translator } from "../i18n";
-import type { HumanSentSubmissionListItem, HumanSentSubmissionPage } from "../types";
+import { IconButton } from "@copilotmail/design-system";
+import { formatCount, type Locale, type Translator } from "../i18n";
+import type { HumanSentSubmissionPage } from "../types";
+import { SentDirectoryItem } from "./SentDirectoryItem";
 
 interface SentListProps {
   error?: string;
@@ -13,46 +15,12 @@ interface SentListProps {
   onRefresh: () => void;
 }
 
-function recipientCount(locale: Locale, value: number, t: Translator) {
-  const count = formatCount(locale, value);
-  const category = new Intl.PluralRules(locale).select(value);
-  return category === "one"
-    ? t("sent.recipientCount.one", { count })
-    : t("sent.recipientCount.other", { count });
-}
-
 function sentCount(locale: Locale, value: number, t: Translator) {
   const count = formatCount(locale, value);
   const category = new Intl.PluralRules(locale).select(value);
   return category === "one"
     ? t("sent.count.one", { count })
     : t("sent.count.other", { count });
-}
-
-function deliverySummary(
-  submission: HumanSentSubmissionListItem,
-  locale: Locale,
-  t: Translator,
-) {
-  const delivery = submission.delivery;
-  if (!delivery) return t("sent.awaitingDelivery");
-  const total = formatCount(locale, delivery.recipient_count);
-  if (delivery.terminal && delivery.failed_count === 0) {
-    return t("sent.deliveryDelivered", { count: total });
-  }
-  if (delivery.terminal) {
-    return t("sent.deliveryCompleted", {
-      delivered: formatCount(locale, delivery.delivered_count),
-      failed: formatCount(locale, delivery.failed_count),
-    });
-  }
-  return t("sent.deliveryProgress", {
-    delivered: formatCount(locale, delivery.delivered_count),
-    total,
-    failed: formatCount(locale, delivery.failed_count),
-    queued: formatCount(locale, delivery.queued_count),
-    unknown: formatCount(locale, delivery.unknown_count),
-  });
 }
 
 export function SentList({
@@ -65,50 +33,53 @@ export function SentList({
   onLoadMore,
   onRefresh,
 }: SentListProps) {
+  const loading = listBusy || (!page && !error);
+  const status = loading
+    ? t("sent.syncing")
+    : page
+      ? sentCount(locale, page.items.length, t)
+      : "";
+
   return (
     <section className="inbox sent-pane" data-dialog-background>
       <header className="inbox-header">
         <div>
           <h1 ref={headingRef} tabIndex={-1}>{t("sent.heading")}</h1>
-          <p>{page ? sentCount(locale, page.items.length, t) : t("sent.syncing")}</p>
+          <p aria-atomic="true" aria-live="polite" role="status">{status}</p>
         </div>
-        <button
-          aria-label={t("sent.refreshAria")}
+        <IconButton
+          aria-busy={loading || undefined}
           disabled={listBusy}
+          icon="refresh"
+          label={t("sent.refreshAria")}
           onClick={onRefresh}
-        >
-          <span aria-hidden="true">{t("icon.refresh")}</span>
-        </button>
+        />
       </header>
-      {error && <p className="error" role="alert">{error}</p>}
-      <div className="messages sent-items" aria-busy={listBusy || undefined}>
-        {page?.items.map((submission) => {
-          const delivery = submission.delivery;
-          const acceptedAt = formatDate(locale, submission.accepted_at, {
-            hour: "2-digit",
-            minute: "2-digit",
-          });
-          return (
-            <article className="sent-item" key={submission.submission_id}>
-              <strong>{t("sent.accepted")}</strong>
-              <time dateTime={submission.accepted_at}>{acceptedAt}</time>
-              <span>{recipientCount(locale, submission.recipient_count, t)}</span>
-              <p>{deliverySummary(submission, locale, t)}</p>
-              {delivery && (
-                <small>
-                  {t("sent.deliveryUpdated", {
-                    date: formatDate(locale, delivery.observed_at, {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }),
-                  })}
-                </small>
-              )}
-            </article>
-          );
-        })}
+      {error && (
+        <div className="error error--actionable" role="alert">
+          <span>{error}</span>
+          <button disabled={listBusy} type="button" onClick={onRefresh}>
+            {t("common.retry")}
+          </button>
+        </div>
+      )}
+      <div className="messages sent-items" aria-busy={loading || undefined}>
+        {page?.items.length ? <p className="directory-hint">{t("sent.detailHint")}</p> : null}
+        {page?.items.map((submission) => (
+          <SentDirectoryItem
+            key={submission.submission_id}
+            locale={locale}
+            submission={submission}
+            t={t}
+          />
+        ))}
         {page && page.items.length === 0 && !listBusy && (
-          <div className="empty">{t("sent.empty")}</div>
+          <div className="empty empty--actionable">
+            <p>{t("sent.empty")}</p>
+            <button className="empty-action" type="button" onClick={onRefresh}>
+              {t("sent.refreshAria")}
+            </button>
+          </div>
         )}
         {page?.has_more && (
           <button

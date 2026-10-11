@@ -1,0 +1,3127 @@
+{
+  "schema_version": 1,
+  "kind": "measured_llvm_coverage",
+  "input_sha256": "2fbc3d8684e5691c8c6dc00fb051a6c0955bf031874ac56a5f218eec2534c269",
+  "scope": "Windows workspace tests; ignored integration scenarios not run",
+  "limitations": [
+    "Includes inline test harness and compiler-generated functions",
+    "A hit is not proof of adequate assertions or every failure path",
+    "Source can change after measurement; bind a final candidate before release"
+  ],
+  "branch_coverage": "not_measured",
+  "totals": {
+    "branches": {
+      "count": 0,
+      "covered": 0,
+      "notcovered": 0,
+      "percent": 0
+    },
+    "functions": {
+      "count": 4158,
+      "covered": 2107,
+      "percent": 50.67340067340067
+    },
+    "instantiations": {
+      "count": 8972,
+      "covered": 2371,
+      "percent": 26.426660722246993
+    },
+    "lines": {
+      "count": 45900,
+      "covered": 24118,
+      "percent": 52.54466230936819
+    },
+    "mcdc": {
+      "count": 0,
+      "covered": 0,
+      "notcovered": 0,
+      "percent": 0
+    },
+    "regions": {
+      "count": 55220,
+      "covered": 29038,
+      "notcovered": 26182,
+      "percent": 52.58601955813111
+    }
+  },
+  "files": [
+    {
+      "path": "apps/copilotmail-control/src/agent_inspector_http.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 18,
+          "covered": 13,
+          "percent": 72.22222222222221
+        },
+        "instantiations": {
+          "count": 18,
+          "covered": 13,
+          "percent": 72.22222222222221
+        },
+        "lines": {
+          "count": 248,
+          "covered": 133,
+          "percent": 53.62903225806451
+        },
+        "regions": {
+          "count": 241,
+          "covered": 126,
+          "notcovered": 115,
+          "percent": 52.282157676348554
+        }
+      }
+    },
+    {
+      "path": "apps/copilotmail-control/src/lib.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 1016,
+          "covered": 354,
+          "percent": 34.84251968503937
+        },
+        "instantiations": {
+          "count": 1022,
+          "covered": 358,
+          "percent": 35.0293542074364
+        },
+        "lines": {
+          "count": 10535,
+          "covered": 2745,
+          "percent": 26.056003796867586
+        },
+        "regions": {
+          "count": 12831,
+          "covered": 3156,
+          "notcovered": 9675,
+          "percent": 24.59667991582885
+        }
+      }
+    },
+    {
+      "path": "apps/copilotmail-control/src/main.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 3,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "instantiations": {
+          "count": 3,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "lines": {
+          "count": 523,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "regions": {
+          "count": 294,
+          "covered": 0,
+          "notcovered": 294,
+          "percent": 0.0
+        }
+      }
+    },
+    {
+      "path": "apps/copilotmail-control/src/tls.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 22,
+          "covered": 11,
+          "percent": 50.0
+        },
+        "instantiations": {
+          "count": 22,
+          "covered": 11,
+          "percent": 50.0
+        },
+        "lines": {
+          "count": 180,
+          "covered": 124,
+          "percent": 68.88888888888889
+        },
+        "regions": {
+          "count": 305,
+          "covered": 217,
+          "notcovered": 88,
+          "percent": 71.14754098360656
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-agent-auth/src/lib.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 66,
+          "covered": 60,
+          "percent": 90.9090909090909
+        },
+        "instantiations": {
+          "count": 111,
+          "covered": 61,
+          "percent": 54.95495495495496
+        },
+        "lines": {
+          "count": 907,
+          "covered": 858,
+          "percent": 94.59757442116869
+        },
+        "regions": {
+          "count": 1177,
+          "covered": 1068,
+          "notcovered": 109,
+          "percent": 90.73916737468141
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_event_cursor.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 35,
+          "covered": 28,
+          "percent": 80.0
+        },
+        "instantiations": {
+          "count": 49,
+          "covered": 28,
+          "percent": 57.14285714285714
+        },
+        "lines": {
+          "count": 421,
+          "covered": 397,
+          "percent": 94.29928741092637
+        },
+        "regions": {
+          "count": 464,
+          "covered": 421,
+          "notcovered": 43,
+          "percent": 90.73275862068965
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_identity.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 15,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "instantiations": {
+          "count": 42,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "lines": {
+          "count": 321,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "regions": {
+          "count": 436,
+          "covered": 0,
+          "notcovered": 436,
+          "percent": 0.0
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_ingress.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 8,
+          "covered": 8,
+          "percent": 100.0
+        },
+        "instantiations": {
+          "count": 11,
+          "covered": 8,
+          "percent": 72.72727272727273
+        },
+        "lines": {
+          "count": 65,
+          "covered": 65,
+          "percent": 100.0
+        },
+        "regions": {
+          "count": 56,
+          "covered": 55,
+          "notcovered": 1,
+          "percent": 98.21428571428571
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_inspector.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 49,
+          "covered": 42,
+          "percent": 85.71428571428571
+        },
+        "instantiations": {
+          "count": 75,
+          "covered": 47,
+          "percent": 62.66666666666667
+        },
+        "lines": {
+          "count": 493,
+          "covered": 465,
+          "percent": 94.32048681541582
+        },
+        "regions": {
+          "count": 551,
+          "covered": 501,
+          "notcovered": 50,
+          "percent": 90.92558983666062
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_mail_content.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 25,
+          "covered": 15,
+          "percent": 60.0
+        },
+        "instantiations": {
+          "count": 31,
+          "covered": 15,
+          "percent": 48.38709677419355
+        },
+        "lines": {
+          "count": 243,
+          "covered": 219,
+          "percent": 90.12345679012346
+        },
+        "regions": {
+          "count": 264,
+          "covered": 229,
+          "notcovered": 35,
+          "percent": 86.74242424242425
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_mail_policy.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 11,
+          "covered": 9,
+          "percent": 81.81818181818183
+        },
+        "instantiations": {
+          "count": 23,
+          "covered": 9,
+          "percent": 39.130434782608695
+        },
+        "lines": {
+          "count": 328,
+          "covered": 101,
+          "percent": 30.79268292682927
+        },
+        "regions": {
+          "count": 358,
+          "covered": 78,
+          "notcovered": 280,
+          "percent": 21.787709497206706
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_mail_policy_query.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 12,
+          "covered": 11,
+          "percent": 91.66666666666666
+        },
+        "instantiations": {
+          "count": 20,
+          "covered": 14,
+          "percent": 70.0
+        },
+        "lines": {
+          "count": 114,
+          "covered": 111,
+          "percent": 97.36842105263156
+        },
+        "regions": {
+          "count": 109,
+          "covered": 102,
+          "notcovered": 7,
+          "percent": 93.57798165137615
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_mail_sandbox.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 10,
+          "covered": 5,
+          "percent": 50.0
+        },
+        "instantiations": {
+          "count": 21,
+          "covered": 5,
+          "percent": 23.809523809523807
+        },
+        "lines": {
+          "count": 171,
+          "covered": 44,
+          "percent": 25.730994152046783
+        },
+        "regions": {
+          "count": 208,
+          "covered": 68,
+          "notcovered": 140,
+          "percent": 32.69230769230769
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_mail_submission_evidence.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 51,
+          "covered": 44,
+          "percent": 86.27450980392157
+        },
+        "instantiations": {
+          "count": 77,
+          "covered": 48,
+          "percent": 62.33766233766234
+        },
+        "lines": {
+          "count": 643,
+          "covered": 615,
+          "percent": 95.64541213063764
+        },
+        "regions": {
+          "count": 712,
+          "covered": 662,
+          "notcovered": 50,
+          "percent": 92.97752808988764
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/agent_processing.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 47,
+          "covered": 12,
+          "percent": 25.53191489361702
+        },
+        "instantiations": {
+          "count": 116,
+          "covered": 12,
+          "percent": 10.344827586206897
+        },
+        "lines": {
+          "count": 754,
+          "covered": 173,
+          "percent": 22.944297082228115
+        },
+        "regions": {
+          "count": 916,
+          "covered": 242,
+          "notcovered": 674,
+          "percent": 26.419213973799128
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/approval.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 31,
+          "covered": 8,
+          "percent": 25.806451612903224
+        },
+        "instantiations": {
+          "count": 72,
+          "covered": 8,
+          "percent": 11.111111111111112
+        },
+        "lines": {
+          "count": 665,
+          "covered": 68,
+          "percent": 10.225563909774436
+        },
+        "regions": {
+          "count": 829,
+          "covered": 64,
+          "notcovered": 765,
+          "percent": 7.720144752714112
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/audit_archive.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 12,
+          "covered": 2,
+          "percent": 16.666666666666664
+        },
+        "instantiations": {
+          "count": 28,
+          "covered": 2,
+          "percent": 7.142857142857142
+        },
+        "lines": {
+          "count": 188,
+          "covered": 39,
+          "percent": 20.74468085106383
+        },
+        "regions": {
+          "count": 228,
+          "covered": 39,
+          "notcovered": 189,
+          "percent": 17.105263157894736
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/audit_checkpoint.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 12,
+          "covered": 6,
+          "percent": 50.0
+        },
+        "instantiations": {
+          "count": 31,
+          "covered": 6,
+          "percent": 19.35483870967742
+        },
+        "lines": {
+          "count": 189,
+          "covered": 76,
+          "percent": 40.21164021164021
+        },
+        "regions": {
+          "count": 250,
+          "covered": 89,
+          "notcovered": 161,
+          "percent": 35.6
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/audit_export.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 11,
+          "covered": 2,
+          "percent": 18.181818181818183
+        },
+        "instantiations": {
+          "count": 29,
+          "covered": 2,
+          "percent": 6.896551724137931
+        },
+        "lines": {
+          "count": 282,
+          "covered": 36,
+          "percent": 12.76595744680851
+        },
+        "regions": {
+          "count": 353,
+          "covered": 47,
+          "notcovered": 306,
+          "percent": 13.314447592067989
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/audit_query.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 35,
+          "covered": 20,
+          "percent": 57.14285714285714
+        },
+        "instantiations": {
+          "count": 52,
+          "covered": 20,
+          "percent": 38.46153846153847
+        },
+        "lines": {
+          "count": 377,
+          "covered": 339,
+          "percent": 89.92042440318302
+        },
+        "regions": {
+          "count": 411,
+          "covered": 354,
+          "notcovered": 57,
+          "percent": 86.13138686131386
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/authentication.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 1,
+          "covered": 1,
+          "percent": 100.0
+        },
+        "instantiations": {
+          "count": 5,
+          "covered": 1,
+          "percent": 20.0
+        },
+        "lines": {
+          "count": 2,
+          "covered": 2,
+          "percent": 100.0
+        },
+        "regions": {
+          "count": 2,
+          "covered": 2,
+          "notcovered": 0,
+          "percent": 100.0
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/bind_oidc_owner.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 28,
+          "covered": 24,
+          "percent": 85.71428571428571
+        },
+        "instantiations": {
+          "count": 34,
+          "covered": 24,
+          "percent": 70.58823529411765
+        },
+        "lines": {
+          "count": 246,
+          "covered": 235,
+          "percent": 95.52845528455285
+        },
+        "regions": {
+          "count": 286,
+          "covered": 256,
+          "notcovered": 30,
+          "percent": 89.5104895104895
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/bootstrap_organization.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 21,
+          "covered": 21,
+          "percent": 100.0
+        },
+        "instantiations": {
+          "count": 33,
+          "covered": 21,
+          "percent": 63.63636363636363
+        },
+        "lines": {
+          "count": 191,
+          "covered": 188,
+          "percent": 98.42931937172776
+        },
+        "regions": {
+          "count": 240,
+          "covered": 224,
+          "notcovered": 16,
+          "percent": 93.33333333333333
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/compliance.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 40,
+          "covered": 22,
+          "percent": 55.00000000000001
+        },
+        "instantiations": {
+          "count": 60,
+          "covered": 22,
+          "percent": 36.666666666666664
+        },
+        "lines": {
+          "count": 501,
+          "covered": 238,
+          "percent": 47.50499001996008
+        },
+        "regions": {
+          "count": 634,
+          "covered": 268,
+          "notcovered": 366,
+          "percent": 42.27129337539432
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/draft.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 49,
+          "covered": 44,
+          "percent": 89.79591836734694
+        },
+        "instantiations": {
+          "count": 84,
+          "covered": 44,
+          "percent": 52.38095238095239
+        },
+        "lines": {
+          "count": 720,
+          "covered": 683,
+          "percent": 94.86111111111111
+        },
+        "regions": {
+          "count": 849,
+          "covered": 794,
+          "notcovered": 55,
+          "percent": 93.52179034157832
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/events.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 4,
+          "covered": 4,
+          "percent": 100.0
+        },
+        "instantiations": {
+          "count": 14,
+          "covered": 5,
+          "percent": 35.714285714285715
+        },
+        "lines": {
+          "count": 73,
+          "covered": 73,
+          "percent": 100.0
+        },
+        "regions": {
+          "count": 45,
+          "covered": 45,
+          "notcovered": 0,
+          "percent": 100.0
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/human_draft.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 57,
+          "covered": 49,
+          "percent": 85.96491228070175
+        },
+        "instantiations": {
+          "count": 90,
+          "covered": 49,
+          "percent": 54.44444444444444
+        },
+        "lines": {
+          "count": 838,
+          "covered": 802,
+          "percent": 95.70405727923628
+        },
+        "regions": {
+          "count": 1106,
+          "covered": 1049,
+          "notcovered": 57,
+          "percent": 94.84629294755878
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/human_mailbox_directory.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 17,
+          "covered": 16,
+          "percent": 94.11764705882352
+        },
+        "instantiations": {
+          "count": 34,
+          "covered": 19,
+          "percent": 55.88235294117647
+        },
+        "lines": {
+          "count": 336,
+          "covered": 330,
+          "percent": 98.21428571428571
+        },
+        "regions": {
+          "count": 306,
+          "covered": 291,
+          "notcovered": 15,
+          "percent": 95.09803921568627
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/human_sent.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 39,
+          "covered": 32,
+          "percent": 82.05128205128204
+        },
+        "instantiations": {
+          "count": 63,
+          "covered": 32,
+          "percent": 50.79365079365079
+        },
+        "lines": {
+          "count": 445,
+          "covered": 418,
+          "percent": 93.93258426966293
+        },
+        "regions": {
+          "count": 555,
+          "covered": 517,
+          "notcovered": 38,
+          "percent": 93.15315315315316
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/human_session.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 54,
+          "covered": 46,
+          "percent": 85.18518518518519
+        },
+        "instantiations": {
+          "count": 90,
+          "covered": 46,
+          "percent": 51.11111111111111
+        },
+        "lines": {
+          "count": 599,
+          "covered": 574,
+          "percent": 95.82637729549248
+        },
+        "regions": {
+          "count": 720,
+          "covered": 674,
+          "notcovered": 46,
+          "percent": 93.61111111111111
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/inbox.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 71,
+          "covered": 60,
+          "percent": 84.50704225352112
+        },
+        "instantiations": {
+          "count": 98,
+          "covered": 60,
+          "percent": 61.224489795918366
+        },
+        "lines": {
+          "count": 964,
+          "covered": 906,
+          "percent": 93.98340248962656
+        },
+        "regions": {
+          "count": 992,
+          "covered": 910,
+          "notcovered": 82,
+          "percent": 91.73387096774194
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/mail_delivery.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 40,
+          "covered": 27,
+          "percent": 67.5
+        },
+        "instantiations": {
+          "count": 56,
+          "covered": 27,
+          "percent": 48.214285714285715
+        },
+        "lines": {
+          "count": 434,
+          "covered": 394,
+          "percent": 90.78341013824884
+        },
+        "regions": {
+          "count": 526,
+          "covered": 478,
+          "notcovered": 48,
+          "percent": 90.8745247148289
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/mail_domain.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 65,
+          "covered": 56,
+          "percent": 86.15384615384616
+        },
+        "instantiations": {
+          "count": 101,
+          "covered": 56,
+          "percent": 55.44554455445546
+        },
+        "lines": {
+          "count": 865,
+          "covered": 723,
+          "percent": 83.58381502890172
+        },
+        "regions": {
+          "count": 1176,
+          "covered": 914,
+          "notcovered": 262,
+          "percent": 77.72108843537416
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/mail_event_ingestion.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 79,
+          "covered": 70,
+          "percent": 88.60759493670885
+        },
+        "instantiations": {
+          "count": 122,
+          "covered": 74,
+          "percent": 60.65573770491803
+        },
+        "lines": {
+          "count": 1055,
+          "covered": 963,
+          "percent": 91.27962085308057
+        },
+        "regions": {
+          "count": 1252,
+          "covered": 1113,
+          "notcovered": 139,
+          "percent": 88.89776357827476
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/mail_ports.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 4,
+          "covered": 2,
+          "percent": 50.0
+        },
+        "instantiations": {
+          "count": 4,
+          "covered": 2,
+          "percent": 50.0
+        },
+        "lines": {
+          "count": 10,
+          "covered": 6,
+          "percent": 60.0
+        },
+        "regions": {
+          "count": 12,
+          "covered": 8,
+          "notcovered": 4,
+          "percent": 66.66666666666666
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/mail_submission.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 42,
+          "covered": 30,
+          "percent": 71.42857142857143
+        },
+        "instantiations": {
+          "count": 65,
+          "covered": 30,
+          "percent": 46.15384615384615
+        },
+        "lines": {
+          "count": 699,
+          "covered": 444,
+          "percent": 63.519313304721024
+        },
+        "regions": {
+          "count": 744,
+          "covered": 463,
+          "notcovered": 281,
+          "percent": 62.23118279569893
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/mailbox_authorization.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 26,
+          "covered": 6,
+          "percent": 23.076923076923077
+        },
+        "instantiations": {
+          "count": 68,
+          "covered": 6,
+          "percent": 8.823529411764707
+        },
+        "lines": {
+          "count": 355,
+          "covered": 100,
+          "percent": 28.169014084507044
+        },
+        "regions": {
+          "count": 416,
+          "covered": 84,
+          "notcovered": 332,
+          "percent": 20.192307692307693
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/ports.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 121,
+          "covered": 4,
+          "percent": 3.3057851239669422
+        },
+        "instantiations": {
+          "count": 2037,
+          "covered": 5,
+          "percent": 0.24545900834560627
+        },
+        "lines": {
+          "count": 271,
+          "covered": 14,
+          "percent": 5.166051660516605
+        },
+        "regions": {
+          "count": 274,
+          "covered": 14,
+          "notcovered": 260,
+          "percent": 5.109489051094891
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/register_principal.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 15,
+          "covered": 10,
+          "percent": 66.66666666666666
+        },
+        "instantiations": {
+          "count": 15,
+          "covered": 10,
+          "percent": 66.66666666666666
+        },
+        "lines": {
+          "count": 90,
+          "covered": 78,
+          "percent": 86.66666666666667
+        },
+        "regions": {
+          "count": 114,
+          "covered": 97,
+          "notcovered": 17,
+          "percent": 85.08771929824562
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/retention.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 14,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "instantiations": {
+          "count": 37,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "lines": {
+          "count": 295,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "regions": {
+          "count": 384,
+          "covered": 0,
+          "notcovered": 384,
+          "percent": 0.0
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/role_governance.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 19,
+          "covered": 4,
+          "percent": 21.052631578947366
+        },
+        "instantiations": {
+          "count": 47,
+          "covered": 4,
+          "percent": 8.51063829787234
+        },
+        "lines": {
+          "count": 395,
+          "covered": 59,
+          "percent": 14.936708860759492
+        },
+        "regions": {
+          "count": 467,
+          "covered": 86,
+          "notcovered": 381,
+          "percent": 18.41541755888651
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/scim.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 56,
+          "covered": 23,
+          "percent": 41.07142857142857
+        },
+        "instantiations": {
+          "count": 122,
+          "covered": 23,
+          "percent": 18.852459016393443
+        },
+        "lines": {
+          "count": 654,
+          "covered": 238,
+          "percent": 36.391437308868504
+        },
+        "regions": {
+          "count": 785,
+          "covered": 245,
+          "notcovered": 540,
+          "percent": 31.210191082802545
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/webhook_delivery.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 18,
+          "covered": 12,
+          "percent": 66.66666666666666
+        },
+        "instantiations": {
+          "count": 24,
+          "covered": 12,
+          "percent": 50.0
+        },
+        "lines": {
+          "count": 160,
+          "covered": 147,
+          "percent": 91.875
+        },
+        "regions": {
+          "count": 169,
+          "covered": 147,
+          "notcovered": 22,
+          "percent": 86.98224852071006
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-application/src/webhook_subscription.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 38,
+          "covered": 30,
+          "percent": 78.94736842105263
+        },
+        "instantiations": {
+          "count": 59,
+          "covered": 30,
+          "percent": 50.84745762711864
+        },
+        "lines": {
+          "count": 330,
+          "covered": 266,
+          "percent": 80.60606060606061
+        },
+        "regions": {
+          "count": 392,
+          "covered": 287,
+          "notcovered": 105,
+          "percent": 73.21428571428571
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-audit/src/lib.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 49,
+          "covered": 37,
+          "percent": 75.51020408163265
+        },
+        "instantiations": {
+          "count": 94,
+          "covered": 37,
+          "percent": 39.361702127659576
+        },
+        "lines": {
+          "count": 538,
+          "covered": 444,
+          "percent": 82.5278810408922
+        },
+        "regions": {
+          "count": 704,
+          "covered": 583,
+          "notcovered": 121,
+          "percent": 82.8125
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-contracts/src/lib.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 18,
+          "covered": 18,
+          "percent": 100.0
+        },
+        "instantiations": {
+          "count": 18,
+          "covered": 18,
+          "percent": 100.0
+        },
+        "lines": {
+          "count": 424,
+          "covered": 424,
+          "percent": 100.0
+        },
+        "regions": {
+          "count": 529,
+          "covered": 529,
+          "notcovered": 0,
+          "percent": 100.0
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-dns/src/lib.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 82,
+          "covered": 69,
+          "percent": 84.14634146341463
+        },
+        "instantiations": {
+          "count": 168,
+          "covered": 82,
+          "percent": 48.80952380952381
+        },
+        "lines": {
+          "count": 620,
+          "covered": 562,
+          "percent": 90.64516129032259
+        },
+        "regions": {
+          "count": 917,
+          "covered": 827,
+          "notcovered": 90,
+          "percent": 90.18538713195203
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-domain/src/agent_mail_policy.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 28,
+          "covered": 21,
+          "percent": 75.0
+        },
+        "instantiations": {
+          "count": 65,
+          "covered": 33,
+          "percent": 50.76923076923077
+        },
+        "lines": {
+          "count": 250,
+          "covered": 218,
+          "percent": 87.2
+        },
+        "regions": {
+          "count": 204,
+          "covered": 173,
+          "notcovered": 31,
+          "percent": 84.80392156862744
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-domain/src/approval.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 42,
+          "covered": 12,
+          "percent": 28.57142857142857
+        },
+        "instantiations": {
+          "count": 80,
+          "covered": 12,
+          "percent": 15.0
+        },
+        "lines": {
+          "count": 352,
+          "covered": 228,
+          "percent": 64.77272727272727
+        },
+        "regions": {
+          "count": 361,
+          "covered": 245,
+          "notcovered": 116,
+          "percent": 67.86703601108033
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-domain/src/audit.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 19,
+          "covered": 18,
+          "percent": 94.73684210526316
+        },
+        "instantiations": {
+          "count": 37,
+          "covered": 29,
+          "percent": 78.37837837837837
+        },
+        "lines": {
+          "count": 176,
+          "covered": 172,
+          "percent": 97.72727272727273
+        },
+        "regions": {
+          "count": 211,
+          "covered": 202,
+          "notcovered": 9,
+          "percent": 95.73459715639812
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-domain/src/audit_export.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 11,
+          "covered": 9,
+          "percent": 81.81818181818183
+        },
+        "instantiations": {
+          "count": 21,
+          "covered": 11,
+          "percent": 52.38095238095239
+        },
+        "lines": {
+          "count": 84,
+          "covered": 78,
+          "percent": 92.85714285714286
+        },
+        "regions": {
+          "count": 76,
+          "covered": 70,
+          "notcovered": 6,
+          "percent": 92.10526315789474
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-domain/src/authorization.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 32,
+          "covered": 19,
+          "percent": 59.375
+        },
+        "instantiations": {
+          "count": 56,
+          "covered": 25,
+          "percent": 44.642857142857146
+        },
+        "lines": {
+          "count": 222,
+          "covered": 162,
+          "percent": 72.97297297297295
+        },
+        "regions": {
+          "count": 243,
+          "covered": 180,
+          "notcovered": 63,
+          "percent": 74.07407407407408
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-domain/src/compliance.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 34,
+          "covered": 10,
+          "percent": 29.411764705882355
+        },
+        "instantiations": {
+          "count": 66,
+          "covered": 10,
+          "percent": 15.151515151515152
+        },
+        "lines": {
+          "count": 278,
+          "covered": 144,
+          "percent": 51.798561151079134
+        },
+        "regions": {
+          "count": 283,
+          "covered": 161,
+          "notcovered": 122,
+          "percent": 56.8904593639576
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-domain/src/identity.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 46,
+          "covered": 27,
+          "percent": 58.69565217391305
+        },
+        "instantiations": {
+          "count": 116,
+          "covered": 41,
+          "percent": 35.3448275862069
+        },
+        "lines": {
+          "count": 328,
+          "covered": 261,
+          "percent": 79.57317073170732
+        },
+        "regions": {
+          "count": 369,
+          "covered": 297,
+          "notcovered": 72,
+          "percent": 80.4878048780488
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-domain/src/ids.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 6,
+          "covered": 5,
+          "percent": 83.33333333333334
+        },
+        "instantiations": {
+          "count": 432,
+          "covered": 96,
+          "percent": 22.22222222222222
+        },
+        "lines": {
+          "count": 18,
+          "covered": 15,
+          "percent": 83.33333333333334
+        },
+        "regions": {
+          "count": 22,
+          "covered": 19,
+          "notcovered": 3,
+          "percent": 86.36363636363636
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-domain/src/mail_domain.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 31,
+          "covered": 29,
+          "percent": 93.54838709677419
+        },
+        "instantiations": {
+          "count": 63,
+          "covered": 49,
+          "percent": 77.77777777777779
+        },
+        "lines": {
+          "count": 464,
+          "covered": 447,
+          "percent": 96.33620689655172
+        },
+        "regions": {
+          "count": 530,
+          "covered": 508,
+          "notcovered": 22,
+          "percent": 95.8490566037736
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-domain/src/mailbox.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 12,
+          "covered": 10,
+          "percent": 83.33333333333334
+        },
+        "instantiations": {
+          "count": 27,
+          "covered": 20,
+          "percent": 74.07407407407408
+        },
+        "lines": {
+          "count": 89,
+          "covered": 72,
+          "percent": 80.89887640449437
+        },
+        "regions": {
+          "count": 103,
+          "covered": 91,
+          "notcovered": 12,
+          "percent": 88.3495145631068
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-domain/src/mailbox_authorization.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 25,
+          "covered": 3,
+          "percent": 12.0
+        },
+        "instantiations": {
+          "count": 51,
+          "covered": 5,
+          "percent": 9.803921568627452
+        },
+        "lines": {
+          "count": 205,
+          "covered": 79,
+          "percent": 38.53658536585366
+        },
+        "regions": {
+          "count": 192,
+          "covered": 75,
+          "notcovered": 117,
+          "percent": 39.0625
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-domain/src/organization.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 13,
+          "covered": 10,
+          "percent": 76.92307692307693
+        },
+        "instantiations": {
+          "count": 32,
+          "covered": 15,
+          "percent": 46.875
+        },
+        "lines": {
+          "count": 66,
+          "covered": 56,
+          "percent": 84.84848484848484
+        },
+        "regions": {
+          "count": 83,
+          "covered": 72,
+          "notcovered": 11,
+          "percent": 86.74698795180723
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-domain/src/processing.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 11,
+          "covered": 11,
+          "percent": 100.0
+        },
+        "instantiations": {
+          "count": 12,
+          "covered": 11,
+          "percent": 91.66666666666666
+        },
+        "lines": {
+          "count": 169,
+          "covered": 160,
+          "percent": 94.67455621301777
+        },
+        "regions": {
+          "count": 213,
+          "covered": 201,
+          "notcovered": 12,
+          "percent": 94.36619718309859
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-domain/src/retention.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 33,
+          "covered": 18,
+          "percent": 54.54545454545454
+        },
+        "instantiations": {
+          "count": 64,
+          "covered": 18,
+          "percent": 28.125
+        },
+        "lines": {
+          "count": 248,
+          "covered": 201,
+          "percent": 81.04838709677419
+        },
+        "regions": {
+          "count": 259,
+          "covered": 210,
+          "notcovered": 49,
+          "percent": 81.0810810810811
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-domain/src/webhook.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 9,
+          "covered": 9,
+          "percent": 100.0
+        },
+        "instantiations": {
+          "count": 15,
+          "covered": 13,
+          "percent": 86.66666666666667
+        },
+        "lines": {
+          "count": 147,
+          "covered": 145,
+          "percent": 98.63945578231292
+        },
+        "regions": {
+          "count": 164,
+          "covered": 156,
+          "notcovered": 8,
+          "percent": 95.1219512195122
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-mail-engine/src/lib.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 260,
+          "covered": 255,
+          "percent": 98.07692307692307
+        },
+        "instantiations": {
+          "count": 410,
+          "covered": 263,
+          "percent": 64.14634146341463
+        },
+        "lines": {
+          "count": 3171,
+          "covered": 3091,
+          "percent": 97.47713654998424
+        },
+        "regions": {
+          "count": 4384,
+          "covered": 4180,
+          "notcovered": 204,
+          "percent": 95.34671532846716
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-object-store/src/lib.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 58,
+          "covered": 24,
+          "percent": 41.37931034482759
+        },
+        "instantiations": {
+          "count": 127,
+          "covered": 24,
+          "percent": 18.89763779527559
+        },
+        "lines": {
+          "count": 558,
+          "covered": 211,
+          "percent": 37.81362007168459
+        },
+        "regions": {
+          "count": 811,
+          "covered": 341,
+          "notcovered": 470,
+          "percent": 42.04685573366215
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-oidc/src/lib.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 153,
+          "covered": 129,
+          "percent": 84.31372549019608
+        },
+        "instantiations": {
+          "count": 336,
+          "covered": 169,
+          "percent": 50.29761904761904
+        },
+        "lines": {
+          "count": 1326,
+          "covered": 1147,
+          "percent": 86.50075414781297
+        },
+        "regions": {
+          "count": 1784,
+          "covered": 1539,
+          "notcovered": 245,
+          "percent": 86.26681614349776
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-platform/src/lib.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 46,
+          "covered": 23,
+          "percent": 50.0
+        },
+        "instantiations": {
+          "count": 93,
+          "covered": 23,
+          "percent": 24.731182795698924
+        },
+        "lines": {
+          "count": 1149,
+          "covered": 364,
+          "percent": 31.67972149695387
+        },
+        "regions": {
+          "count": 1514,
+          "covered": 482,
+          "notcovered": 1032,
+          "percent": 31.836195508586524
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-postgres/src/lib.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 483,
+          "covered": 22,
+          "percent": 4.554865424430641
+        },
+        "instantiations": {
+          "count": 982,
+          "covered": 22,
+          "percent": 2.240325865580448
+        },
+        "lines": {
+          "count": 4564,
+          "covered": 263,
+          "percent": 5.762489044697634
+        },
+        "regions": {
+          "count": 4349,
+          "covered": 327,
+          "notcovered": 4022,
+          "percent": 7.518969878132904
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-postgres/src/queries/human_drafts.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 4,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "instantiations": {
+          "count": 8,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "lines": {
+          "count": 24,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "regions": {
+          "count": 31,
+          "covered": 0,
+          "notcovered": 31,
+          "percent": 0.0
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-postgres/src/queries/human_mailboxes.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 3,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "instantiations": {
+          "count": 6,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "lines": {
+          "count": 28,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "regions": {
+          "count": 40,
+          "covered": 0,
+          "notcovered": 40,
+          "percent": 0.0
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-postgres/src/queries/human_sent.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 2,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "instantiations": {
+          "count": 4,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "lines": {
+          "count": 45,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "regions": {
+          "count": 61,
+          "covered": 0,
+          "notcovered": 61,
+          "percent": 0.0
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-postgres/src/queries/mail_domains.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 2,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "instantiations": {
+          "count": 4,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "lines": {
+          "count": 4,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "regions": {
+          "count": 4,
+          "covered": 0,
+          "notcovered": 4,
+          "percent": 0.0
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-postgres/src/queries/roles.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 6,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "instantiations": {
+          "count": 12,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "lines": {
+          "count": 24,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "regions": {
+          "count": 31,
+          "covered": 0,
+          "notcovered": 31,
+          "percent": 0.0
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-scim/src/lib.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 98,
+          "covered": 23,
+          "percent": 23.46938775510204
+        },
+        "instantiations": {
+          "count": 184,
+          "covered": 23,
+          "percent": 12.5
+        },
+        "lines": {
+          "count": 989,
+          "covered": 174,
+          "percent": 17.593528816986854
+        },
+        "regions": {
+          "count": 1421,
+          "covered": 277,
+          "notcovered": 1144,
+          "percent": 19.493314567206195
+        }
+      }
+    },
+    {
+      "path": "crates/copilotmail-webhook/src/lib.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 40,
+          "covered": 36,
+          "percent": 90.0
+        },
+        "instantiations": {
+          "count": 77,
+          "covered": 36,
+          "percent": 46.75324675324675
+        },
+        "lines": {
+          "count": 406,
+          "covered": 368,
+          "percent": 90.64039408866996
+        },
+        "regions": {
+          "count": 635,
+          "covered": 560,
+          "notcovered": 75,
+          "percent": 88.18897637795276
+        }
+      }
+    },
+    {
+      "path": "src/api.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 43,
+          "covered": 4,
+          "percent": 9.30232558139535
+        },
+        "instantiations": {
+          "count": 45,
+          "covered": 4,
+          "percent": 8.88888888888889
+        },
+        "lines": {
+          "count": 314,
+          "covered": 29,
+          "percent": 9.235668789808917
+        },
+        "regions": {
+          "count": 452,
+          "covered": 45,
+          "notcovered": 407,
+          "percent": 9.955752212389381
+        }
+      }
+    },
+    {
+      "path": "src/config.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 5,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "instantiations": {
+          "count": 5,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "lines": {
+          "count": 23,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "regions": {
+          "count": 44,
+          "covered": 0,
+          "notcovered": 44,
+          "percent": 0.0
+        }
+      }
+    },
+    {
+      "path": "src/events.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 3,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "instantiations": {
+          "count": 3,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "lines": {
+          "count": 14,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "regions": {
+          "count": 14,
+          "covered": 0,
+          "notcovered": 14,
+          "percent": 0.0
+        }
+      }
+    },
+    {
+      "path": "src/main.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 3,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "instantiations": {
+          "count": 3,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "lines": {
+          "count": 28,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "regions": {
+          "count": 60,
+          "covered": 0,
+          "notcovered": 60,
+          "percent": 0.0
+        }
+      }
+    },
+    {
+      "path": "src/outbound.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 11,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "instantiations": {
+          "count": 11,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "lines": {
+          "count": 85,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "regions": {
+          "count": 158,
+          "covered": 0,
+          "notcovered": 158,
+          "percent": 0.0
+        }
+      }
+    },
+    {
+      "path": "src/smtp.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 12,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "instantiations": {
+          "count": 12,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "lines": {
+          "count": 145,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "regions": {
+          "count": 256,
+          "covered": 0,
+          "notcovered": 256,
+          "percent": 0.0
+        }
+      }
+    },
+    {
+      "path": "src/store.rs",
+      "summary": {
+        "branches": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "mcdc": {
+          "count": 0,
+          "covered": 0,
+          "notcovered": 0,
+          "percent": 0.0
+        },
+        "functions": {
+          "count": 18,
+          "covered": 13,
+          "percent": 72.22222222222221
+        },
+        "instantiations": {
+          "count": 18,
+          "covered": 13,
+          "percent": 72.22222222222221
+        },
+        "lines": {
+          "count": 150,
+          "covered": 114,
+          "percent": 76.0
+        },
+        "regions": {
+          "count": 269,
+          "covered": 204,
+          "notcovered": 65,
+          "percent": 75.8364312267658
+        }
+      }
+    }
+  ]
+}

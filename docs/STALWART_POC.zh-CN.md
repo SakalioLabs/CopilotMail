@@ -1,5 +1,8 @@
 # Stalwart 邮件数据平面 PoC
 
+> 当前用户要求先完成代码、不部署。下方部署/联网操作仅保留为后续运行手册，不在本阶段执行；
+> 可执行的离线测试与外部客户端边界见 [外部邮件客户端说明](EXTERNAL_MAIL_CLIENTS.zh-CN.md)。
+
 ## 当前边界
 
 本 PoC 使用固定小版本镜像 `stalwartlabs/stalwart:v0.16`，验证
@@ -229,10 +232,28 @@ python tests/stalwart_poc.py preflight
 python tests/stalwart_poc.py roundtrip --receipt .local/stalwart-poc-roundtrip.json
 ```
 
-`preflight` 会验证三个 listener 分离、SMTP/IMAP STARTTLS、Relay 不公布 AUTH、
+`preflight` 会验证三个 listener 分离、SMTP/IMAP 所选 TLS 模式、Relay 不公布 AUTH、
 Submission 公布 AUTH、外部到外部未认证 RCPT 被拒绝，以及普通账号 JMAP Mail
 `Mailbox/get`。`roundtrip` 再以 SMTP AUTH 发送唯一 Message-ID，并通过另一个账号
 的只读 IMAP 精确读回；JMAP 响应最多 1 MiB，IMAP 邮件最多 2 MiB。
+
+### 隐式 TLS 与离线验证
+
+验证程序兼容原 STARTTLS 默认值，也可分别设置
+`COPILOTMAIL_STALWART_SMOKE_SUBMISSION_TLS_MODE=implicit_tls` 和
+`COPILOTMAIL_STALWART_SMOKE_IMAP_TLS_MODE=implicit_tls`；未指定相应端口变量时选择开发覆盖层的
+2465/2993。显式端口变量保持优先，不能仅改端口而让协议模式自动猜测。
+
+连接逻辑独立于流程编排，隐式 TLS 使用 `SMTP_SSL` / `IMAP4_SSL`；TLS 失败不会回退到明文，
+API Key 不会当作用户密码。JMAP 重定向在请求跟随后续地址之前被拒绝，命令输出不回显协议服务端
+错误原文或密码。离线回归不需要真实账号，也不连接任何服务器：
+
+```powershell
+py -3.13 -m unittest discover -s tests -p test_mail_client_transport.py -v
+```
+
+普通客户端直连邮件引擎不等于经过控制面的 Agent 准入/审计；当前 Web Sent 目录也不保证列出
+外部客户端直接提交的邮件。这些限制详见 [外部客户端治理边界](EXTERNAL_MAIL_CLIENTS.zh-CN.md)。
 
 ### 重启持久性边界
 

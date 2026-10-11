@@ -1,4 +1,7 @@
-use crate::{DomainError, OrganizationId, PrincipalId, RoleAssignmentId, RoleId};
+use crate::{
+    CredentialId, DomainError, HumanSessionId, OrganizationId, PrincipalId, RoleAssignmentId,
+    RoleId, ScimTokenId,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -386,13 +389,47 @@ pub struct AuthorizationContext {
     pub organization_id: OrganizationId,
     /// Effective permissions from active assignments and policy narrowing.
     pub permissions: BTreeSet<Permission>,
+    /// Server-derived, non-secret authentication generation. None is reserved
+    /// for trusted local CLI/background work, never a browser/Agent request.
+    pub authentication: Option<AuthenticationBinding>,
+}
+
+/// Immutable credential identity carried from verification into each unit of
+/// work. It is intentionally not deserializable from an HTTP request body.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AuthenticationBinding {
+    /// The immutable session ID is the generation: session rows cannot rotate
+    /// in place, and a fresh login always gets a different ID.
+    HumanSession {
+        session_id: HumanSessionId,
+    },
+    /// Production Human endpoints require sessions. Legacy/dev OIDC bearer
+    /// access retains its verified lifetime, never an invented local session.
+    HumanBearer {
+        expires_at: DateTime<Utc>,
+    },
+    AgentCredential {
+        credential_id: CredentialId,
+        expires_at: DateTime<Utc>,
+        scopes: BTreeSet<Permission>,
+    },
+    ScimToken {
+        token_id: ScimTokenId,
+    },
 }
 
 impl AuthorizationContext {
     /// Applies tenant isolation and default-deny permission evaluation.
     #[must_use]
     pub fn permits(&self, target: OrganizationId, required: Permission) -> bool {
-        self.organization_id == target && self.permissions.contains(&required)
+        self.organization_id == target
+            && self.permissions.contains(&required)
+            && match &self.authentication {
+                Some(AuthenticationBinding::AgentCredential { scopes, .. }) => {
+                    scopes.contains(&required)
+                }
+                _ => true,
+            }
     }
 }
 
@@ -408,6 +445,7 @@ mod tests {
             principal_id,
             organization_id,
             permissions: [Permission::OrganizationRead].into_iter().collect(),
+            authentication: None,
         };
         assert!(context.permits(organization_id, Permission::OrganizationRead));
         assert!(!context.permits(organization_id, Permission::OrganizationManage));

@@ -1,6 +1,6 @@
 # 企业审计事件目录
 
-> 状态：V2 治理基线，2026-08-13。领域目录与 PostgreSQL 目录必须完全一致，由 `scripts/check_audit_governance.py` 在 CI 强制检查。
+> 状态：V2 治理基线，2026-08-24。领域目录与 PostgreSQL 目录必须完全一致，由 `scripts/check_audit_governance.py` 在 CI 强制检查。
 
 ## 事件目录
 
@@ -10,6 +10,7 @@
 | `identity.principal.created` | `identity.principal` | High | 是 |
 | `identity.oidc_owner.bound` | `identity.principal` | Critical | 是 |
 | `identity.agent.registered` | `identity.agent` | High | 是 |
+| `identity.agent.queried` | `identity.agent` | High | 是 |
 | `identity.agent_credential.added` | `identity.agent_credential` | High | 是 |
 | `identity.agent_mtls_credential.added` | `identity.agent_credential` | High | 是 |
 | `identity.agent_credential.revoked` | `identity.agent_credential` | High | 是 |
@@ -43,6 +44,7 @@
 | `agent.mail_policy.versioned` | `agent.mail_policy` | High | 是 |
 | `agent.mail_policy.queried` | `agent.mail_policy_query` | High | 是 |
 | `agent.mail.admitted` | `agent.mail_admission` | Critical | 是 |
+| `agent.mail_submission_evidence.queried` | `agent.mail_submission_evidence` | High | 是 |
 | `agent.mail_sandbox.captured` | `agent.mail_sandbox_submission` | High | 是 |
 | `agent.processing_subscription.created` | `agent.processing_subscription` | Medium | 是 |
 | `agent.processing_subscription.paused` | `agent.processing_subscription` | Medium | 是 |

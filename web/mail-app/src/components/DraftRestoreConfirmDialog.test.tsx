@@ -50,6 +50,23 @@ describe("DraftRestoreConfirmDialog", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
+  it("returns Tab focus to the dialog when focus was moved outside it", () => {
+    const external = document.createElement("button");
+    external.textContent = "External control";
+    document.body.append(external);
+    render(<DraftRestoreConfirmDialog t={t} onCancel={vi.fn()} onConfirm={vi.fn()} />);
+    const cancel = screen.getByRole("button", { name: "Keep current content" });
+    const confirm = screen.getByRole("button", { name: "Restore draft" });
+
+    external.focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(cancel).toHaveFocus();
+
+    external.focus();
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(confirm).toHaveFocus();
+  });
+
   it("keeps focus inside the mounted dialog and blocks dismissal while restore is busy", () => {
     const onCancel = vi.fn();
     const onConfirm = vi.fn();

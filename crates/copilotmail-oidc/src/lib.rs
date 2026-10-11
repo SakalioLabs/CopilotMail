@@ -11,10 +11,12 @@
 
 use async_trait::async_trait;
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use chrono::DateTime;
 use copilotmail_application::{
     AccessTokenAuthenticator, AuthenticatedIdentity, AuthenticatedPrincipalKind,
     AuthenticationError, ExternalIdentityResolver,
 };
+use copilotmail_domain::AuthenticationBinding;
 use futures_util::StreamExt;
 use jsonwebtoken_v2::{Algorithm, DecodingKey, Validation, decode, decode_header};
 use rand_core::{OsRng, RngCore};
@@ -591,6 +593,10 @@ where
             .await
             .map_err(|_| AuthenticationError::Unavailable)?
             .ok_or(AuthenticationError::InvalidCredential)?;
+        let credential_expires_at = i64::try_from(claims.exp)
+            .ok()
+            .and_then(|seconds| DateTime::from_timestamp(seconds, 0))
+            .ok_or(AuthenticationError::InvalidCredential)?;
         Ok(VerifiedOidcIdentity {
             identity: AuthenticatedIdentity {
                 principal_id,
@@ -599,6 +605,9 @@ where
                     value.len() <= 200 && value.bytes().all(|byte| byte.is_ascii_graphic())
                 }),
                 scope_restriction: None,
+                authentication: AuthenticationBinding::HumanBearer {
+                    expires_at: credential_expires_at,
+                },
             },
             credential_expires_at_unix_seconds: claims.exp,
         })

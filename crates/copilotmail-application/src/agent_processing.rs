@@ -146,7 +146,11 @@ where
             created_at: command.now,
             updated_at: command.now,
         };
-        let mut transaction = self.store.begin().await.map_err(map_store_error)?;
+        let mut transaction = self
+            .store
+            .begin_authorized(&command.context)
+            .await
+            .map_err(map_store_error)?;
         if !transaction
             .active_principal_exists(
                 command.context.organization_id,
@@ -205,7 +209,11 @@ where
             command.expected_status,
             command.target_status,
         );
-        let mut transaction = self.store.begin().await.map_err(map_store_error)?;
+        let mut transaction = self
+            .store
+            .begin_authorized(&command.context)
+            .await
+            .map_err(map_store_error)?;
         let result = transaction
             .change_agent_processing_subscription(&AgentProcessingSubscriptionChangeWrite {
                 operation_id: Uuid::new_v4(),
@@ -286,7 +294,11 @@ where
             None,
         );
         let lease_id = deterministic_lease_id(request_sha256, idempotency_key_sha256);
-        let mut transaction = self.store.begin().await.map_err(map_store_error)?;
+        let mut transaction = self
+            .store
+            .begin_authorized(&command.context)
+            .await
+            .map_err(map_store_error)?;
         let result = transaction
             .claim_next_agent_message(&AgentMessageClaimWrite {
                 organization_id: command.context.organization_id,
@@ -419,7 +431,11 @@ where
             .then(|| items.last().map(|item| item.message_id))
             .flatten();
 
-        let mut transaction = self.store.begin().await.map_err(map_store_error)?;
+        let mut transaction = self
+            .store
+            .begin_authorized(&command.context)
+            .await
+            .map_err(map_store_error)?;
         append_processing_evidence(
             &mut *transaction,
             &command.context,
@@ -476,7 +492,11 @@ where
             lease_seconds,
             reason_code.as_deref(),
         );
-        let mut transaction = self.store.begin().await.map_err(map_store_error)?;
+        let mut transaction = self
+            .store
+            .begin_authorized(&context)
+            .await
+            .map_err(map_store_error)?;
         let result = transaction
             .transition_agent_message(&AgentMessageTransitionWrite {
                 organization_id: context.organization_id,
@@ -875,6 +895,7 @@ fn map_store_error(error: StoreError) -> AgentProcessingError {
     match error {
         StoreError::Conflict => AgentProcessingError::Conflict,
         StoreError::MissingReference => AgentProcessingError::NotFound,
+        StoreError::AuthenticationInvalid => AgentProcessingError::Forbidden,
         StoreError::Unavailable | StoreError::AgentMailAdmission(_) => {
             AgentProcessingError::Unavailable
         }
@@ -945,6 +966,7 @@ mod tests {
             principal_id,
             organization_id,
             permissions: BTreeSet::from([Permission::AgentOperate, Permission::MailboxUse]),
+            authentication: None,
         };
         let first = processing_request_digest(
             &context,

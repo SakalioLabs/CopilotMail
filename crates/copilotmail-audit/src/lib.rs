@@ -4,14 +4,8 @@
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use chrono::{DateTime, Utc};
+use copilotmail_crypto::{RsaPrivateKey, RsaPublicKey};
 use copilotmail_domain::{AuditCheckpointId, OrganizationId};
-use rsa::{
-    RsaPrivateKey, RsaPublicKey,
-    pkcs1v15::{Signature, SigningKey, VerifyingKey},
-    pkcs8::{DecodePrivateKey, DecodePublicKey, EncodePublicKey},
-    signature::{SignatureEncoding, Signer, Verifier},
-    traits::PublicKeyParts,
-};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fmt::Write;
@@ -118,7 +112,7 @@ pub struct AuditExportVerifier {
 pub struct RsaAuditCheckpointSigner {
     key_id: String,
     public_key_sha256: String,
-    signing_key: SigningKey<Sha256>,
+    signing_key: ring::signature::RsaKeyPair,
 }
 
 pub trait AuditCheckpointSigner: Send + Sync {
@@ -274,11 +268,12 @@ impl SignedAuditCheckpoint {
         let signature = STANDARD
             .decode(&self.signature)
             .map_err(|_| AuditArtifactError::InvalidSignature)?;
-        let signature = Signature::try_from(signature.as_slice())
-            .map_err(|_| AuditArtifactError::InvalidSignature)?;
-        VerifyingKey::<Sha256>::new(public_key)
-            .verify(&self.payload.canonical_bytes()?, &signature)
-            .map_err(|_| AuditArtifactError::InvalidSignature)
+        ring::signature::UnparsedPublicKey::new(
+            &ring::signature::RSA_PKCS1_2048_8192_SHA256,
+            public_key.pkcs1_der(),
+        )
+        .verify(&self.payload.canonical_bytes()?, &signature)
+        .map_err(|_| AuditArtifactError::InvalidSignature)
     }
 }
 
@@ -321,19 +316,25 @@ impl RsaAuditCheckpointSigner {
         if !valid_key_id(&key_id) {
             return Err(AuditArtifactError::InvalidKey);
         }
-        let private_key = RsaPrivateKey::from_pkcs8_pem(
-            std::str::from_utf8(private_key_pem).map_err(|_| AuditArtifactError::InvalidKey)?,
-        )
-        .map_err(|_| AuditArtifactError::InvalidKey)?;
+        let private_key = RsaPrivateKey::from_pkcs8_pem(private_key_pem)
+            .map_err(|_| AuditArtifactError::InvalidKey)?;
         let public_key = parse_public_key(public_key_pem)?;
-        if private_key.n() != public_key.n() || private_key.e() != public_key.e() {
+        if !private_key.matches(&public_key) {
             return Err(AuditArtifactError::InvalidKey);
         }
         let public_key_sha256 = rsa_public_key_fingerprint(&public_key)?;
+        // Keep the existing key/algorithm contract, but never perform a
+        // network-observable private-key operation with RustCrypto RSA
+        // (RUSTSEC-2023-0071). Key parsing also uses the maintained backend.
+        let private_der = private_key
+            .pkcs8_der()
+            .map_err(|_| AuditArtifactError::InvalidKey)?;
+        let signing_key = ring::signature::RsaKeyPair::from_pkcs8(private_der.as_ref())
+            .map_err(|_| AuditArtifactError::InvalidKey)?;
         Ok(Self {
             key_id,
             public_key_sha256,
-            signing_key: SigningKey::<Sha256>::new(private_key),
+            signing_key,
         })
     }
 
@@ -354,11 +355,19 @@ impl RsaAuditCheckpointSigner {
         if payload.key_id != self.key_id || payload.public_key_sha256 != self.public_key_sha256 {
             return Err(AuditArtifactError::InvalidKey);
         }
-        let signature = self.signing_key.sign(&payload.canonical_bytes()?);
+        let mut signature = vec![0; self.signing_key.public().modulus_len()];
+        self.signing_key
+            .sign(
+                &ring::signature::RSA_PKCS1_SHA256,
+                &ring::rand::SystemRandom::new(),
+                &payload.canonical_bytes()?,
+                &mut signature,
+            )
+            .map_err(|_| AuditArtifactError::InvalidSignature)?;
         Ok(SignedAuditCheckpoint {
             payload,
             signature_algorithm: SIGNATURE_ALGORITHM.into(),
-            signature: STANDARD.encode(signature.to_bytes()),
+            signature: STANDARD.encode(signature),
         })
     }
 
@@ -553,18 +562,16 @@ fn calculate_event_hash(previous_hash: Option<&[u8]>, payload: &[u8]) -> Vec<u8>
 }
 
 fn parse_public_key(public_key_pem: &[u8]) -> Result<RsaPublicKey, AuditArtifactError> {
-    let pem = std::str::from_utf8(public_key_pem).map_err(|_| AuditArtifactError::InvalidKey)?;
-    let key = RsaPublicKey::from_public_key_pem(pem).map_err(|_| AuditArtifactError::InvalidKey)?;
-    if !(2_048..=8_192).contains(&key.n().bits()) || key.e().bits() > 32 {
+    let key =
+        RsaPublicKey::from_spki_pem(public_key_pem).map_err(|_| AuditArtifactError::InvalidKey)?;
+    if !key.permits_signatures() {
         return Err(AuditArtifactError::InvalidKey);
     }
     Ok(key)
 }
 
 fn rsa_public_key_fingerprint(key: &RsaPublicKey) -> Result<String, AuditArtifactError> {
-    let der = key
-        .to_public_key_der()
-        .map_err(|_| AuditArtifactError::InvalidKey)?;
+    let der = key.spki_der().map_err(|_| AuditArtifactError::InvalidKey)?;
     Ok(sha256_hex(der.as_ref()))
 }
 
@@ -616,14 +623,12 @@ fn encode_hex(value: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand_core_06::OsRng;
-    use rsa::pkcs8::{EncodePrivateKey, LineEnding};
 
     fn signer() -> (RsaAuditCheckpointSigner, Vec<u8>) {
-        let private = RsaPrivateKey::new(&mut OsRng, 2_048).unwrap();
-        let public = RsaPublicKey::from(&private);
-        let private_pem = private.to_pkcs8_pem(LineEnding::LF).unwrap();
-        let public_pem = public.to_public_key_pem(LineEnding::LF).unwrap();
+        let private = RsaPrivateKey::generate_for_testing().unwrap();
+        let public = private.public_key();
+        let private_pem = private.pkcs8_pem_for_testing().unwrap();
+        let public_pem = public.spki_pem().unwrap();
         (
             RsaAuditCheckpointSigner::new(
                 "audit-2026-01".into(),
@@ -655,6 +660,53 @@ mod tests {
                 record
             })
             .collect()
+    }
+
+    #[test]
+    fn hardened_signer_preserves_existing_checkpoint_signature_bytes() {
+        // Two maintained implementations must produce the same deterministic
+        // checkpoint bytes; no vulnerable dependency remains even in tests.
+        let private = RsaPrivateKey::generate_for_testing().unwrap();
+        let public = private.public_key();
+        let hardened = RsaAuditCheckpointSigner::new(
+            "compatibility".into(),
+            private.pkcs8_pem_for_testing().unwrap().as_bytes(),
+            public.spki_pem().unwrap().as_bytes(),
+        )
+        .unwrap();
+        let organization_id = OrganizationId::new();
+        let rows = records(organization_id);
+        let now = Utc::now();
+        let payload = AuditCheckpointPayload::new(
+            AuditCheckpointId::new(),
+            organization_id,
+            2,
+            rows[0].event_id,
+            rows[1].event_id,
+            now,
+            now,
+            rows[1].event_hash.clone(),
+            hardened.key_id().into(),
+            hardened.public_key_sha256().into(),
+            now,
+        )
+        .unwrap();
+        let independent =
+            aws_lc_rs::signature::RsaKeyPair::from_pkcs8(private.pkcs8_der().unwrap().as_ref())
+                .unwrap();
+        let mut compatible = vec![0; public.modulus().len()];
+        independent
+            .sign(
+                &aws_lc_rs::signature::RSA_PKCS1_SHA256,
+                &aws_lc_rs::rand::SystemRandom::new(),
+                &payload.canonical_bytes().unwrap(),
+                &mut compatible,
+            )
+            .unwrap();
+        assert_eq!(
+            hardened.sign(payload).unwrap().signature,
+            STANDARD.encode(compatible)
+        );
     }
 
     #[test]

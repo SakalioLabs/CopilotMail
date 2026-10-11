@@ -1175,6 +1175,129 @@ pub struct OwnAgentMailHourlyUsageResponse {
     pub remaining_messages: Option<u32>,
 }
 
+/// Tenant-bound, privileged control-plane observation of one Agent.
+///
+/// This is deliberately not a runtime-health or execution-trace response.
+/// It contains no credential material, mailbox grants, delegation data, or
+/// mail content.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentInspectorResponse {
+    pub agent_id: String,
+    pub display_name: String,
+    pub principal_status: String,
+    pub owner: AgentInspectorOwnerResponse,
+    pub profile: AgentInspectorProfileResponse,
+    pub token_access: AgentInspectorTokenAccessResponse,
+    pub control_plane: AgentInspectorControlPlaneResponse,
+    pub observed_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentInspectorOwnerResponse {
+    pub principal_id: String,
+    pub display_name: String,
+    pub principal_status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentInspectorProfileResponse {
+    pub environment: String,
+    pub risk_level: String,
+    pub purpose: String,
+    pub review_due_at: String,
+    pub review_state: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentInspectorTokenAccessResponse {
+    pub state: String,
+    pub effective_scopes: Vec<String>,
+    pub active_credential_count: u32,
+    pub next_credential_expiry_at: Option<String>,
+    pub last_authenticated_at: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentInspectorControlPlaneResponse {
+    pub mail_admission_state: String,
+    pub active_processing_subscription_count: u32,
+    pub paused_processing_subscription_count: u32,
+    pub retired_processing_subscription_count: u32,
+    pub last_processing_activity_at: Option<String>,
+}
+
+/// Human-only, exact evidence chain for one production Agent submission.
+///
+/// This is not a submission directory, recipient view, runtime signal,
+/// execution trace, delegation record, or delivery-success assertion. The
+/// response carries only immutable admission/approval facts, optional latest
+/// aggregate delivery observation, and minimal audit references.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentMailSubmissionEvidenceResponse {
+    pub agent_id: String,
+    pub submission: AgentMailSubmissionEvidenceSubmissionResponse,
+    pub admission: AgentMailSubmissionEvidenceAdmissionResponse,
+    pub delivery: Option<AgentMailSubmissionEvidenceDeliveryResponse>,
+    pub audit_references: Vec<AgentMailSubmissionEvidenceAuditReferenceResponse>,
+    pub observed_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentMailSubmissionEvidenceSubmissionResponse {
+    pub submission_id: String,
+    pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentMailSubmissionEvidenceAdmissionResponse {
+    pub admission_id: String,
+    pub admitted_at: String,
+    pub policy: AgentMailSubmissionEvidencePolicyResponse,
+    pub recipient_count: u16,
+    pub first_contact_count: u16,
+    pub first_contact_approval_request_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentMailSubmissionEvidencePolicyResponse {
+    pub activation_id: String,
+    pub activated_at: String,
+    pub version_id: String,
+    pub version: u32,
+    pub approval_request_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentMailSubmissionEvidenceDeliveryResponse {
+    pub observed_at: String,
+    pub terminal: bool,
+    pub recipient_count: u16,
+    pub delivered_count: u16,
+    pub failed_count: u16,
+    pub queued_count: u16,
+    pub unknown_count: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentMailSubmissionEvidenceAuditReferenceResponse {
+    pub event_id: String,
+    pub action: String,
+    pub occurred_at: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RetentionPolicyVersionResponse {
     pub retention_policy_version_id: String,
@@ -1221,8 +1344,9 @@ pub struct ErrorResponse {
 #[cfg(test)]
 mod tests {
     use super::{
-        AgentMailPolicyActivationRequest, AgentMailPolicyVersionCreateRequest,
-        AgentMailSandboxCreateRequest, AgentMessageAcknowledgementRequest,
+        AgentInspectorResponse, AgentMailPolicyActivationRequest,
+        AgentMailPolicyVersionCreateRequest, AgentMailSandboxCreateRequest,
+        AgentMailSubmissionEvidenceResponse, AgentMessageAcknowledgementRequest,
         AgentMessageClaimRequest, AgentMessageLeaseExtensionRequest, AgentMessageNackRequest,
         AgentProcessingSubscriptionChangeRequest, ApprovalCancellationRequest, AuditEventResponse,
         AuditExportGrantCreateRequest, HumanDraftListResponse, HumanDraftRestoreRequest,
@@ -1276,6 +1400,112 @@ mod tests {
             serde_json::to_value(event).unwrap()["chain_sequence"],
             "9007199254740993"
         );
+    }
+
+    #[test]
+    fn agent_inspector_response_rejects_unexpected_sensitive_fields() {
+        let response = json!({
+            "agent_id": "019b0000-0000-7000-8000-000000000101",
+            "display_name": "Inbound triage",
+            "principal_status": "active",
+            "owner": {
+                "principal_id": "019b0000-0000-7000-8000-000000000102",
+                "display_name": "Owner",
+                "principal_status": "active"
+            },
+            "profile": {
+                "environment": "production",
+                "risk_level": "medium",
+                "purpose": "Triage inbound support mail",
+                "review_due_at": "2026-09-01T00:00:00Z",
+                "review_state": "scheduled"
+            },
+            "token_access": {
+                "state": "effective",
+                "effective_scopes": ["organization.read"],
+                "active_credential_count": 1,
+                "next_credential_expiry_at": "2026-09-15T00:00:00Z",
+                "last_authenticated_at": null
+            },
+            "control_plane": {
+                "mail_admission_state": "active",
+                "active_processing_subscription_count": 1,
+                "paused_processing_subscription_count": 0,
+                "retired_processing_subscription_count": 0,
+                "last_processing_activity_at": null
+            },
+            "observed_at": "2026-08-23T09:01:00Z",
+            "credential_fingerprint": "must-not-be-contractual"
+        });
+        assert!(serde_json::from_value::<AgentInspectorResponse>(response).is_err());
+    }
+
+    #[test]
+    fn agent_mail_submission_evidence_rejects_sensitive_or_unknown_fields() {
+        let base = json!({
+            "agent_id": "019b0000-0000-7000-8000-000000000101",
+            "submission": {
+                "submission_id": "019b0000-0000-7000-8000-000000000102",
+                "status": "accepted",
+                "created_at": "2026-08-24T09:00:00Z",
+                "updated_at": "2026-08-24T09:01:00Z"
+            },
+            "admission": {
+                "admission_id": "019b0000-0000-7000-8000-000000000103",
+                "admitted_at": "2026-08-24T09:00:01Z",
+                "policy": {
+                    "activation_id": "019b0000-0000-7000-8000-000000000104",
+                    "activated_at": "2026-08-24T08:00:00Z",
+                    "version_id": "019b0000-0000-7000-8000-000000000105",
+                    "version": 2,
+                    "approval_request_id": "019b0000-0000-7000-8000-000000000106"
+                },
+                "recipient_count": 2,
+                "first_contact_count": 1,
+                "first_contact_approval_request_id": "019b0000-0000-7000-8000-000000000107"
+            },
+            "delivery": {
+                "observed_at": "2026-08-24T09:02:00Z",
+                "terminal": false,
+                "recipient_count": 2,
+                "delivered_count": 1,
+                "failed_count": 0,
+                "queued_count": 1,
+                "unknown_count": 0
+            },
+            "audit_references": [{
+                "event_id": "019b0000-0000-7000-8000-000000000108",
+                "action": "mail.submission.requested",
+                "occurred_at": "2026-08-24T09:00:00Z"
+            }, {
+                "event_id": "019b0000-0000-7000-8000-000000000109",
+                "action": "agent.mail.admitted",
+                "occurred_at": "2026-08-24T09:00:01Z"
+            }, {
+                "event_id": "019b0000-0000-7000-8000-000000000110",
+                "action": "mail.submission.accepted",
+                "occurred_at": "2026-08-24T09:01:00Z"
+            }],
+            "observed_at": "2026-08-24T09:03:00Z"
+        });
+        assert!(
+            serde_json::from_value::<AgentMailSubmissionEvidenceResponse>(base.clone()).is_ok()
+        );
+
+        for leaked_field in [
+            "recipient",
+            "smtp_reply",
+            "provider",
+            "mailbox_id",
+            "execution",
+        ] {
+            let mut leaked = base.clone();
+            leaked[leaked_field] = json!("must-not-cross-contract");
+            assert!(
+                serde_json::from_value::<AgentMailSubmissionEvidenceResponse>(leaked).is_err(),
+                "{leaked_field} must not cross the Agent submission evidence contract"
+            );
+        }
     }
 
     #[test]

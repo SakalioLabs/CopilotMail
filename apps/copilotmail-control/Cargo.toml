@@ -29,7 +29,6 @@ futures-util.workspace = true
 hmac.workspace = true
 opentelemetry.workspace = true
 rustls.workspace = true
-rustls-pemfile.workspace = true
 rand = "0.9"
 ring.workspace = true
 secrecy.workspace = true

@@ -13,6 +13,7 @@ members = [
     "crates/copilotmail-application",
     "crates/copilotmail-agent-auth",
     "crates/copilotmail-contracts",
+    "crates/copilotmail-crypto",
     "crates/copilotmail-domain",
     "crates/copilotmail-dns",
     "crates/copilotmail-mail-engine",
@@ -37,25 +38,34 @@ license = "Apache-2.0"
 [profile.test.package.copilotmail-control]
 debug = 0
 
+# The application test harness also monomorphizes many transaction fixtures.
+# Avoid MSVC CodeView LNK1103 corruption without removing assertions or tests;
+# source-based coverage uses its own instrumentation, not this debug metadata.
+[profile.test.package.copilotmail-application]
+debug = 0
+
 [workspace.dependencies]
 anyhow = "1"
 async-trait = "0.1.91"
-aws-config = { version = "=1.10.0", default-features = false, features = [
+aws-lc-rs = { version = "1.18.1", features = ["ring-io", "prebuilt-nasm"] }
+aws-config = { version = "=1.12.0", default-features = false, features = [
     "behavior-version-latest",
     "credentials-process",
     "default-https-client",
     "rt-tokio",
 ] }
-aws-sdk-s3 = "=1.139.0"
+# Use the maintained HTTPS connector only; the legacy `rustls` feature pulls
+# Hyper 0.14 / Rustls 0.21 with unpatched transitive advisories.
+aws-sdk-s3 = { version = "=1.148.0", default-features = false, features = ["sigv4a", "http-1x", "default-https-client", "rt-tokio"] }
 axum = "0.8"
 base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.5", features = ["derive", "env"] }
 futures-util = "0.3"
 idna = "1.1.0"
-hickory-resolver = "0.25.2"
+hickory-resolver = "0.26.3"
 hmac = "0.12"
-jsonwebtoken-v2 = { package = "jsonwebtoken", version = "10.4.0", features = ["rust_crypto"] }
+jsonwebtoken-v2 = { package = "jsonwebtoken", version = "10.4.0", features = ["aws_lc_rs"] }
 opentelemetry = { version = "0.32", features = ["trace"] }
 opentelemetry-otlp = { version = "0.32", default-features = false, features = [
     "experimental-http-retry",
@@ -68,9 +78,9 @@ opentelemetry_sdk = { version = "0.32", features = ["trace"] }
 rand_core = { version = "0.6", features = ["getrandom"] }
 reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls-no-provider"] }
 ring = "0.17"
-rsa = { version = "0.9", features = ["pem", "sha2"] }
-rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
-rustls-pemfile = "2.2"
+pem-rfc7468 = { version = "0.7", features = ["alloc"] }
+zeroize = "1.9"
+rustls = { version = "0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
 secrecy = "0.10.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

@@ -4,6 +4,12 @@
 > 目标版本：CopilotMail V2 / Enterprise GA
 > 核心原则：统一邮件内核、统一身份与权限模型、人类与 Agent 两套交互语义、企业级审计控制平面
 
+> **2026-09-19 最新范围**：保留 Human Mail、Agent Mail、企业管理和既有 API，先完成代码，
+> 不部署；验证码由业务应用处理，邮件系统通过标准 SMTP/IMAP 支持应用发信及外部客户端。
+> 当前顺序、模块化、事务与质量门禁以 [当前代码开发范围](CODE_DEVELOPMENT_SCOPE.zh-CN.md)
+> 为准。[此前托管验证码方案](APPLICATION_VERIFICATION_API_PLAN.zh-CN.md) 已撤回。
+> 本文件的原 P0–P7 企业长期目标保留；原工期估算不作为本次代码开发的承诺。
+
 ## 1. 规划结论
 
 CopilotMail V2 不应继续在现有单进程 MVP 上堆叠补丁，而应在同一仓库中建设新的企业级架构：

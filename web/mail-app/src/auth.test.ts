@@ -38,7 +38,7 @@ describe("mail BFF browser session", () => {
       principal_id: "human-1",
       organization_id: "org-1",
       client: "mail",
-      expires_at: "2026-07-27T08:00:00Z",
+      expires_at: "2099-07-27T08:00:00Z",
     };
     Object.defineProperty(sessionPayload, "access_token", {
       enumerable: true,
@@ -61,7 +61,7 @@ describe("mail BFF browser session", () => {
       principal_id: "human-1",
       organization_id: "org-1",
       client: "mail",
-      expires_at: "2026-07-27T08:00:00Z",
+      expires_at: "2099-07-27T08:00:00Z",
     });
 
     const [url, request] = fetchMock.mock.calls[0];
@@ -74,6 +74,63 @@ describe("mail BFF browser session", () => {
     expect(request.headers).not.toHaveProperty("Authorization");
     expect(sessionStorage.setItem).not.toHaveBeenCalled();
     expect(localStorage.setItem).not.toHaveBeenCalled();
+  });
+
+  it("treats an absent session cookie as signed out", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response(null, { status: 401 }),
+    ));
+
+    await expect(loadSession(config)).resolves.toBeNull();
+  });
+
+  it("fails closed for malformed identifiers, non-RFC3339 timestamps, and expiry", async () => {
+    const responses = [
+      {
+        principal_id: " human-1",
+        organization_id: "org-1",
+        client: "mail",
+        expires_at: "2099-07-27T08:00:00Z",
+      },
+      {
+        principal_id: "human-1",
+        organization_id: `org-${"x".repeat(201)}`,
+        client: "mail",
+        expires_at: "2099-07-27T08:00:00Z",
+      },
+      {
+        principal_id: "human-1",
+        organization_id: "org-1",
+        client: "mail",
+        expires_at: "2099-07-27 08:00:00Z",
+      },
+      {
+        principal_id: "human-1",
+        organization_id: "org-1",
+        client: "mail",
+        expires_at: "2099-02-30T08:00:00Z",
+      },
+      {
+        principal_id: "human-1",
+        organization_id: "org-1",
+        client: "mail",
+        expires_at: "2026-08-24T01:00:00Z",
+      },
+    ];
+    const fetchMock = vi.fn();
+    for (const body of responses) {
+      fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }));
+    }
+    vi.stubGlobal("fetch", fetchMock);
+    const now = Date.parse("2026-08-24T02:00:00Z");
+
+    for (let index = 0; index < responses.length - 1; index += 1) {
+      await expect(loadSession(config, now)).rejects.toThrow("session_response_invalid");
+    }
+    await expect(loadSession(config, now)).resolves.toBeNull();
   });
 
   it("uses POST logout and rejects cross-origin API configuration", async () => {

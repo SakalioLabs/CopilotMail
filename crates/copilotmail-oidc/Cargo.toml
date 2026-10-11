@@ -8,7 +8,9 @@ license.workspace = true
 [dependencies]
 async-trait.workspace = true
 base64.workspace = true
+chrono.workspace = true
 copilotmail-application = { path = "../copilotmail-application" }
+copilotmail-domain = { path = "../copilotmail-domain" }
 futures-util.workspace = true
 jsonwebtoken-v2.workspace = true
 rand_core.workspace = true
@@ -25,5 +27,3 @@ url.workspace = true
 
 [dev-dependencies]
 axum.workspace = true
-chrono.workspace = true
-copilotmail-domain = { path = "../copilotmail-domain" }

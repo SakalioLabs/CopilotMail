@@ -1,0 +1,1885 @@
+{
+  "schema_version": 1,
+  "kind": "literal_test_declarations_not_execution_evidence",
+  "source_hash_encoding": "UTF-8 normalized LF",
+  "files": [
+    {
+      "path": "web/admin-app/src/AdminErrorNotice.test.tsx",
+      "sha256": "79cd51f9da6b4ede9e58aca4c4a8baa367c533a4d1efba6e449003683dafde73",
+      "tests": [
+        {
+          "name": "renders only a bounded public code and request ID for API failures",
+          "line": 18
+        },
+        {
+          "name": "does not offer a retry when the API explicitly marks it non-retryable",
+          "line": 41
+        },
+        {
+          "name": "rejects malformed server identifiers instead of reflecting them",
+          "line": 60
+        },
+        {
+          "name": "allows only explicitly public local validation codes",
+          "line": 76
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/AdminListDetail.test.tsx",
+      "sha256": "647119799efab2a0afe2bc2d68b892aa991f79bd58240d8566ebcd1365e11aa2",
+      "tests": [
+        {
+          "name": "keeps the desktop two-panel view without stealing focus or handling Escape",
+          "line": 120
+        },
+        {
+          "name": "shows one panel at a time on narrow screens and restores the selected trigger",
+          "line": 145
+        },
+        {
+          "name": "treats Escape as an explicit narrow Back and falls back to the list panel",
+          "line": 174
+        },
+        {
+          "name": "locks every narrow return path while a detail operation is acting",
+          "line": 193
+        },
+        {
+          "name": "lets a portalled modal own Escape before returning from the detail",
+          "line": 210
+        },
+        {
+          "name": "moves focus only when crossing into the narrow selected layout",
+          "line": 228
+        },
+        {
+          "name": "keeps CSS and matchMedia on the same explicit breakpoint",
+          "line": 247
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/AgentInspectorView.test.tsx",
+      "sha256": "0cbe623a9f51480db7c1cea00f39b083634545eb9c701b0f8000c139bb1a2396",
+      "tests": [
+        {
+          "name": "does not prefetch or invent a static Agent state",
+          "line": 63
+        },
+        {
+          "name": "rejects malformed or reserved IDs locally without creating an audited read",
+          "line": 74
+        },
+        {
+          "name": "renders only the bounded control-plane contract with meaningful absent records",
+          "line": 97
+        },
+        {
+          "name": "keeps a deliberately uniform unavailable-target response non-retryable and its support request ID",
+          "line": 128
+        },
+        {
+          "name": "does not offer a retry for a 403 authorization refusal",
+          "line": 147
+        },
+        {
+          "name": "offers retry only when the API marks the failure retryable",
+          "line": 163
+        },
+        {
+          "name": "does not reflect unbounded request IDs or truthy non-boolean retry flags",
+          "line": 185
+        },
+        {
+          "name": "keeps the snapshot and refresh control focused while a refresh is in progress",
+          "line": 205
+        },
+        {
+          "name": "labels a retained snapshot as a prior observation after refresh failure",
+          "line": 229
+        },
+        {
+          "name": "does not let a late response replace the latest explicitly requested Agent",
+          "line": 255
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/AgentMailSubmissionEvidenceView.test.tsx",
+      "sha256": "2ede790e2da32db83a3f3621942c2fc7c013df5d3c45b437ee1b0631d9ec7188",
+      "tests": [
+        {
+          "name": "does not prefetch, poll, or invent an Agent mail-submission state",
+          "line": 80
+        },
+        {
+          "name": "rejects malformed, nil, and upper-case submission IDs locally",
+          "line": 90
+        },
+        {
+          "name": "renders only returned evidence facts and keeps audit references collapsed",
+          "line": 102
+        },
+        {
+          "name": "does not let a late pair response overwrite the latest explicit pair",
+          "line": 122
+        },
+        {
+          "name": "keeps target-unavailable errors uniform and never reflects the server message",
+          "line": 143
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/App.client.test.tsx",
+      "sha256": "452efdebcb2e94172c713a5598b7e3ead119d94e0c9353b98684b606e33eb5f8",
+      "tests": [
+        {
+          "name": "keeps one client across locale and parent rerenders while navigation loads views on demand",
+          "line": 34
+        },
+        {
+          "name": "preserves terminal evidence across navigation and clears it on focus-detected identity rotation",
+          "line": 128
+        },
+        {
+          "name": "revalidates and signs out when a protected request returns 401",
+          "line": 215
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/App.test.tsx",
+      "sha256": "cfa860b4d2db056db02ab6745ab690c495f87c1841f525144b41aac2cee4e722",
+      "tests": [
+        {
+          "name": "freezes an unknown Case create when no exact read target exists",
+          "line": 91
+        },
+        {
+          "name": "keeps an unknown Case close frozen until a later exact read confirms it",
+          "line": 137
+        },
+        {
+          "name": "keeps an unknown Hold release frozen until a later exact read confirms it",
+          "line": 189
+        },
+        {
+          "name": "freezes an unknown Hold apply when no exact read target exists",
+          "line": 246
+        },
+        {
+          "name": "contains lazy route failures and offers bounded retry and reload controls",
+          "line": 297
+        },
+        {
+          "name": "recovers focus when it unexpectedly moves outside the dialog",
+          "line": 346
+        },
+        {
+          "name": "traps forward and reverse Tab movement at the dialog boundary",
+          "line": 376
+        },
+        {
+          "name": "closes on Escape without allowing the keystroke to escape the dialog",
+          "line": 394
+        },
+        {
+          "name": "isolates the declared application background and restores its exact attributes",
+          "line": 413
+        },
+        {
+          "name": "portals an explicitly described dangerous action and focuses cancel by default",
+          "line": 491
+        },
+        {
+          "name": "locks every dismissal and submission path while a dangerous request is busy",
+          "line": 519
+        },
+        {
+          "name": "uses the explicit fallback when a successful action removes its opener",
+          "line": 558
+        },
+        {
+          "name": "groups every localized route by operator intent and preserves its current-page semantics",
+          "line": 577
+        },
+        {
+          "name": "keeps the current page visible and closes the narrow-screen drawer by keyboard or route selection",
+          "line": 610
+        },
+        {
+          "name": "keeps tenant, language, and sign-out controls reachable from the compact drawer",
+          "line": 649
+        },
+        {
+          "name": "localizes the pagination landmark",
+          "line": 687
+        },
+        {
+          "name": "keeps a selected case in factual context, a bounded close decision, and closed evidence",
+          "line": 693
+        },
+        {
+          "name": "keeps hold approval evidence closed and makes release confirmation resource-bound",
+          "line": 743
+        },
+        {
+          "name": "opens a Hold's linked Case only through the exact Case ID carried by the Hold",
+          "line": 791
+        },
+        {
+          "name": "renders a Hold-linked Case only after its exact detail read succeeds",
+          "line": 821
+        },
+        {
+          "name": "keeps 403 and 503 overview facts isolated and retries only the retryable card",
+          "line": 854
+        },
+        {
+          "name": "shows independent verified empty and bounded overview counts without a static permission claim",
+          "line": 890
+        },
+        {
+          "name": "prioritizes readable open cases without creating another protected read",
+          "line": 919
+        },
+        {
+          "name": "does not manufacture a next action when either overview fact is unknown",
+          "line": 946
+        },
+        {
+          "name": "shows the verified empty decision only after both protected reads are empty",
+          "line": 972
+        },
+        {
+          "name": "does not turn an initial cases 503 into an empty result",
+          "line": 985
+        },
+        {
+          "name": "does not turn an initial holds 503 into an empty result",
+          "line": 1011
+        },
+        {
+          "name": "locks every case-create dismissal path and keeps exact success evidence outside a stale empty query",
+          "line": 1037
+        },
+        {
+          "name": "keeps committed case-create evidence when its follow-up read returns 503",
+          "line": 1113
+        },
+        {
+          "name": "locks every hold-apply dismissal path and keeps exact success evidence outside a stale empty query",
+          "line": 1158
+        },
+        {
+          "name": "keeps committed hold-apply evidence when its follow-up read returns 503",
+          "line": 1245
+        },
+        {
+          "name": "uses the shared narrow list-detail contract for cases and clears the controlled selection on Back",
+          "line": 1297
+        },
+        {
+          "name": "uses each legal-hold identity in the shared narrow list-detail selection",
+          "line": 1341
+        },
+        {
+          "name": "rebinds case details to refreshed data and clears a removed selection",
+          "line": 1387
+        },
+        {
+          "name": "clears legal-hold details when refresh removes the selected record",
+          "line": 1432
+        },
+        {
+          "name": "keeps an exact case target mounted when a list refresh finishes during a busy close",
+          "line": 1469
+        },
+        {
+          "name": "keeps an exact hold target mounted when a list refresh finishes during a busy release",
+          "line": 1529
+        },
+        {
+          "name": "restores an absent committed case only in the query that produced it",
+          "line": 1597
+        },
+        {
+          "name": "restores an absent committed hold only on its exact cursor page",
+          "line": 1670
+        },
+        {
+          "name": "does not let a stale post-close list response reopen a committed case",
+          "line": 1747
+        },
+        {
+          "name": "keeps a committed released hold visible under All when its follow-up read fails",
+          "line": 1797
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/ApprovalView.test.tsx",
+      "sha256": "95ec352695e400cbeebc71b6939712e966c827a0e205518e89c5be0a007d9dbe",
+      "tests": [
+        {
+          "name": "creates an exact request, switches to My requests, and reads it by server ID",
+          "line": 105
+        },
+        {
+          "name": "does not select a late created-request result after returning to actionable work",
+          "line": 165
+        },
+        {
+          "name": "freezes an uncertain create without resending when no exact read target exists",
+          "line": 217
+        },
+        {
+          "name": "rejects an invalid policy key locally and restores trigger focus on cancel",
+          "line": 257
+        },
+        {
+          "name": "shows only a bounded retryable error after an initial list failure",
+          "line": 288
+        },
+        {
+          "name": "replaces a failed detail spinner with a retry and then confirmed data",
+          "line": 310
+        },
+        {
+          "name": "keeps the last confirmed page visible when a manual refresh fails",
+          "line": 336
+        },
+        {
+          "name": "clears a page from the previous view while the new query is unresolved",
+          "line": 355
+        },
+        {
+          "name": "puts exact approval facts before actions and keeps immutable evidence closed",
+          "line": 386
+        },
+        {
+          "name": "keeps My requests separate from decision actions using the requested server view",
+          "line": 453
+        },
+        {
+          "name": "ignores an older detail response after the operator selects another request",
+          "line": 491
+        },
+        {
+          "name": "dismisses withdrawal safely and restores the original trigger without an API call",
+          "line": 520
+        },
+        {
+          "name": "withdraws the captured request exactly once and cannot dismiss the busy dialog",
+          "line": 548
+        },
+        {
+          "name": "freezes every write after an uncertain decision and reconciles without resending",
+          "line": 592
+        },
+        {
+          "name": "does not freeze a definitively rejected decision",
+          "line": 651
+        },
+        {
+          "name": "freezes an uncertain withdrawal and reconciles it without a second POST",
+          "line": 680
+        },
+        {
+          "name": "keeps a committed decision authoritative when its detail refresh fails",
+          "line": 726
+        },
+        {
+          "name": "keeps a committed withdrawal visible and focuses stable detail when refresh fails",
+          "line": 772
+        },
+        {
+          "name": "cannot run an actionable reload captured before a decision after the query switches",
+          "line": 813
+        },
+        {
+          "name": "cannot let an in-flight post-decision list reload overwrite a newer query",
+          "line": 875
+        },
+        {
+          "name": "cannot run a requested reload captured before withdrawal after the query switches",
+          "line": 929
+        },
+        {
+          "name": "advances a committed decision to a newer terminal detail and rejects stale list rollback",
+          "line": 988
+        },
+        {
+          "name": "reconciles a stale selected detail against the terminal state already observed in its list",
+          "line": 1037
+        },
+        {
+          "name": "propagates a newer terminal detail back into the stale visible list row",
+          "line": 1070
+        },
+        {
+          "name": "keeps a committed cancellation terminal across stale detail, list, and status-filter reads",
+          "line": 1104
+        },
+        {
+          "name": "advances approved to expired on refresh and retains it under the Expired filter",
+          "line": 1148
+        },
+        {
+          "name": "keeps a stable narrow detail shell and ignores a late response after Back",
+          "line": 1250
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/AuditView.test.ts",
+      "sha256": "c64aace8d46d516247808a798852f5373dc420fa78db2c116b26bb914e805e55",
+      "tests": [
+        {
+          "name": "converts local input to exact ISO instants and trims optional values",
+          "line": 90
+        },
+        {
+          "name": "rejects reversed and over-31-day windows before making a request",
+          "line": 104
+        },
+        {
+          "name": "renders a persisted Service actor with its factual label and a bounded system glyph",
+          "line": 172
+        },
+        {
+          "name": "keeps all event evidence collapsed until an auditor explicitly discloses it",
+          "line": 194
+        },
+        {
+          "name": "orders query context, conditions, results queue, and evidence before the export gate",
+          "line": 228
+        },
+        {
+          "name": "shows only the exact optional filter contract and server page boundary in query context",
+          "line": 254
+        },
+        {
+          "name": "shows the exact archive, approval, and grant relationship and invalidates it on either input change",
+          "line": 294
+        },
+        {
+          "name": "reconciles an unknown authorization only through its exact GET and never replays the POST",
+          "line": 326
+        },
+        {
+          "name": "freezes every failed download and reconciles only the known grant with a GET",
+          "line": 364
+        },
+        {
+          "name": "expires the current grant at expires_at and disables both downloads without another request",
+          "line": 409
+        },
+        {
+          "name": "never delivers a completed download after an input invalidates its grant",
+          "line": 438
+        },
+        {
+          "name": "does not turn an initial 503 into an empty audit result",
+          "line": 473
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/MailDomainsView.test.tsx",
+      "sha256": "df40c7d72cc7413bf845f702d8da187a2033f36c75eeb0e29ffeee8f4491cc0a",
+      "tests": [
+        {
+          "name": "renders DTO-backed lifecycle facts, one current decision, and collapsed evidence",
+          "line": 136
+        },
+        {
+          "name": "discloses the registration token only in the immediate one-time dialog and erases it when closed",
+          "line": 163
+        },
+        {
+          "name": "sends DNS verification only with the selected canonical domain and the transient token",
+          "line": 195
+        },
+        {
+          "name": "uses the detail route version as the exact CAS precondition",
+          "line": 218
+        },
+        {
+          "name": "keeps route editing out of a pending-DNS current decision",
+          "line": 245
+        },
+        {
+          "name": "rejects invalid local DNS and suspension fields before a write",
+          "line": 258
+        },
+        {
+          "name": "requires explicit confirmation for activation and leaves a suspended domain without a lifecycle write",
+          "line": 294
+        },
+        {
+          "name": "freezes an existing-domain unknown write and reconciles only its exact GET target",
+          "line": 336
+        },
+        {
+          "name": "freezes an unknown create without guessing an exact target from a broad list",
+          "line": 370
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/RetentionView.test.tsx",
+      "sha256": "2f71fa91cfa9f5a7cd3a2b1018aea96481a45716fc1fe031d62e50fdd1f29c99",
+      "tests": [
+        {
+          "name": "initializes every version field exactly from a loaded latest_version",
+          "line": 210
+        },
+        {
+          "name": "clears an unconsumed approval when a successful read changes the latest identity",
+          "line": 230
+        },
+        {
+          "name": "keeps creation on demand, starts without governance defaults, and restores trigger focus on cancel",
+          "line": 252
+        },
+        {
+          "name": "renders the on-demand creation contract in Simplified Chinese",
+          "line": 289
+        },
+        {
+          "name": "rejects missing explicit creation choices before showing a confirmation",
+          "line": 307
+        },
+        {
+          "name": "shows every exact value in the review and returns to the preserved editor without a POST",
+          "line": 344
+        },
+        {
+          "name": "locks confirmation while creating and preserves exact success evidence across a failed read",
+          "line": 378
+        },
+        {
+          "name": "keeps a rejected creation in review with a bounded error and editable frozen values",
+          "line": 461
+        },
+        {
+          "name": "sends only the explicit version-editor values and then refreshes the policy",
+          "line": 497
+        },
+        {
+          "name": "keeps creation-form edits isolated from an appended version",
+          "line": 549
+        },
+        {
+          "name": "rebinds locally edited fields to vN from a manual server refresh",
+          "line": 579
+        },
+        {
+          "name": "reports invalid version JSON as a local AdminUiError without calling append",
+          "line": 616
+        },
+        {
+          "name": "does not submit an append when the required minimum is empty",
+          "line": 636
+        },
+        {
+          "name": "allows only one append request while the confirmed result is pending",
+          "line": 656
+        },
+        {
+          "name": "keeps a created version separate from latest and locks mutations until refresh succeeds",
+          "line": 682
+        },
+        {
+          "name": "binds an activated version before a failed full-policy refresh",
+          "line": 729
+        },
+        {
+          "name": "rejects stale successful snapshots until a manual read reaches the created version",
+          "line": 763
+        },
+        {
+          "name": "keeps the accepted latest high-water across later regressive and identity-conflicting reads",
+          "line": 806
+        },
+        {
+          "name": "rejects a historical version identity conflict when a prior latest later appears as active",
+          "line": 851
+        },
+        {
+          "name": "registers an appended write identity before validating its reconciliation snapshot",
+          "line": 887
+        },
+        {
+          "name": "keeps an activation high-water across later regressions and never restores its consumed approval",
+          "line": 966
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/RolesView.test.tsx",
+      "sha256": "fe72d1d53e4752163f6d6d1a6143215d39fe3472e373c6fbf53dbdeab4f86e71",
+      "tests": [
+        {
+          "name": "renders the current factual context, decision, and collapsed role evidence",
+          "line": 68
+        },
+        {
+          "name": "shows assignment pagination only when the response exposes a real page boundary",
+          "line": 95
+        },
+        {
+          "name": "renders localized Human, Agent, and Service identity markers without relabeling Service as System",
+          "line": 125
+        },
+        {
+          "name": "uses factual assignment activity for a semantic status indicator",
+          "line": 145
+        },
+        {
+          "name": "states an unbounded assignment's actual no-expiry fact instead of a dash",
+          "line": 156
+        },
+        {
+          "name": "cancels a revoke in the shared dialog and restores focus without calling the API",
+          "line": 165
+        },
+        {
+          "name": "revokes the captured assignment exactly once and locks every dismissal path while busy",
+          "line": 192
+        },
+        {
+          "name": "keeps the newest filter result when an older request resolves last",
+          "line": 233
+        },
+        {
+          "name": "keeps a committed revocation authoritative when the following list refresh fails",
+          "line": 275
+        },
+        {
+          "name": "keeps exact grant evidence visible when the following list refresh fails",
+          "line": 301
+        },
+        {
+          "name": "locks query changes during a grant and keeps evidence across an empty stale refresh",
+          "line": 345
+        },
+        {
+          "name": "freezes role mutations after an unknown grant outcome without offering a fabricated lookup",
+          "line": 405
+        },
+        {
+          "name": "freezes role mutations after an unknown revocation outcome",
+          "line": 436
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/api.test.ts",
+      "sha256": "29055bead7f369aca152a1f1349414f4b3c10d1a01b9da6d28fde038ad8a2db4",
+      "tests": [
+        {
+          "name": "omits absent values and encodes filter values",
+          "line": 348
+        },
+        {
+          "name": "does not append a question mark for an empty query",
+          "line": 353
+        },
+        {
+          "name": "binds tenant and request ID while using only the same-origin session cookie",
+          "line": 361
+        },
+        {
+          "name": "preserves the server error code and request identifier",
+          "line": 386
+        },
+        {
+          "name": "rejects cross-tenant, lifecycle-invalid, and malformed Case/Hold pages",
+          "line": 405
+        },
+        {
+          "name": "binds Case/Hold reads to the requested identity and active filters",
+          "line": 436
+        },
+        {
+          "name": "binds terminal write evidence and reports protected 401 responses",
+          "line": 481
+        },
+        {
+          "name": "reuses the exact audit window and cursor with every active filter",
+          "line": 506
+        },
+        {
+          "name": "strictly parses and request-binds every audit event page field",
+          "line": 539
+        },
+        {
+          "name": "rejects malformed, cross-tenant, oversized, filter-conflicting, and cursor-invalid audit pages",
+          "line": 570
+        },
+        {
+          "name": "binds an export authorization to the archive path and approval body",
+          "line": 627
+        },
+        {
+          "name": "reconciles an unresolved export authorization through its exact read-only relationship",
+          "line": 645
+        },
+        {
+          "name": "rejects a read-only export reconciliation that does not bind the requested relationship",
+          "line": 667
+        },
+        {
+          "name": "rejects export grants that do not exactly bind tenant, archive, approval, grant, schema, and lifetime",
+          "line": 685
+        },
+        {
+          "name": "does not send malformed export relationship identifiers",
+          "line": 721
+        },
+        {
+          "name": "reads an explicitly requested Agent snapshot without caching or browser bearer state",
+          "line": 741
+        },
+        {
+          "name": "fails closed on malformed or contradictory Agent Inspector snapshots",
+          "line": 790
+        },
+        {
+          "name": "rejects malformed and nil Agent Inspector path IDs before fetch",
+          "line": 849
+        },
+        {
+          "name": "reads one exact Agent mail-submission evidence chain without caching or browser bearer state",
+          "line": 863
+        },
+        {
+          "name": "accepts a pending admission recorded after the initial intent timestamp",
+          "line": 896
+        },
+        {
+          "name": "does not send malformed, nil, or noncanonical Agent submission evidence identifiers",
+          "line": 920
+        },
+        {
+          "name": "fails closed on unbounded, sensitive, or mismatched Agent submission evidence",
+          "line": 939
+        },
+        {
+          "name": "keeps approval inbox filters scoped and binds decisions to the path",
+          "line": 1083
+        },
+        {
+          "name": "creates an approval request with the exact deny-unknown-fields body",
+          "line": 1141
+        },
+        {
+          "name": "strictly parses and request-binds approval pages, details, and outcomes",
+          "line": 1192
+        },
+        {
+          "name": "proves every cursor page is ordered strictly after its immutable anchor",
+          "line": 1238
+        },
+        {
+          "name": "rejects unknown, cross-tenant, lifecycle-invalid, and unbound approval 2xx bodies",
+          "line": 1271
+        },
+        {
+          "name": "rejects malformed approval create and cancellation responses",
+          "line": 1387
+        },
+        {
+          "name": "does not accept create success until a strict read-back binds immutable command fields",
+          "line": 1419
+        },
+        {
+          "name": "binds decision outcomes to the exact pre-write count and threshold",
+          "line": 1444
+        },
+        {
+          "name": "downloads an exact export artifact and exposes its verified digest",
+          "line": 1469
+        },
+        {
+          "name": "rejects malformed artifact enums, sizes, headers, and digest evidence",
+          "line": 1490
+        },
+        {
+          "name": "revalidates the Session when an export download returns 401",
+          "line": 1514
+        },
+        {
+          "name": "keeps retention drafts separate from approval-bound activation",
+          "line": 1530
+        },
+        {
+          "name": "binds role assignment filters, approval grants, and revocation paths",
+          "line": 1593
+        },
+        {
+          "name": "accepts only tenant-bound, canonical-name ordered domain pages",
+          "line": 1667
+        },
+        {
+          "name": "rejects cross-tenant, noncanonical, unordered, stale-cursor, and extra page data",
+          "line": 1693
+        },
+        {
+          "name": "whitelists registration and challenge bodies while retaining one-time tokens only in disclosures",
+          "line": 1736
+        },
+        {
+          "name": "binds DNS verification to the selected canonical domain and never puts its token in a URL",
+          "line": 1778
+        },
+        {
+          "name": "read-backs bind activation, suspension, and route CAS results to their exact operations",
+          "line": 1815
+        },
+        {
+          "name": "fails closed before any domain write for malformed IDs, versions, names, and bodies",
+          "line": 1902
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/auth.test.ts",
+      "sha256": "ffd7b4db760d9f7a8858bfa831ab8eafc5200703bc872cfa96691516886543cc",
+      "tests": [
+        {
+          "name": "navigates to the server login endpoint without discovery or browser state",
+          "line": 19
+        },
+        {
+          "name": "loads only the public session projection and never retains provider tokens",
+          "line": 37
+        },
+        {
+          "name": "treats an absent cookie as signed out and clears it through POST logout",
+          "line": 76
+        },
+        {
+          "name": "fails closed for malformed or expired session projections",
+          "line": 96
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/config.test.ts",
+      "sha256": "f3aa9baef76399770830cdd7d5faf29ae32d5e5657418da443520b442f4d7a37",
+      "tests": [
+        {
+          "name": "contains only same-origin BFF routing and tenant context",
+          "line": 15
+        },
+        {
+          "name": "rejects a cross-origin API base because BFF cookies are host-bound",
+          "line": 27
+        },
+        {
+          "name": "accepts the empty same-origin proxy and a same-origin path prefix",
+          "line": 36
+        }
+      ]
+    },
+    {
+      "path": "web/admin-app/src/i18n.test.ts",
+      "sha256": "30953361ed5a68ff92780cac9ab9758c2bbc3e2757ed486d891f95df380f943b",
+      "tests": [
+        {
+          "name": "uses either explicitly supported stored locale",
+          "line": 5
+        },
+        {
+          "name": "ignores undeclared storage values and derives a supported browser locale",
+          "line": 10
+        }
+      ]
+    },
+    {
+      "path": "web/design-system/src/context-bar.test.tsx",
+      "sha256": "5c36644eeb29bd638f5c94fefe7e9f8d2a0266d0550997574a5922b73cf42acf",
+      "tests": [
+        {
+          "name": "renders exact supplied facts as a named semantic region",
+          "line": 7
+        },
+        {
+          "name": "does not invent status or actions when callers omit them",
+          "line": 37
+        },
+        {
+          "name": "starts closed by default and reports an uncontrolled native disclosure",
+          "line": 53
+        },
+        {
+          "name": "honors a controlled caller even when it declines an expansion request",
+          "line": 75
+        },
+        {
+          "name": "respects a caller-controlled open prop without creating a duplicate control",
+          "line": 94
+        }
+      ]
+    },
+    {
+      "path": "web/design-system/src/dialog.test.tsx",
+      "sha256": "38314bb774f373663cf19394641a88734f72f51fbff8700b39f0f0792093e59c",
+      "tests": [
+        {
+          "name": "portals, isolates declared backgrounds, and restores exact attributes and focus",
+          "line": 12
+        },
+        {
+          "name": "reclaims escaped focus and wraps both Tab directions",
+          "line": 42
+        },
+        {
+          "name": "blocks close, Escape, and backdrop dismissal while busy",
+          "line": 65
+        },
+        {
+          "name": "dismisses only a pointer gesture that both starts and ends on the backdrop",
+          "line": 89
+        },
+        {
+          "name": "supports a close-icon-free alertdialog and moves focus off disabled busy actions",
+          "line": 113
+        }
+      ]
+    },
+    {
+      "path": "web/design-system/src/primitives.test.tsx",
+      "sha256": "53032d9250587c02453a1b35a2cddf3aa8c81b857dc73384d5b7295029aa2f02",
+      "tests": [
+        {
+          "name": "links a stable label and merged descriptions to its single control",
+          "line": 14
+        },
+        {
+          "name": "preserves explicit ids and merges custom classes for every control",
+          "line": 58
+        },
+        {
+          "name": "renders every registered glyph as a non-empty decorative SVG on the common grid",
+          "line": 82
+        },
+        {
+          "name": "owns every Admin navigation glyph on the shared 24px grid",
+          "line": 106
+        },
+        {
+          "name": "owns every Mail navigation glyph on the shared 24px grid",
+          "line": 123
+        }
+      ]
+    },
+    {
+      "path": "web/design-system/src/unknown-write-lock.test.tsx",
+      "sha256": "030c50caf30abae05466059a62b5c1515c04f42374e66792afaafb4a172bd35f",
+      "tests": [
+        {
+          "name": "communicates an unresolved result and exposes only its supplied reconciliation action",
+          "line": 6
+        },
+        {
+          "name": "can opt out of announcements without inventing a live role",
+          "line": 25
+        },
+        {
+          "name": "does not invent a reconciliation action when no exact read target exists",
+          "line": 44
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/App.test.tsx",
+      "sha256": "68afaff47e1d8595b2f1d4c5c3189f834c04bae8aea4d11800584d3113bcb6f1",
+      "tests": [
+        {
+          "name": "exposes desktop and mobile Drafts entry points and keeps the list metadata-only",
+          "line": 247
+        },
+        {
+          "name": "exposes Sent navigation and reads only accepted delivery metadata",
+          "line": 274
+        },
+        {
+          "name": "refreshes and appends only a progressing sent page",
+          "line": 302
+        },
+        {
+          "name": "aborts and ignores sent directory responses after leaving the view",
+          "line": 343
+        },
+        {
+          "name": "deactivates the sent directory synchronously before changing mailbox scope",
+          "line": 364
+        },
+        {
+          "name": "renders an empty draft state and can refresh it without retaining content",
+          "line": 398
+        },
+        {
+          "name": "confirms before a mailbox change clears local writing content",
+          "line": 419
+        },
+        {
+          "name": "confirms before Compose replaces a closed reply context",
+          "line": 463
+        },
+        {
+          "name": "confirms sign-out while a local writing context is still present",
+          "line": 488
+        },
+        {
+          "name": "shows bounded draft errors and appends only a progressing next page",
+          "line": 517
+        },
+        {
+          "name": "restores the exact draft version into the current mailbox composer and autosaves from it",
+          "line": 560
+        },
+        {
+          "name": "requires an accessible confirmation before replacing a different hidden composer",
+          "line": 617
+        },
+        {
+          "name": "stops on a restore conflict, refreshes metadata, and never forks the draft",
+          "line": 664
+        },
+        {
+          "name": "aborts and ignores draft list and restore responses after view or mailbox changes",
+          "line": 683
+        },
+        {
+          "name": "provides a focus-preserving mobile list-to-detail navigation",
+          "line": 733
+        },
+        {
+          "name": "keeps compose, sign-out, and locale controls reachable in the mobile toolbar",
+          "line": 756
+        },
+        {
+          "name": "switches every visible label and the document language without a reload",
+          "line": 780
+        },
+        {
+          "name": "does not let a late autosave result contaminate a new reply session",
+          "line": 794
+        },
+        {
+          "name": "locks every editable field before awaiting the final draft save",
+          "line": 839
+        },
+        {
+          "name": "freezes the clicked snapshot behind an older autosave and ignores later changes",
+          "line": 871
+        },
+        {
+          "name": "keeps an unknown submission immutable for an idempotent retry",
+          "line": 917
+        },
+        {
+          "name": "reopens exact unknown-submission evidence from commands without enabling Reply",
+          "line": 958
+        },
+        {
+          "name": "continues reconciliation from the last bound submission after a poll becomes unknown",
+          "line": 1011
+        },
+        {
+          "name": "unlocks editing only when the final draft save definitively failed before submission",
+          "line": 1062
+        },
+        {
+          "name": "pins an unknown submission to its mailbox and only reopens the frozen composer",
+          "line": 1093
+        },
+        {
+          "name": "invalidates an old mailbox autosave before composing from a new mailbox",
+          "line": 1149
+        },
+        {
+          "name": "keeps an in-flight submission session pinned until its exact response settles",
+          "line": 1207
+        },
+        {
+          "name": "does not let a delivered message timer close a newer composer session",
+          "line": 1256
+        },
+        {
+          "name": "terminates a failed mobile detail load and retries from the visible pane",
+          "line": 1285
+        },
+        {
+          "name": "shows mobile read and star failures in the visible detail pane",
+          "line": 1306
+        },
+        {
+          "name": "does not let late read and flag responses roll back each other",
+          "line": 1328
+        },
+        {
+          "name": "does not let the initial inbox response overwrite a newer search",
+          "line": 1370
+        },
+        {
+          "name": "does not let the initial inbox response overwrite a newer refresh",
+          "line": 1398
+        },
+        {
+          "name": "rebinds an opened detail to the latest summary for the same message identity",
+          "line": 1423
+        },
+        {
+          "name": "closes a removed detail and moves the inbox cursor deterministically after refresh",
+          "line": 1448
+        },
+        {
+          "name": "keeps a clear-search request authoritative over the late initial inbox",
+          "line": 1497
+        },
+        {
+          "name": "keeps load-more aggregation authoritative over the late initial inbox",
+          "line": 1539
+        },
+        {
+          "name": "preserves a confirmed star mutation while an inbox page is in flight",
+          "line": 1582
+        },
+        {
+          "name": "fails closed without changing the inbox when a later page repeats an identity",
+          "line": 1626
+        },
+        {
+          "name": "routes every inbox request to the selected mailbox and rejects a late old-mailbox page",
+          "line": 1653
+        },
+        {
+          "name": "uses the Agent mailbox identity exactly as returned by the directory when composing",
+          "line": 1696
+        },
+        {
+          "name": "ignores an unknown runtime preference and safely prefers a Human mailbox",
+          "line": 1724
+        },
+        {
+          "name": "fails closed with localized guidance when the directory is empty",
+          "line": 1756
+        },
+        {
+          "name": "resolves a later-page runtime preference before issuing any inbox request",
+          "line": 1774
+        },
+        {
+          "name": "exhausts an absent preference before falling back to the Human mailbox",
+          "line": 1822
+        },
+        {
+          "name": "bounds initial preference discovery to ten pages and leaves explicit pagination",
+          "line": 1862
+        },
+        {
+          "name": "keeps a current draft and mailbox when manual retry later reveals the preference",
+          "line": 1901
+        },
+        {
+          "name": "wires keyboard-first inbox navigation without overriding editable fields or dialogs",
+          "line": 1955
+        },
+        {
+          "name": "executes localized Compose, navigation, search, and refresh commands through Ctrl K",
+          "line": 2051
+        },
+        {
+          "name": "shows detail-only Reply and star commands only after a message is actually open",
+          "line": 2110
+        },
+        {
+          "name": "disables compose and reply affordances for a read-only shared mailbox",
+          "line": 2142
+        },
+        {
+          "name": "single-flights focus and protected-request revalidation while locking the old workspace",
+          "line": 2190
+        },
+        {
+          "name": "keeps the existing workspace inert after a temporary verification failure and restores it on retry",
+          "line": 2245
+        },
+        {
+          "name": "preserves workspace state when only the Session expiry is renewed",
+          "line": 2296
+        },
+        {
+          "name": "rebuilds the whole mail workspace when the authenticated context rotates",
+          "line": 2320
+        },
+        {
+          "name": "cannot bind a late old-identity draft write result into the rotated workspace",
+          "line": 2355
+        },
+        {
+          "name": "revalidates and signs out when a protected mail request returns 401",
+          "line": 2418
+        },
+        {
+          "name": "revalidates at the authenticated session expiry deadline",
+          "line": 2437
+        },
+        {
+          "name": "maps session failures to localized text without exposing machine errors",
+          "line": 2462
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/CommandPalette.test.tsx",
+      "sha256": "a6acd4b7fe757d50cb3f963c27e3b1da2293861e161a666479b75b3ec4960908",
+      "tests": [
+        {
+          "name": "filters real commands and runs only the active enabled command",
+          "line": 78
+        },
+        {
+          "name": "announces actual empty and no-result states",
+          "line": 97
+        },
+        {
+          "name": "makes marked application backgrounds inert and restores their exact attributes",
+          "line": 114
+        },
+        {
+          "name": "traps Tab, restores the opener after Escape, and cannot execute disabled actions",
+          "line": 134
+        },
+        {
+          "name": "reclaims escaped focus and dismisses only a complete direct backdrop gesture",
+          "line": 163
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/api.test.ts",
+      "sha256": "b48d4a3ce176be9c266aeb8f36373c88b981c5a630e65f97f2df0b9ce9fcf505",
+      "tests": [
+        {
+          "name": "notifies the session controller for every protected 401 response",
+          "line": 37
+        },
+        {
+          "name": "lists the bounded mailbox directory with the exact cursor contract",
+          "line": 97
+        },
+        {
+          "name": "fails closed on malformed mailbox directory identities and cursors",
+          "line": 122
+        },
+        {
+          "name": "requires canonical ordered mailbox pages with a cursor bound to the last item",
+          "line": 148
+        },
+        {
+          "name": "rejects a non-canonical directory request cursor before network I/O",
+          "line": 186
+        },
+        {
+          "name": "rejects a repeated next-page anchor or an item at or before the request cursor",
+          "line": 194
+        },
+        {
+          "name": "bounds inbox pages and sends only same-origin cookie credentials",
+          "line": 224
+        },
+        {
+          "name": "rejects non-success responses",
+          "line": 244
+        },
+        {
+          "name": "round-trips only the safe message UUID in the detail path",
+          "line": 249
+        },
+        {
+          "name": "rejects a reply identity that does not match the opened message",
+          "line": 271
+        },
+        {
+          "name": "updates only explicitly requested Human presentation state",
+          "line": 289
+        },
+        {
+          "name": "rejects non-UUID message path input before making a request",
+          "line": 312
+        },
+        {
+          "name": "fails closed on provider identifiers or mismatched UUIDs in inbox responses",
+          "line": 324
+        },
+        {
+          "name": "rejects unknown provider fields at every Human inbox response boundary",
+          "line": 366
+        },
+        {
+          "name": "rejects malformed types and values beyond the published bounds",
+          "line": 445
+        },
+        {
+          "name": "saves a draft without accepting a caller-selected From address",
+          "line": 484
+        },
+        {
+          "name": "requests submission with a header-only idempotency key",
+          "line": 525
+        },
+        {
+          "name": "binds a polled submission to its exact prior identity and transition",
+          "line": 568
+        },
+        {
+          "name": "rejects malformed draft requests before network I/O",
+          "line": 651
+        },
+        {
+          "name": "binds an exact draft save response to the requested identity and monotonic version",
+          "line": 670
+        },
+        {
+          "name": "rejects malformed submission request identities and idempotency keys before fetch",
+          "line": 701
+        },
+        {
+          "name": "rejects exact-record and identity substitutions in submission creation responses",
+          "line": 729
+        },
+        {
+          "name": "validates the prior poll snapshot before using it as request identity",
+          "line": 753
+        },
+        {
+          "name": "binds polls to one submission and rejects state rollback or illegal transitions",
+          "line": 770
+        },
+        {
+          "name": "enforces delivery recipient, count, terminal, and timestamp bounds",
+          "line": 825
+        },
+        {
+          "name": "allows delivery progress but rejects terminal-recipient or terminal-snapshot rewrites",
+          "line": 869
+        },
+        {
+          "name": "keeps sensitive search text in the POST body and preserves a bound cursor",
+          "line": 932
+        },
+        {
+          "name": "surfaces a stable search-specific error",
+          "line": 959
+        },
+        {
+          "name": "lists only metadata with a bounded opaque cursor and abort signal",
+          "line": 978
+        },
+        {
+          "name": "fails closed on malformed draft identities, versions, dates, counts, and cursors",
+          "line": 1004
+        },
+        {
+          "name": "restores one exact version without placing content in the URL",
+          "line": 1044
+        },
+        {
+          "name": "rejects restore response substitution and malformed recipient content",
+          "line": 1085
+        },
+        {
+          "name": "lists only accepted-send metadata with a bounded opaque cursor and abort signal",
+          "line": 1150
+        },
+        {
+          "name": "fails closed on extra or private fields, invalid aggregate evidence, and cursors",
+          "line": 1183
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/auth.test.ts",
+      "sha256": "3cb46feb6e62ece43c767632e891fc745b8d81303725849390b1e91b9ef1a6c9",
+      "tests": [
+        {
+          "name": "navigates to server login without discovery, PKCE, or browser storage",
+          "line": 14
+        },
+        {
+          "name": "projects a session without parsing, storing, or sending an access token",
+          "line": 36
+        },
+        {
+          "name": "treats an absent session cookie as signed out",
+          "line": 79
+        },
+        {
+          "name": "fails closed for malformed identifiers, non-RFC3339 timestamps, and expiry",
+          "line": 87
+        },
+        {
+          "name": "uses POST logout and rejects cross-origin API configuration",
+          "line": 136
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/components/ComposerDialog.test.tsx",
+      "sha256": "647bd3a311c603a895bc2f4fc5c4fe4a91bdde18695888b37389e2061b2d58cd",
+      "tests": [
+        {
+          "name": "places the supplied asynchronous status beside the only send action, outside Compose context",
+          "line": 50
+        },
+        {
+          "name": "keeps real manual-review evidence collapsed until the user explicitly opens it",
+          "line": 70
+        },
+        {
+          "name": "renders an Agent identity from the server mailbox directory without speculative metadata",
+          "line": 108
+        },
+        {
+          "name": "renders only aggregate server delivery evidence, never recipient or SMTP details",
+          "line": 135
+        },
+        {
+          "name": "shows the server-returned read-only boundary and prevents sending",
+          "line": 166
+        },
+        {
+          "name": "captures focus and initially focuses the recipient",
+          "line": 184
+        },
+        {
+          "name": "labels a restored draft distinctly and initially focuses its body",
+          "line": 195
+        },
+        {
+          "name": "focuses the first available control when submission locking disables recipients",
+          "line": 207
+        },
+        {
+          "name": "labels an unresolved frozen submission as confirming the same request, not a new send",
+          "line": 213
+        },
+        {
+          "name": "isolates every marked background and restores its exact attributes",
+          "line": 239
+        },
+        {
+          "name": "wraps Tab and Shift+Tab at the dialog boundaries",
+          "line": 262
+        },
+        {
+          "name": "closes on Escape when sending is idle",
+          "line": 276
+        },
+        {
+          "name": "refuses to close on Escape while sending",
+          "line": 285
+        },
+        {
+          "name": "restores focus to the captured trigger after unmount",
+          "line": 295
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/components/DraftList.test.tsx",
+      "sha256": "0b76ee8ddc9eb2ce60139ca07b3344d4818eea97e86bea8af1b514c3017a3a32",
+      "tests": [
+        {
+          "name": "renders only recovery metadata and exposes restore and pagination actions",
+          "line": 33
+        },
+        {
+          "name": "keeps drafts as one explicit recovery action with safe, human-readable metadata",
+          "line": 59
+        },
+        {
+          "name": "locks refresh, rows, and pagination while one restore is in flight",
+          "line": 106
+        },
+        {
+          "name": "announces refresh state and provides real recovery actions for errors and an empty list",
+          "line": 126
+        },
+        {
+          "name": "retries a draft directory error in place",
+          "line": 162
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/components/DraftRestoreConfirmDialog.test.tsx",
+      "sha256": "cd96f93d5617dbb16872757350ea585a8e02ad7f841044505c2c79d56a727542",
+      "tests": [
+        {
+          "name": "isolates background content, focuses the non-destructive action, and restores focus",
+          "line": 16
+        },
+        {
+          "name": "supports Escape and traps Tab between its two actions",
+          "line": 40
+        },
+        {
+          "name": "returns Tab focus to the dialog when focus was moved outside it",
+          "line": 53
+        },
+        {
+          "name": "keeps focus inside the mounted dialog and blocks dismissal while restore is busy",
+          "line": 70
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/components/MailNavigation.test.tsx",
+      "sha256": "c155400f792b68a3a75f4d805b2b846347c74329674eac46a1bbed1827ce174f",
+      "tests": [
+        {
+          "name": "keeps the selected Human identity and server sendability visible on desktop even while compose is busy",
+          "line": 38
+        },
+        {
+          "name": "keeps factual mobile scope visible while low-frequency controls are closed by default",
+          "line": 75
+        },
+        {
+          "name": "locks only the mailbox switch in an expanded mobile scope",
+          "line": 126
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/components/MailboxPicker.test.tsx",
+      "sha256": "586541be83b24ddb3b4ddede57403ac5e9af1c3d7db37549c006c4ae1e8b950a",
+      "tests": [
+        {
+          "name": "exposes mailbox identity, switching, and bounded pagination to assistive technology",
+          "line": 11
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/components/MessageDetail.test.tsx",
+      "sha256": "a038d7d2233b0b33677a551ad987fb4c37532698d4cfb0864da979cfe5e94965",
+      "tests": [
+        {
+          "name": "shows the exact sender address, received time, every To recipient, and Cc",
+          "line": 60
+        },
+        {
+          "name": "does not invent a Cc row when the server returns no Cc recipients",
+          "line": 78
+        },
+        {
+          "name": "renders an explicit empty value rather than a sender label for an empty To list",
+          "line": 83
+        },
+        {
+          "name": "keeps only server-authorized actions between the envelope and safe body",
+          "line": 89
+        },
+        {
+          "name": "does not render Reply before the server returns a matching reply relation",
+          "line": 117
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/components/MessageList.test.tsx",
+      "sha256": "c9711323863dc9d16beea09e21e279cdbd1aaa0c5ba7a08f62ddc07ae34c3019",
+      "tests": [
+        {
+          "name": "announces syncing and marks the message collection busy during its initial load and refresh",
+          "line": 48
+        },
+        {
+          "name": "retries an inbox failure in place",
+          "line": 64
+        },
+        {
+          "name": "retries a failed valid search instead of discarding the entered query",
+          "line": 78
+        },
+        {
+          "name": "keeps queue scanning bound to the existing summary fields and opens only on activation",
+          "line": 93
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/components/SentList.test.tsx",
+      "sha256": "cf7dbb42e0610219b8a0ee99095e413b511b8d64db468bb48bb1b24af5936b6d",
+      "tests": [
+        {
+          "name": "renders accepted-send and aggregate delivery metadata without sensitive evidence",
+          "line": 36
+        },
+        {
+          "name": "keeps sent records noninteractive while exposing only aggregate delivery evidence",
+          "line": 59
+        },
+        {
+          "name": "states a terminal all-delivered result without adding recipient-level detail",
+          "line": 93
+        },
+        {
+          "name": "locks refresh and pagination while the bounded page request is in flight",
+          "line": 119
+        },
+        {
+          "name": "shows all safe aggregate counters while delivery remains nonterminal",
+          "line": 134
+        },
+        {
+          "name": "announces refresh state and offers real recovery actions for errors and an empty list",
+          "line": 164
+        },
+        {
+          "name": "retries a sent directory error in place",
+          "line": 196
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/config.test.ts",
+      "sha256": "6b2c0a3114324511e032eece2152f37bc6440c08acad10b5bc4d802b17b605c2",
+      "tests": [
+        {
+          "name": "accepts only a canonical lowercase mailbox preference",
+          "line": 11
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/detail-request.test.ts",
+      "sha256": "0412f023e65761c908239c75a9f06737d5cdd2a75784885f4582388049a51073",
+      "tests": [
+        {
+          "name": "accepts only the latest deferred A-to-B detail result",
+          "line": 41
+        },
+        {
+          "name": "does not issue another request token for a state-updated summary with the same UUID",
+          "line": 65
+        },
+        {
+          "name": "requires both displayed and reply identities to match the selection",
+          "line": 72
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/i18n.test.ts",
+      "sha256": "e4b3509b9b7b8d9144e72c56fc49478b664892e3c168d1f2076cad43f250111f",
+      "tests": [
+        {
+          "name": "keeps both locale dictionaries and their interpolation parameters identical",
+          "line": 26
+        },
+        {
+          "name": "translates static and parameterized messages in both languages",
+          "line": 39
+        },
+        {
+          "name": "fails closed for unknown keys and missing or invalid parameters",
+          "line": 55
+        },
+        {
+          "name": "prioritizes persisted, document, and navigator locales in that order",
+          "line": 70
+        },
+        {
+          "name": "uses a deterministic fallback when no supported locale is available",
+          "line": 94
+        },
+        {
+          "name": "reads and persists locale without allowing storage failures to escape",
+          "line": 108
+        },
+        {
+          "name": "formats dates with locale-specific ordering",
+          "line": 128
+        },
+        {
+          "name": "formats numbers, message counts, and rounded-up KB values",
+          "line": 149
+        },
+        {
+          "name": "exposes the typed direct translator API",
+          "line": 161
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/mail-keyboard-shortcuts.test.tsx",
+      "sha256": "783fe5c7764b34545f891697ade69cd2024113c1382c5babf4e59d47ef1f1871",
+      "tests": [
+        {
+          "name": "opens the command palette with Ctrl or Command K before regular editable-field guards",
+          "line": 59
+        },
+        {
+          "name": "maps the promised mail navigation keys and g-prefixed view changes",
+          "line": 71
+        },
+        {
+          "name": "leaves editable fields and modal interactions to their local controls",
+          "line": 108
+        },
+        {
+          "name": "does not turn a held action key into repeated privileged actions",
+          "line": 128
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/mobile-touch-targets.test.tsx",
+      "sha256": "6e20025162bfd929396ae1ac5f1f4b71ed9bc1af9dd67097a45bc40a4b7a69ee",
+      "tests": [
+        {
+          "name": "defines 44px controls inside the viewport breakpoint, independent of pointer type",
+          "line": 64
+        },
+        {
+          "name": "keeps each styled mobile action on its semantic native control",
+          "line": 166
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/useComposerSession.test.tsx",
+      "sha256": "a3af82b9c8264ed1ddff108196b910895f66dfd404a3dc4326bdec48ba0e3931",
+      "tests": [
+        {
+          "name": "does not let an old send completion release a newer generation's flight",
+          "line": 107
+        },
+        {
+          "name": "admits only one Send invocation within the same render frame",
+          "line": 133
+        },
+        {
+          "name": "deduplicates same-frame unknown-result retries without replacing their idempotency key",
+          "line": 156
+        },
+        {
+          "name": "reset releases an old observer waiting on a locked Session without another poll",
+          "line": 177
+        },
+        {
+          "name": "cancels a pending autosave while Session verification is locked and resumes after unlock",
+          "line": 202
+        },
+        {
+          "name": "does not issue the next delivery poll until Session verification unlocks",
+          "line": 229
+        },
+        {
+          "name": "does not let an old autosave bind a new reply session",
+          "line": 267
+        },
+        {
+          "name": "preserves the restored draft version and skips only its first autosave",
+          "line": 312
+        },
+        {
+          "name": "does not report an unsavable recipient-free snapshot as saved",
+          "line": 339
+        },
+        {
+          "name": "reuses the idempotency key when the first submission outcome is unknown",
+          "line": 367
+        },
+        {
+          "name": "reopens one exact manual-review submission instead of clearing it for a new message",
+          "line": 397
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/useDraftDirectory.test.tsx",
+      "sha256": "78f49fa9526ecfa1776582fe9f3d00feeda858382f1bb51fc6fc40c065eb43af",
+      "tests": [
+        {
+          "name": "synchronously deactivates, aborts, and discards a late list response",
+          "line": 139
+        },
+        {
+          "name": "aborts the old mailbox list and only accepts the new mailbox response",
+          "line": 160
+        },
+        {
+          "name": "synchronously aborts an in-flight restore and never hands it to the composer",
+          "line": 192
+        },
+        {
+          "name": "keeps directory and pending restore memory while Session verification is locked",
+          "line": 218
+        },
+        {
+          "name": "rejects a non-progressing continuation without replacing the current page",
+          "line": 261
+        },
+        {
+          "name": "rejects out-of-order and repeated draft identities before they reach the view",
+          "line": 282
+        },
+        {
+          "name": "keeps restore conflict recovery bounded, refreshes metadata, and returns focus to the draft",
+          "line": 293
+        },
+        {
+          "name": "focuses the failed restore action and does not issue a restore while submission state is unresolved",
+          "line": 311
+        },
+        {
+          "name": "keeps confirmation state in the directory until the restored draft is handed to the composer",
+          "line": 343
+        }
+      ]
+    },
+    {
+      "path": "web/mail-app/src/useSentDirectory.test.tsx",
+      "sha256": "e87f4bbe3616b74039ddb68a8d1a0463916262335c072ec2e6edd4bee9d61ed9",
+      "tests": [
+        {
+          "name": "keeps initial loading separate from an intentional refresh and focuses the title only after the refresh succeeds",
+          "line": 95
+        },
+        {
+          "name": "synchronously deactivates, aborts, and discards a late directory response",
+          "line": 128
+        },
+        {
+          "name": "aborts the old mailbox request and only accepts the new mailbox response",
+          "line": 149
+        },
+        {
+          "name": "aborts an in-flight continuation when the directory unmounts",
+          "line": 181
+        },
+        {
+          "name": "keeps the previous page and exposes a bounded error when a continuation repeats an identity",
+          "line": 201
+        },
+        {
+          "name": "rejects non-progressing and duplicate cursor continuations before they reach the view",
+          "line": 222
+        }
+      ]
+    }
+  ]
+}

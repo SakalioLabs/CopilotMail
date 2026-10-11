@@ -4,11 +4,25 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use copilotmail_domain::{
-    AuditActor, AuditEvent, AuditOutcome, AuditResource, DomainError, HumanProfile, OrganizationId,
-    Principal, PrincipalId, PrincipalKind, ScimGroupId, ScimTokenId,
+    AuditActor, AuditEvent, AuditOutcome, AuditResource, AuthenticationBinding,
+    AuthorizationContext, DomainError, HumanProfile, OrganizationId, Principal, PrincipalId,
+    PrincipalKind, ScimGroupId, ScimTokenId,
 };
-use serde_json::{Value, json};
+use serde_json::json;
 use std::collections::BTreeSet;
+
+/// Request-proof context bound to the presenting SCIM credential so the unit of
+/// work is fenced against token revocation until commit.
+fn scim_request_context(credential: &ScimCredential) -> AuthorizationContext {
+    AuthorizationContext {
+        principal_id: credential.actor_principal_id,
+        organization_id: credential.organization_id,
+        permissions: BTreeSet::new(),
+        authentication: Some(AuthenticationBinding::ScimToken {
+            token_id: credential.token_id,
+        }),
+    }
+}
 
 /// Immutable input used to issue a tenant-scoped SCIM bearer token.
 #[derive(Debug, Clone)]
@@ -214,7 +228,7 @@ impl<S: ControlPlaneStore> RevokeScimTokenService<S> {
             },
             AuditOutcome::Success,
             command.trace_id,
-            Value::Null,
+            json!({"token_id": command.token_id}),
             command.now,
         )?;
         let event = PendingEvent::new(
@@ -257,7 +271,10 @@ where
             &command.user_name,
             &command.display_name,
         )?;
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self
+            .store
+            .begin_authorized(&scim_request_context(&command.credential))
+            .await?;
         if let Some(existing) = transaction
             .find_scim_user_by_external_id(command.credential.organization_id, &command.external_id)
             .await?
@@ -389,7 +406,10 @@ where
         next.version += 1;
         next.updated_at = command.now;
 
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self
+            .store
+            .begin_authorized(&scim_request_context(&command.credential))
+            .await?;
         let updated = transaction
             .replace_scim_user(&next, next.version - 1)
             .await?;
@@ -435,7 +455,10 @@ where
             &command.members,
         )?;
         let members = normalized_members(command.members);
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self
+            .store
+            .begin_authorized(&scim_request_context(&command.credential))
+            .await?;
         if let Some(existing) = transaction
             .find_scim_group_by_external_id(
                 command.credential.organization_id,
@@ -509,7 +532,10 @@ where
         next.members = normalized_members(command.members);
         next.version += 1;
         next.updated_at = command.now;
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self
+            .store
+            .begin_authorized(&scim_request_context(&command.credential))
+            .await?;
         if !transaction
             .replace_scim_group(&next, next.version - 1)
             .await?
@@ -545,7 +571,10 @@ where
         {
             return Err(ScimProvisioningError::VersionMismatch);
         }
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self
+            .store
+            .begin_authorized(&scim_request_context(&command.credential))
+            .await?;
         if !transaction
             .delete_scim_group(
                 command.credential.organization_id,
@@ -736,7 +765,8 @@ mod tests {
     use crate::{ControlPlaneTransaction, ExistingOrganizationBootstrap, ScimDirectoryQueryStore};
     use async_trait::async_trait;
     use copilotmail_domain::{
-        AuditEvent, Organization, OrganizationSlug, Role, RoleAssignment, ScimTokenId,
+        AuditEvent, AuthorizationContext, Organization, OrganizationSlug, Role, RoleAssignment,
+        ScimTokenId,
     };
     use std::sync::{Arc, Mutex};
 
@@ -812,6 +842,12 @@ mod tests {
 
     #[async_trait]
     impl ControlPlaneTransaction for MemoryTransaction {
+        async fn bind_request_authentication(
+            &mut self,
+            _: &AuthorizationContext,
+        ) -> Result<(), StoreError> {
+            Ok(())
+        }
         async fn find_organization_bootstrap(
             &mut self,
             _: &OrganizationSlug,

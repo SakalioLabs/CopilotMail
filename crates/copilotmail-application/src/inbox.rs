@@ -374,7 +374,11 @@ where
     ) -> Result<(), InboxError> {
         // Search text, message envelopes, provider identifiers, and cursor
         // state are deliberately excluded from durable evidence.
-        let mut transaction = self.store.begin().await.map_err(map_store_error)?;
+        let mut transaction = self
+            .store
+            .begin_authorized(context)
+            .await
+            .map_err(map_store_error)?;
         let audit = AuditEvent::new(
             context.organization_id,
             AuditActor {
@@ -429,7 +433,11 @@ where
         command: &GetMessageCommand,
         detail: &MailMessageDetail,
     ) -> Result<(), InboxError> {
-        let mut transaction = self.store.begin().await.map_err(map_store_error)?;
+        let mut transaction = self
+            .store
+            .begin_authorized(context)
+            .await
+            .map_err(map_store_error)?;
         let audit = AuditEvent::new(
             context.organization_id,
             AuditActor {
@@ -917,6 +925,7 @@ mod tests {
             principal_id,
             organization_id,
             permissions: [Permission::MailboxUse].into_iter().collect(),
+            authentication: None,
         };
         let page = service
             .list(
@@ -986,6 +995,7 @@ mod tests {
                 principal_id,
                 organization_id,
                 permissions: [Permission::MailboxUse].into_iter().collect(),
+                authentication: None,
             },
             ListInboxCommand {
                 mailbox_id,
@@ -1022,6 +1032,7 @@ mod tests {
                     principal_id: PrincipalId::new(),
                     organization_id,
                     permissions: BTreeSet::new(),
+                    authentication: None,
                 },
                 ListInboxCommand {
                     mailbox_id: MailboxId::new(),
@@ -1073,6 +1084,7 @@ mod tests {
             principal_id,
             organization_id,
             permissions: [Permission::MailboxUse].into_iter().collect(),
+            authentication: None,
         };
         service
             .search(
@@ -1168,6 +1180,7 @@ mod tests {
                     principal_id,
                     organization_id,
                     permissions: [Permission::MailboxUse].into_iter().collect(),
+                    authentication: None,
                 },
                 SearchInboxCommand {
                     mailbox_id,
@@ -1195,6 +1208,7 @@ mod tests {
             principal_id,
             organization_id,
             permissions: [Permission::MailboxUse].into_iter().collect(),
+            authentication: None,
         };
 
         let evidence = Arc::new(Mutex::new(Evidence::default()));
@@ -1287,6 +1301,7 @@ mod tests {
                     principal_id: PrincipalId::new(),
                     organization_id,
                     permissions: [Permission::MailboxUse].into_iter().collect(),
+                    authentication: None,
                 },
                 UpdateMessageStateCommand {
                     mailbox_id: MailboxId::new(),

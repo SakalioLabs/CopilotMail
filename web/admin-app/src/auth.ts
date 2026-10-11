@@ -31,9 +31,20 @@ function parseSession(value: unknown): HumanSessionResponse {
   };
   if (
     typeof session.principal_id !== "string"
+    || session.principal_id.length === 0
+    || session.principal_id.length > 200
+    || session.principal_id.trim() !== session.principal_id
+    || /[\u0000-\u001f\u007f]/.test(session.principal_id)
     || typeof session.organization_id !== "string"
+    || session.organization_id.length === 0
+    || session.organization_id.length > 200
+    || session.organization_id.trim() !== session.organization_id
+    || /[\u0000-\u001f\u007f]/.test(session.organization_id)
     || (session.client !== "admin" && session.client !== "mail")
     || typeof session.expires_at !== "string"
+    || session.expires_at.length === 0
+    || session.expires_at.length > 64
+    || !Number.isFinite(Date.parse(session.expires_at))
   ) {
     throw new Error("session_response_invalid");
   }
@@ -58,6 +69,7 @@ export function startLogin(
 
 export async function loadSession(
   config: RuntimeConfig,
+  now = Date.now(),
 ): Promise<HumanSessionResponse | null> {
   const response = await fetch(endpoint(config, "/api/v2/auth/admin/session"), {
     method: "GET",
@@ -74,6 +86,7 @@ export async function loadSession(
   ) {
     throw new Error("session_context_mismatch");
   }
+  if (Date.parse(session.expires_at) <= now) return null;
   return session;
 }
 

@@ -92,7 +92,7 @@ const session = {
   principal_id: "019b0000-0000-7000-8000-000000000010",
   organization_id: "019b0000-0000-7000-8000-000000000011",
   client: "mail" as const,
-  expires_at: "2026-07-27T13:00:00.000Z",
+  expires_at: "2099-07-27T13:00:00.000Z",
 };
 
 const draftResult: DraftResult = {
@@ -187,11 +187,17 @@ async function flushMicrotasks() {
   for (let index = 0; index < 12; index += 1) await Promise.resolve();
 }
 
+function composerIdentity(dialog: HTMLElement) {
+  return within(dialog).getByRole("region", {
+    name: /写信上下文|Compose context/,
+  });
+}
+
 function setNarrowViewport(narrow: boolean) {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     value: vi.fn().mockImplementation((query: string) => ({
-      matches: narrow && query === "(max-width: 900px)",
+      matches: narrow && query === "(max-width: 1007px)",
       media: query,
       onchange: null,
       addEventListener: vi.fn(),
@@ -355,6 +361,40 @@ describe("human mail application shell", () => {
     expect(screen.queryByText("Delivery update: 1/2 delivered")).not.toBeInTheDocument();
   });
 
+  it("deactivates the sent directory synchronously before changing mailbox scope", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const secondaryMailbox = {
+      mailbox_id: "019b0000-0000-7000-8000-000000000021",
+      kind: "agent" as const,
+      primary_address: "triage-agent@example.com",
+      can_send: true,
+    };
+    const latePage = deferred<HumanSentSubmissionPage>();
+    vi.mocked(api.listMailboxes).mockResolvedValue({
+      ...mailboxDirectory,
+      items: [...mailboxDirectory.items, secondaryMailbox],
+    });
+    vi.mocked(api.listSentSubmissions).mockReset().mockReturnValueOnce(latePage.promise);
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Inbox" });
+    const sidebar = container.querySelector<HTMLElement>(".sidebar")!;
+    fireEvent.click(within(sidebar).getByRole("button", { name: "Sent" }));
+    await waitFor(() => expect(api.listSentSubmissions).toHaveBeenCalledTimes(1));
+    const signal = vi.mocked(api.listSentSubmissions).mock.calls[0]?.[2];
+
+    fireEvent.change(within(sidebar).getByRole("combobox", { name: "Switch mailbox" }), {
+      target: { value: secondaryMailbox.mailbox_id },
+    });
+
+    expect(signal?.aborted).toBe(true);
+    await act(async () => {
+      latePage.resolve(sentPage);
+      await flushMicrotasks();
+    });
+    expect(await screen.findByRole("heading", { name: "Inbox" })).toBeInTheDocument();
+    expect(screen.queryByText("Delivery update: 1/2 delivered")).not.toBeInTheDocument();
+  });
+
   it("renders an empty draft state and can refresh it without retaining content", async () => {
     localStorage.setItem(LOCALE_STORAGE_KEY, "en");
     vi.mocked(api.listDrafts)
@@ -368,11 +408,110 @@ describe("human mail application shell", () => {
 
     expect(await screen.findByText("This mailbox has no draft that can be restored"))
       .toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Refresh drafts" }));
+    fireEvent.click(within(container.querySelector<HTMLElement>(".empty--actionable")!)
+      .getByRole("button", { name: "Refresh drafts" }));
 
     expect(await screen.findByRole("button", { name: /Resume editing/ }))
       .toBeInTheDocument();
     expect(api.listDrafts).toHaveBeenCalledTimes(2);
+  });
+
+  it("confirms before a mailbox change clears local writing content", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const secondMailbox = {
+      mailbox_id: "019b0000-0000-7000-8000-000000000021",
+      kind: "shared" as const,
+      primary_address: "support@example.com",
+      can_send: true,
+    };
+    vi.mocked(api.listMailboxes).mockResolvedValueOnce({
+      items: [...mailboxDirectory.items, secondMailbox],
+      next_cursor: null,
+      has_more: false,
+    });
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Inbox" });
+    const sidebar = container.querySelector<HTMLElement>(".sidebar")!;
+    const mailboxSelect = within(sidebar).getByRole("combobox", { name: "Switch mailbox" });
+
+    fireEvent.click(within(sidebar).getByRole("button", { name: "Compose" }));
+    fireEvent.change(screen.getByLabelText("Message body"), {
+      target: { value: "Local content that has no recipient and cannot autosave" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Close composer" }));
+    fireEvent.change(mailboxSelect, { target: { value: secondMailbox.mailbox_id } });
+
+    const warning = await screen.findByRole("alertdialog", {
+      name: "Leave the current writing context?",
+    });
+    expect(within(warning).getByRole("button", { name: "Keep editing" })).toHaveFocus();
+    fireEvent.click(within(warning).getByRole("button", { name: "Keep editing" }));
+    expect(mailboxSelect).toHaveValue(mailboxDirectory.items[0].mailbox_id);
+    const reopenedComposer = await screen.findByRole("dialog", { name: "New message" });
+    expect(within(reopenedComposer).getByLabelText("Message body"))
+      .toHaveValue("Local content that has no recipient and cannot autosave");
+    await waitFor(() => expect(within(reopenedComposer).getByLabelText("To")).toHaveFocus());
+    fireEvent.click(screen.getByRole("button", { name: "Close composer" }));
+
+    fireEvent.change(mailboxSelect, { target: { value: secondMailbox.mailbox_id } });
+    fireEvent.click(await screen.findByRole("button", { name: "Leave and continue" }));
+    await waitFor(() => expect(mailboxSelect).toHaveValue(secondMailbox.mailbox_id));
+    fireEvent.click(within(sidebar).getByRole("button", { name: "Compose" }));
+    expect(screen.getByLabelText("Message body")).toHaveValue("");
+  });
+
+  it("confirms before Compose replaces a closed reply context", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Inbox" });
+    fireEvent.click(await screen.findByRole("button", { name: /Alice/ }));
+    await screen.findByText("The safe plain-text message body.");
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    fireEvent.change(screen.getByLabelText("Message body"), {
+      target: { value: "Reply context that must not disappear silently" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Close composer" }));
+
+    const compose = within(container.querySelector<HTMLElement>(".sidebar")!)
+      .getByRole("button", { name: "Compose" });
+    fireEvent.click(compose);
+    const warning = await screen.findByRole("alertdialog", {
+      name: "Leave the current writing context?",
+    });
+    fireEvent.click(within(warning).getByRole("button", { name: "Leave and continue" }));
+
+    expect(await screen.findByRole("dialog", { name: "New message" })).toBeInTheDocument();
+    expect(screen.getByLabelText("To")).toHaveValue("");
+    expect(screen.getByLabelText("Message body")).toHaveValue("");
+  });
+
+  it("confirms sign-out while a local writing context is still present", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Inbox" });
+    const sidebar = container.querySelector<HTMLElement>(".sidebar")!;
+    fireEvent.click(within(sidebar).getByRole("button", { name: "Compose" }));
+    fireEvent.change(screen.getByLabelText("Message body"), {
+      target: { value: "Do not lose this on an accidental sign-out" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Close composer" }));
+
+    const signOut = within(sidebar).getByRole("button", { name: "Sign out" });
+    fireEvent.click(signOut);
+    const warning = await screen.findByRole("alertdialog", {
+      name: "Leave the current writing context?",
+    });
+    fireEvent.click(within(warning).getByRole("button", { name: "Keep editing" }));
+    expect(auth.logout).not.toHaveBeenCalled();
+    const reopenedComposer = await screen.findByRole("dialog", { name: "New message" });
+    expect(within(reopenedComposer).getByLabelText("Message body"))
+      .toHaveValue("Do not lose this on an accidental sign-out");
+    await waitFor(() => expect(within(reopenedComposer).getByLabelText("To")).toHaveFocus());
+    fireEvent.click(within(reopenedComposer).getByRole("button", { name: "Close composer" }));
+
+    fireEvent.click(signOut);
+    fireEvent.click(await screen.findByRole("button", { name: "Leave and continue" }));
+    await waitFor(() => expect(auth.logout).toHaveBeenCalledTimes(1));
   });
 
   it("shows bounded draft errors and appends only a progressing next page", async () => {
@@ -437,7 +576,7 @@ describe("human mail application shell", () => {
       expect.objectContaining({ draft_id: listedDraftId, version: 4 }),
       expect.any(AbortSignal),
     );
-    expect(within(composer).getByLabelText("From")).toHaveValue("reader@example.com");
+    expect(composerIdentity(composer)).toHaveTextContent("reader@example.com");
     expect(within(composer).getByLabelText("To")).toHaveValue("alice@example.com");
     expect(within(composer).getByLabelText("Cc")).toHaveValue("bob@example.com");
     expect(within(composer).getByLabelText("Bcc")).toHaveValue("audit@example.com");
@@ -680,6 +819,7 @@ describe("human mail application shell", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Alice/ }));
     await screen.findByText("The safe plain-text message body.");
     fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Leave and continue" }));
     expect(screen.getByRole("dialog", { name: "Reply" })).toBeInTheDocument();
 
     await act(async () => {
@@ -793,12 +933,17 @@ describe("human mail application shell", () => {
       await flushMicrotasks();
     });
 
-    expect(screen.getByText(
-      "The send request status is unknown; retrying will not send a duplicate",
-    )).toBeInTheDocument();
+    const unknownStatus = screen.getByText(
+      "The send request status is unknown; confirm the same submission again—no duplicate email will be created",
+    );
+    expect(unknownStatus.closest(".status-indicator")).toHaveClass(
+      "status-indicator--warning",
+    );
     expect(screen.getByLabelText("To")).toBeDisabled();
     expect(screen.getByLabelText("Message body")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Retry send" })).toBeEnabled();
+    expect(screen.getByRole("button", {
+      name: "Confirm same submission (no duplicate email)",
+    })).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Close composer" }));
     fireEvent.click(within(container.querySelector<HTMLElement>(".sidebar")!)
@@ -810,7 +955,7 @@ describe("human mail application shell", () => {
     expect(api.restoreDraft).not.toHaveBeenCalled();
   });
 
-  it("cannot bypass an unknown submission through closed-composer Reply or Compose", async () => {
+  it("reopens exact unknown-submission evidence from commands without enabling Reply", async () => {
     localStorage.setItem(LOCALE_STORAGE_KEY, "en");
     vi.mocked(api.saveDraft).mockResolvedValue(draftResult);
     vi.mocked(api.requestSubmission).mockRejectedValueOnce(
@@ -830,8 +975,24 @@ describe("human mail application shell", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await screen.findByText(
-      "The send request status is unknown; retrying will not send a duplicate",
+      "The send request status is unknown; confirm the same submission again—no duplicate email will be created",
     );
+    fireEvent.click(screen.getByRole("button", { name: "Close composer" }));
+
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .command-trigger")!);
+    const lockedCommandSearch = await screen.findByRole("combobox", { name: "Search commands" });
+    const lockedCompose = screen.getByRole("option", { name: "Review pending send" });
+    expect(lockedCompose).toBeEnabled();
+    expect(lockedCompose).toHaveAccessibleDescription(
+      "Reopen the frozen evidence for the previous email send",
+    );
+    fireEvent.change(lockedCommandSearch, { target: { value: "pending" } });
+    fireEvent.keyDown(lockedCommandSearch, { key: "Enter" });
+    expect(await screen.findByRole("dialog", { name: "New message" })).toBeInTheDocument();
+    expect(screen.getByLabelText("To")).toHaveValue("frozen@example.com");
+    expect(screen.getByLabelText("Subject")).toHaveValue("Frozen subject");
+    expect(screen.getByLabelText("To")).toBeDisabled();
+    expect(api.saveDraft).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Close composer" }));
 
     const reply = screen.getByRole("button", { name: "Reply" });
@@ -839,7 +1000,7 @@ describe("human mail application shell", () => {
     fireEvent.click(reply);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.keyDown(document, { key: "c" });
     expect(screen.getByRole("dialog", { name: "New message" })).toBeInTheDocument();
     expect(screen.getByLabelText("To")).toHaveValue("frozen@example.com");
     expect(screen.getByLabelText("Subject")).toHaveValue("Frozen subject");
@@ -879,12 +1040,14 @@ describe("human mail application shell", () => {
       await flushMicrotasks();
     });
     expect(screen.getByText(
-      "The send request status is unknown; retrying will not send a duplicate",
+      "The send request status is unknown; confirm the same submission again—no duplicate email will be created",
     )).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Close composer" }));
     fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
-    fireEvent.click(screen.getByRole("button", { name: "Retry send" }));
+    fireEvent.click(screen.getByRole("button", {
+      name: "Confirm same submission (no duplicate email)",
+    }));
     await act(async () => {
       await flushMicrotasks();
     });
@@ -955,7 +1118,7 @@ describe("human mail application shell", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await screen.findByText(
-      "The send request status is unknown; retrying will not send a duplicate",
+      "The send request status is unknown; confirm the same submission again—no duplicate email will be created",
     );
     expect(screen.getByLabelText("To")).toBeDisabled();
     const originalKey = vi.mocked(api.requestSubmission).mock.calls[0]?.[3];
@@ -971,11 +1134,13 @@ describe("human mail application shell", () => {
     );
     fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
 
-    expect(screen.getByLabelText("From")).toHaveValue("reader@example.com");
+    expect(composerIdentity(screen.getByRole("dialog"))).toHaveTextContent("reader@example.com");
     expect(screen.getByLabelText("To")).toBeDisabled();
     expect(screen.getByLabelText("To")).toHaveValue("alice@example.com");
     expect(screen.getByLabelText("Message body")).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Retry send" }));
+    fireEvent.click(screen.getByRole("button", {
+      name: "Confirm same submission (no duplicate email)",
+    }));
     await waitFor(() => expect(api.requestSubmission).toHaveBeenCalledTimes(2));
     expect(vi.mocked(api.requestSubmission).mock.calls[1]?.[3]).toBe(originalKey);
     expect(api.saveDraft).toHaveBeenCalledTimes(1);
@@ -1015,10 +1180,11 @@ describe("human mail application shell", () => {
     fireEvent.change(container.querySelector<HTMLSelectElement>(".sidebar .mailbox-picker select")!, {
       target: { value: "019b0000-0000-7000-8000-000000000021" },
     });
+    fireEvent.click(await screen.findByRole("button", { name: "Leave and continue" }));
     await waitFor(() => expect(vi.mocked(api.listInbox).mock.calls.at(-1)?.[0].mailboxId)
       .toBe("019b0000-0000-7000-8000-000000000021"));
     fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
-    expect(screen.getByLabelText("From")).toHaveValue("support@example.com");
+    expect(composerIdentity(screen.getByRole("dialog"))).toHaveTextContent("support@example.com");
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "new@example.com" },
     });
@@ -1071,7 +1237,7 @@ describe("human mail application shell", () => {
     expect(mailboxPicker).toBeDisabled();
     fireEvent.change(mailboxPicker, { target: { value: sharedMailboxId } });
     fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
-    expect(screen.getByLabelText("From")).toHaveValue("reader@example.com");
+    expect(composerIdentity(screen.getByRole("dialog"))).toHaveTextContent("reader@example.com");
     expect(screen.getByLabelText("To")).toHaveValue("old@example.com");
     expect(screen.getByLabelText("To")).toBeDisabled();
     await act(async () => {
@@ -1254,6 +1420,80 @@ describe("human mail application shell", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("rebinds an opened detail to the latest summary for the same message identity", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const updatedMessage: MessageSummary = {
+      ...message,
+      subject: "Quarterly review — updated",
+      preview: "Fresh server summary",
+      is_flagged: true,
+    };
+    vi.mocked(api.listInbox)
+      .mockReset()
+      .mockResolvedValueOnce(page)
+      .mockResolvedValueOnce({ ...page, items: [updatedMessage] });
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Quarterly review/ }));
+    expect(await screen.findByText(detail.text_body)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    expect(await screen.findByRole("heading", {
+      name: "Quarterly review — updated",
+    })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Remove star" })).toBeVisible();
+    expect(api.getMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes a removed detail and moves the inbox cursor deterministically after refresh", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const survivingMessage: MessageSummary = {
+      ...message,
+      message_id: "019b0000-0000-7000-8000-000000000002",
+      subject: "Roadmap after refresh",
+      from: [{ name: "Bob", email: "bob@example.com" }],
+    };
+    vi.mocked(api.listInbox)
+      .mockReset()
+      .mockResolvedValueOnce({
+        items: [{ ...message }, survivingMessage],
+        next_cursor: null,
+        has_more: false,
+      })
+      .mockResolvedValueOnce({
+        items: [survivingMessage],
+        next_cursor: null,
+        has_more: false,
+      });
+    vi.mocked(api.getMessage).mockImplementation(async (_settings, messageId) => ({
+      ...detail,
+      message: messageId === survivingMessage.message_id ? survivingMessage : message,
+      reply_to_message_id: messageId,
+      text_body: messageId === survivingMessage.message_id
+        ? "The surviving message body."
+        : detail.text_body,
+    }));
+    const { container } = render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Quarterly review/ }));
+    expect(await screen.findByText(detail.text_body)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    const fallback = await screen.findByRole("button", { name: /Roadmap after refresh/ });
+    await waitFor(() => expect(fallback).toHaveAttribute("aria-current", "true"));
+    await waitFor(() => expect(fallback).toHaveFocus());
+    expect(screen.queryByText(detail.text_body)).not.toBeInTheDocument();
+    expect(container.querySelector(".mail-shell")).not.toHaveClass("message-open");
+
+    fireEvent.keyDown(document, { key: "Enter" });
+    expect(await screen.findByText("The surviving message body.")).toBeVisible();
+    expect(api.getMessage).toHaveBeenLastCalledWith(
+      expect.anything(),
+      survivingMessage.message_id,
+      expect.anything(),
+    );
+  });
+
   it("keeps a clear-search request authoritative over the late initial inbox", async () => {
     localStorage.setItem(LOCALE_STORAGE_KEY, "en");
     const initial = deferred<InboxPage>();
@@ -1339,6 +1579,77 @@ describe("human mail application shell", () => {
     expect(screen.getByText("First search page")).toBeInTheDocument();
   });
 
+  it("preserves a confirmed star mutation while an inbox page is in flight", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const more = deferred<InboxPage>();
+    const firstPage: InboxPage = {
+      items: [{ ...message }],
+      next_cursor: "next-page-token",
+      has_more: true,
+    };
+    const olderMessage = {
+      ...message,
+      message_id: "019b0000-0000-7000-8000-000000000107",
+      subject: "Older message remains appended",
+    };
+    vi.mocked(api.listInbox)
+      .mockReset()
+      .mockResolvedValueOnce(firstPage)
+      .mockReturnValueOnce(more.promise);
+    vi.mocked(api.updateMessageState).mockResolvedValue({
+      message_id: message.message_id,
+      is_read: true,
+      is_flagged: true,
+    });
+    render(<App />);
+
+    const row = await screen.findByRole("button", { name: /Quarterly review/ });
+    fireEvent.click(row);
+    await screen.findByText("The safe plain-text message body.");
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add star" }));
+    await waitFor(() => expect(api.updateMessageState).toHaveBeenCalledWith(
+      expect.anything(),
+      message.message_id,
+      { is_flagged: true },
+    ));
+
+    await act(async () => {
+      more.resolve({ items: [olderMessage], next_cursor: null, has_more: false });
+      await flushMicrotasks();
+    });
+
+    expect(await screen.findByText("Older message remains appended")).toBeInTheDocument();
+    expect(within(row).getByText("Starred")).toBeInTheDocument();
+  });
+
+  it("fails closed without changing the inbox when a later page repeats an identity", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const firstPage: InboxPage = {
+      items: [{ ...message }],
+      next_cursor: "next-page-token",
+      has_more: true,
+    };
+    vi.mocked(api.listInbox)
+      .mockReset()
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce({
+        items: [{ ...message, subject: "Conflicting duplicate" }],
+        next_cursor: null,
+        has_more: false,
+      });
+    render(<App />);
+
+    await screen.findByRole("button", { name: /Quarterly review/ });
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Unable to load more inbox messages",
+    );
+    expect(screen.getByText("Quarterly review")).toBeInTheDocument();
+    expect(screen.queryByText("Conflicting duplicate")).not.toBeInTheDocument();
+  });
+
   it("routes every inbox request to the selected mailbox and rejects a late old-mailbox page", async () => {
     localStorage.setItem(LOCALE_STORAGE_KEY, "en");
     const oldMailboxPage = deferred<InboxPage>();
@@ -1382,6 +1693,34 @@ describe("human mail application shell", () => {
     expect(screen.queryByText("Quarterly review")).not.toBeInTheDocument();
   });
 
+  it("uses the Agent mailbox identity exactly as returned by the directory when composing", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    vi.mocked(api.listMailboxes).mockResolvedValueOnce({
+      items: [{
+        mailbox_id: "019b0000-0000-7000-8000-000000000024",
+        kind: "agent",
+        primary_address: "triage-agent@example.com",
+        can_send: true,
+      }],
+      next_cursor: null,
+      has_more: false,
+    });
+
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Inbox" });
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+
+    const composer = await screen.findByRole("dialog", { name: "New message" });
+    const identity = composerIdentity(composer);
+    expect(within(identity).getByText("Agent")).toBeInTheDocument();
+    expect(within(identity).getByText("triage-agent@example.com")).toBeInTheDocument();
+    expect(within(identity).getByText(
+      "Server status: this mailbox can send email.",
+    )).toBeInTheDocument();
+    expect(identity).not.toHaveTextContent(/owner|delegat|on behalf|actor/i);
+    expect(identity.querySelector("[data-owner], [data-scope], [data-delegation]")).toBeNull();
+  });
+
   it("ignores an unknown runtime preference and safely prefers a Human mailbox", async () => {
     localStorage.setItem(LOCALE_STORAGE_KEY, "en");
     window.__COPILOTMAIL_MAIL_CONFIG__ = {
@@ -1407,9 +1746,11 @@ describe("human mail application shell", () => {
 
     expect(container.querySelector<HTMLSelectElement>(".sidebar .mailbox-picker select"))
       .toHaveValue("019b0000-0000-7000-8000-000000000020");
-    expect(vi.mocked(api.listInbox).mock.calls[0]?.[0].mailboxId).toBe(
-      "019b0000-0000-7000-8000-000000000020",
-    );
+    await waitFor(() => {
+      expect(vi.mocked(api.listInbox).mock.calls[0]?.[0].mailboxId).toBe(
+        "019b0000-0000-7000-8000-000000000020",
+      );
+    });
   });
 
   it("fails closed with localized guidance when the directory is empty", async () => {
@@ -1418,11 +1759,14 @@ describe("human mail application shell", () => {
       next_cursor: null,
       has_more: false,
     });
-    render(<App />);
+    const { container } = render(<App />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "你的账号当前没有可访问的邮箱，请联系管理员",
     );
+    const accessSurface = container.querySelector<HTMLElement>("[data-mail-access='directory']");
+    expect(accessSurface).toBeInTheDocument();
+    expect(accessSurface?.querySelector(".mail-access__visual")).toBeNull();
     expect(api.listInbox).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "退出登录" })).toBeInTheDocument();
   });
@@ -1543,8 +1887,10 @@ describe("human mail application shell", () => {
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
 
-    expect(api.listMailboxes).toHaveBeenCalledTimes(10);
-    expect(api.listInbox).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(api.listMailboxes).toHaveBeenCalledTimes(10);
+      expect(api.listInbox).toHaveBeenCalledTimes(1);
+    });
     expect(vi.mocked(api.listInbox).mock.calls[0]?.[0].mailboxId).toBe(
       "019b0000-0000-7000-8000-000000000020",
     );
@@ -1603,7 +1949,194 @@ describe("human mail application shell", () => {
     expect(container.querySelector<HTMLSelectElement>(".sidebar .mailbox-picker select")).toHaveValue(
       "019b0000-0000-7000-8000-000000000020",
     );
-    expect(screen.getByLabelText("From")).toHaveValue("reader@example.com");
+    expect(composerIdentity(screen.getByRole("dialog"))).toHaveTextContent("reader@example.com");
+  });
+
+  it("wires keyboard-first inbox navigation without overriding editable fields or dialogs", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const secondMessage: MessageSummary = {
+      ...message,
+      message_id: "019b0000-0000-7000-8000-000000000002",
+      subject: "Roadmap review",
+      from: [{ name: "Bob", email: "bob@example.com" }],
+      is_read: false,
+    };
+    const unreadFirstMessage = { ...message, is_read: false };
+    vi.mocked(api.listInbox).mockResolvedValueOnce({
+      ...page,
+      items: [unreadFirstMessage, secondMessage],
+    });
+    vi.mocked(api.getMessage).mockImplementation(async (_settings, messageId) => ({
+      ...detail,
+      message: messageId === secondMessage.message_id ? secondMessage : unreadFirstMessage,
+      reply_to_message_id: messageId,
+    }));
+    const { container } = render(<App />);
+
+    await screen.findByRole("heading", { name: "Inbox" });
+    const search = screen.getByRole("textbox", { name: "Search email" });
+    fireEvent.keyDown(document, { key: "/" });
+    await waitFor(() => expect(search).toHaveFocus());
+
+    fireEvent.keyDown(search, { key: "c" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    search.blur();
+
+    fireEvent.keyDown(document, { key: "j" });
+    await waitFor(() => {
+      expect(container.querySelectorAll<HTMLButtonElement>(".message")[0])
+        .toHaveAttribute("aria-current", "true");
+    });
+    fireEvent.keyDown(document, { key: "j" });
+    await waitFor(() => {
+      expect(container.querySelectorAll<HTMLButtonElement>(".message")[1])
+        .toHaveAttribute("aria-current", "true");
+    });
+    fireEvent.keyDown(document, { key: "k" });
+    await waitFor(() => {
+      expect(container.querySelectorAll<HTMLButtonElement>(".message")[0])
+        .toHaveAttribute("aria-current", "true");
+    });
+    expect(api.getMessage).not.toHaveBeenCalled();
+    expect(api.updateMessageState).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(document, { key: "Enter" });
+    await screen.findByText("The safe plain-text message body.");
+    expect(api.getMessage).toHaveBeenCalledWith(
+      expect.anything(),
+      message.message_id,
+      expect.anything(),
+    );
+    await waitFor(() => expect(api.updateMessageState).toHaveBeenCalledWith(
+      expect.anything(),
+      message.message_id,
+      { is_read: true },
+    ));
+
+    fireEvent.keyDown(document, { key: "r" });
+    expect(await screen.findByRole("dialog", { name: "Reply" })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "s" });
+    expect(vi.mocked(api.updateMessageState).mock.calls.some(([, , update]) => (
+      update.is_flagged !== undefined
+    ))).toBe(false);
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    fireEvent.keyDown(document, { key: "s" });
+    await waitFor(() => expect(api.updateMessageState).toHaveBeenCalledWith(
+      expect.anything(),
+      message.message_id,
+      { is_flagged: true },
+    ));
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => {
+      expect(container.querySelectorAll<HTMLButtonElement>(".message")[0])
+        .toHaveAttribute("aria-current", "true");
+      expect(container.querySelectorAll<HTMLButtonElement>(".message")[0]).toHaveFocus();
+    });
+    fireEvent.keyDown(document, { key: "Enter" });
+    await screen.findByText("The safe plain-text message body.");
+
+    fireEvent.keyDown(document, { key: "g" });
+    fireEvent.keyDown(document, { key: "d" });
+    await screen.findByRole("heading", { name: "Drafts" });
+    fireEvent.keyDown(document, { key: "g" });
+    fireEvent.keyDown(document, { key: "s" });
+    await screen.findByRole("heading", { name: "Sent" });
+    fireEvent.keyDown(document, { key: "g" });
+    fireEvent.keyDown(document, { key: "i" });
+    await screen.findByRole("heading", { name: "Inbox" });
+  });
+
+  it("executes localized Compose, navigation, search, and refresh commands through Ctrl K", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Inbox" });
+    const trigger = container.querySelector<HTMLButtonElement>(".sidebar .command-trigger")!;
+
+    trigger.focus();
+    fireEvent.keyDown(document, { key: "k", ctrlKey: true });
+    const commandSearch = await screen.findByRole("combobox", { name: "Search commands" });
+    const background = container.querySelector<HTMLElement>(".mail-shell");
+    expect(background).toHaveAttribute("data-dialog-background");
+    expect(background).toHaveAttribute("aria-hidden", "true");
+    expect(background).toHaveAttribute("inert", "");
+    expect(background?.contains(screen.getByRole("dialog", { name: "Command palette" })))
+      .toBe(false);
+    expect(screen.getByRole("option", { name: "Compose" })).toHaveTextContent("C");
+    expect(screen.getByRole("option", { name: "Go to sent" })).toHaveTextContent("G S");
+    fireEvent.keyDown(commandSearch, { key: "Escape" });
+    await waitFor(() => {
+      expect(trigger).toHaveFocus();
+      expect(background).not.toHaveAttribute("aria-hidden");
+      expect(background).not.toHaveAttribute("inert");
+    });
+
+    fireEvent.keyDown(document, { key: "k", ctrlKey: true });
+    const composeCommand = await screen.findByRole("combobox", { name: "Search commands" });
+    fireEvent.change(composeCommand, { target: { value: "compose" } });
+    fireEvent.keyDown(composeCommand, { key: "Enter" });
+    expect(await screen.findByRole("dialog", { name: "New message" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("To")).toHaveFocus());
+    fireEvent.click(screen.getByRole("button", { name: "Close composer" }));
+
+    fireEvent.keyDown(document, { key: "k", metaKey: true });
+    const searchCommand = await screen.findByRole("combobox", { name: "Search commands" });
+    fireEvent.change(searchCommand, { target: { value: "focus email search" } });
+    fireEvent.keyDown(searchCommand, { key: "Enter" });
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Search email" })).toHaveFocus());
+
+    trigger.focus();
+    fireEvent.keyDown(document, { key: "k", ctrlKey: true });
+    const refreshCommand = await screen.findByRole("combobox", { name: "Search commands" });
+    fireEvent.change(refreshCommand, { target: { value: "refresh current" } });
+    fireEvent.keyDown(refreshCommand, { key: "Enter" });
+    await waitFor(() => expect(api.listInbox).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(trigger).toHaveFocus());
+
+    fireEvent.keyDown(document, { key: "k", ctrlKey: true });
+    const sentCommand = await screen.findByRole("combobox", { name: "Search commands" });
+    fireEvent.change(sentCommand, { target: { value: "go to sent" } });
+    fireEvent.keyDown(sentCommand, { key: "Enter" });
+    await screen.findByRole("heading", { name: "Sent" });
+
+    fireEvent.keyDown(document, { key: "k", ctrlKey: true });
+    const inboxCommand = await screen.findByRole("combobox", { name: "Search commands" });
+    fireEvent.change(inboxCommand, { target: { value: "go to inbox" } });
+    fireEvent.keyDown(inboxCommand, { key: "Enter" });
+    await screen.findByRole("heading", { name: "Inbox" });
+  });
+
+  it("shows detail-only Reply and star commands only after a message is actually open", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Inbox" });
+    const trigger = container.querySelector<HTMLButtonElement>(".sidebar .command-trigger")!;
+    fireEvent.click(trigger);
+    const beforeDetailSearch = await screen.findByRole("combobox", { name: "Search commands" });
+    expect(screen.queryByRole("option", { name: "Reply to this email" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Add star" })).not.toBeInTheDocument();
+    fireEvent.keyDown(beforeDetailSearch, { key: "Escape" });
+    fireEvent.click(await screen.findByRole("button", { name: /Alice/ }));
+    await screen.findByText("The safe plain-text message body.");
+
+    fireEvent.click(trigger);
+    const commandSearch = await screen.findByRole("combobox", { name: "Search commands" });
+    expect(screen.getByRole("option", { name: "Reply to this email" })).toHaveTextContent("R");
+    expect(screen.getByRole("option", { name: "Add star" })).toHaveTextContent("S");
+    fireEvent.change(commandSearch, { target: { value: "add star" } });
+    fireEvent.keyDown(commandSearch, { key: "Enter" });
+    await waitFor(() => expect(api.updateMessageState).toHaveBeenCalledWith(
+      expect.anything(),
+      message.message_id,
+      { is_flagged: true },
+    ));
+
+    fireEvent.keyDown(document, { key: "k", ctrlKey: true });
+    const replyCommand = await screen.findByRole("combobox", { name: "Search commands" });
+    fireEvent.change(replyCommand, { target: { value: "reply to this" } });
+    fireEvent.keyDown(replyCommand, { key: "Enter" });
+    expect(await screen.findByRole("dialog", { name: "Reply" })).toBeInTheDocument();
   });
 
   it("disables compose and reply affordances for a read-only shared mailbox", async () => {
@@ -1632,22 +2165,312 @@ describe("human mail application shell", () => {
     sentEntries.forEach((entry) => expect(entry).toBeDisabled());
     expect(api.listDrafts).not.toHaveBeenCalled();
     expect(api.listSentSubmissions).not.toHaveBeenCalled();
-    expect(screen.getAllByText("This mailbox is read-only")).toHaveLength(2);
+    // Desktop scope, the mobile disclosure summary, and the disclosure's
+    // expanded factual context all bind the same server-provided boundary.
+    expect(screen.getAllByText("This mailbox is read-only")).toHaveLength(3);
     fireEvent.click(await screen.findByRole("button", { name: /Alice/ }));
     await screen.findByText("The safe plain-text message body.");
     expect(screen.getByRole("button", { name: "Reply" })).toBeDisabled();
+    fireEvent.keyDown(document, { key: "c" });
+    fireEvent.keyDown(document, { key: "r" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .command-trigger")!);
+    const commandSearch = await screen.findByRole("combobox", { name: "Search commands" });
+    const commandCompose = screen.getByRole("option", { name: "Compose" });
+    expect(commandCompose).toBeDisabled();
+    expect(commandCompose).toHaveAccessibleDescription("This mailbox is read-only");
+    expect(screen.getByRole("option", { name: "Go to drafts" })).toBeDisabled();
+    expect(screen.getByRole("option", { name: "Go to sent" })).toBeDisabled();
+    fireEvent.change(commandSearch, { target: { value: "compose" } });
+    fireEvent.keyDown(commandSearch, { key: "Enter" });
+    expect(screen.queryByRole("dialog", { name: "New message" })).not.toBeInTheDocument();
+  });
+
+  it("single-flights focus and protected-request revalidation while locking the old workspace", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const refresh = deferred<typeof session>();
+    vi.mocked(auth.loadSession)
+      .mockResolvedValueOnce(session)
+      .mockReturnValueOnce(refresh.promise);
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Inbox" });
+    await screen.findByRole("button", { name: /Quarterly review/ });
+    fireEvent.keyDown(document, { key: "j" });
+    await waitFor(() => expect(container.querySelector<HTMLButtonElement>(".message"))
+      .toHaveAttribute("aria-current", "true"));
+    const protectedSettings = vi.mocked(api.listMailboxes).mock.calls[0]?.[0] as (
+      typeof window.__COPILOTMAIL_MAIL_CONFIG__ & { onUnauthorized?: () => void }
+    );
+
+    act(() => window.dispatchEvent(new Event("focus")));
+    await waitFor(() => expect(auth.loadSession).toHaveBeenCalledTimes(2));
+    act(() => {
+      protectedSettings.onUnauthorized?.();
+      protectedSettings.onUnauthorized?.();
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    const workspace = container.querySelector<HTMLElement>(".mail-shell")!;
+    expect(workspace).toHaveAttribute("inert");
+    expect(workspace).toHaveAttribute("aria-busy", "true");
+    const verificationNotice = container.querySelector<HTMLElement>(
+      "[data-session-verification='checking']",
+    );
+    expect(verificationNotice).toHaveAttribute("role", "status");
+    expect(verificationNotice).toHaveClass(
+      "session-check",
+      "session-check--checking",
+    );
+    expect(verificationNotice).toHaveTextContent("Checking your organization session…");
+    expect(verificationNotice).not.toHaveClass("sr-only");
+    expect(auth.loadSession).toHaveBeenCalledTimes(2);
+    fireEvent.keyDown(document, { key: "s" });
+    fireEvent.keyDown(document, { key: "c" });
+    fireEvent.keyDown(document, { key: "k", ctrlKey: true });
+    fireEvent.keyDown(document, { key: "g" });
+    fireEvent.keyDown(document, { key: "d" });
+    expect(api.updateMessageState).not.toHaveBeenCalled();
+    expect(api.listDrafts).not.toHaveBeenCalled();
+    expect(container.querySelector(".composer-dialog")).toBeNull();
+    expect(container.querySelector(".command-palette")).toBeNull();
+
+    refresh.resolve(session);
+    await act(async () => refresh.promise);
+    await waitFor(() => expect(workspace).not.toHaveAttribute("inert"));
+    expect(workspace).not.toHaveAttribute("aria-busy");
+    expect(auth.loadSession).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the existing workspace inert after a temporary verification failure and restores it on retry", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const retry = deferred<typeof session>();
+    vi.mocked(auth.loadSession)
+      .mockReset()
+      .mockResolvedValueOnce(session)
+      .mockRejectedValueOnce(new Error("gateway unavailable"))
+      .mockReturnValueOnce(retry.promise);
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Inbox" });
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.change(screen.getByLabelText("Message body"), {
+      target: { value: "Private local body retained across a 502" },
+    });
+
+    act(() => window.dispatchEvent(new Event("focus")));
+    const verificationFailure = await screen.findByRole("alert");
+    expect(verificationFailure).toHaveTextContent(
+      "Unable to verify your organization session; try again",
+    );
+    expect(verificationFailure).toHaveClass(
+      "session-check",
+      "session-check--failed",
+    );
+    expect(verificationFailure).not.toHaveAttribute("aria-modal");
+    await waitFor(() => expect(verificationFailure).toHaveFocus());
+    const workspace = container.querySelector<HTMLElement>(".mail-shell")!;
+    expect(workspace).toHaveAttribute("inert");
+    expect(workspace).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByRole("dialog", { name: "New message" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {
+      name: "Sign in with your organization account",
+    })).not.toBeInTheDocument();
+
+    fireEvent.click(within(verificationFailure).getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(auth.loadSession).toHaveBeenCalledTimes(3));
+    expect(workspace).toHaveAttribute("inert");
+    await act(async () => {
+      retry.resolve(session);
+      await retry.promise;
+    });
+
+    const restoredComposer = await screen.findByRole("dialog", { name: "New message" });
+    expect(within(restoredComposer).getByLabelText("Message body"))
+      .toHaveValue("Private local body retained across a 502");
+    await waitFor(() => expect(container.querySelector<HTMLElement>(".mail-shell"))
+      .not.toHaveAttribute("aria-busy"));
+    expect(api.listMailboxes).toHaveBeenCalledTimes(1);
+    expect(auth.logout).not.toHaveBeenCalled();
+  });
+
+  it("preserves workspace state when only the Session expiry is renewed", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    vi.mocked(auth.loadSession)
+      .mockReset()
+      .mockResolvedValueOnce(session)
+      .mockResolvedValueOnce({
+        ...session,
+        expires_at: "2099-07-28T13:00:00.000Z",
+      });
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Inbox" });
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.change(screen.getByLabelText("Message body"), {
+      target: { value: "Do not remount this workspace on an expiry-only renewal" },
+    });
+
+    act(() => window.dispatchEvent(new Event("focus")));
+    await waitFor(() => expect(auth.loadSession).toHaveBeenCalledTimes(2));
+    const composer = await screen.findByRole("dialog", { name: "New message" });
+    expect(within(composer).getByLabelText("Message body"))
+      .toHaveValue("Do not remount this workspace on an expiry-only renewal");
+    expect(api.listMailboxes).toHaveBeenCalledTimes(1);
+  });
+
+  it("rebuilds the whole mail workspace when the authenticated context rotates", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const rotatedSession = {
+      ...session,
+      principal_id: "019b0000-0000-7000-8000-000000000099",
+      expires_at: "2099-07-28T13:00:00.000Z",
+    };
+    vi.mocked(auth.loadSession)
+      .mockResolvedValueOnce(session)
+      .mockResolvedValueOnce(rotatedSession);
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Inbox" });
+    fireEvent.click(await screen.findByRole("button", { name: /Alice/ }));
+    expect(await screen.findByText(detail.text_body)).toBeVisible();
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.change(screen.getByLabelText("To"), {
+      target: { value: "private@example.test" },
+    });
+    fireEvent.change(screen.getByLabelText("Message body"), {
+      target: { value: "Private unsaved session content" },
+    });
+
+    act(() => window.dispatchEvent(new Event("focus")));
+    await waitFor(() => expect(auth.loadSession).toHaveBeenCalledTimes(2));
+    await screen.findByRole("heading", { name: "Inbox" });
+    await waitFor(() => expect(api.listMailboxes).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText(detail.text_body)).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    expect(await screen.findByRole("dialog", { name: "New message" })).toBeVisible();
+    expect(screen.getByLabelText("To")).toHaveValue("");
+    expect(screen.getByLabelText("Message body")).toHaveValue("");
+  });
+
+  it("cannot bind a late old-identity draft write result into the rotated workspace", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    const rotatedSession = {
+      ...session,
+      principal_id: "019b0000-0000-7000-8000-000000000099",
+      expires_at: "2099-07-28T13:00:00.000Z",
+    };
+    const staleSave = deferred<DraftResult>();
+    vi.mocked(auth.loadSession)
+      .mockReset()
+      .mockResolvedValueOnce(session)
+      .mockResolvedValueOnce(rotatedSession);
+    vi.mocked(api.saveDraft)
+      .mockReturnValueOnce(staleSave.promise)
+      .mockResolvedValueOnce({
+        ...draftResult,
+        draft_id: "019b0000-0000-7000-8000-000000000031",
+      });
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Inbox" });
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    vi.useFakeTimers();
+    fireEvent.change(screen.getByLabelText("To"), {
+      target: { value: "old-identity@example.test" },
+    });
+    fireEvent.change(screen.getByLabelText("Message body"), {
+      target: { value: "Old identity private body" },
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1200);
+    });
+    expect(api.saveDraft).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+
+    act(() => window.dispatchEvent(new Event("focus")));
+    await waitFor(() => expect(api.listMailboxes).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await act(async () => {
+      staleSave.resolve(draftResult);
+      await flushMicrotasks();
+    });
+
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    vi.useFakeTimers();
+    fireEvent.change(screen.getByLabelText("To"), {
+      target: { value: "new-identity@example.test" },
+    });
+    fireEvent.change(screen.getByLabelText("Message body"), {
+      target: { value: "New identity body" },
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1200);
+    });
+
+    expect(api.saveDraft).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(api.saveDraft).mock.calls[1]?.[1]).toMatchObject({
+      draft_id: null,
+      expected_version: null,
+      to: ["new-identity@example.test"],
+      text_body: "New identity body",
+    });
+  });
+
+  it("revalidates and signs out when a protected mail request returns 401", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    vi.mocked(auth.loadSession)
+      .mockResolvedValueOnce(session)
+      .mockResolvedValueOnce(null);
+    vi.mocked(api.listMailboxes).mockImplementationOnce(async (protectedSettings) => {
+      (protectedSettings as typeof protectedSettings & { onUnauthorized?: () => void })
+        .onUnauthorized?.();
+      throw new Error("mailbox_directory_401");
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("button", {
+      name: "Sign in with your organization account",
+    })).toBeVisible();
+    expect(auth.loadSession).toHaveBeenCalledTimes(2);
+  });
+
+  it("revalidates at the authenticated session expiry deadline", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-24T02:00:00Z"));
+    vi.mocked(auth.loadSession)
+      .mockResolvedValueOnce({
+        ...session,
+        expires_at: "2026-08-24T02:00:01Z",
+      })
+      .mockResolvedValueOnce(null);
+    render(<App />);
+    await act(async () => flushMicrotasks());
+    expect(screen.getByRole("heading", { name: "Inbox" })).toBeVisible();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1_000);
+      await flushMicrotasks();
+    });
+
+    expect(screen.getByRole("button", {
+      name: "Sign in with your organization account",
+    })).toBeVisible();
+    expect(auth.loadSession).toHaveBeenCalledTimes(2);
   });
 
   it("maps session failures to localized text without exposing machine errors", async () => {
     vi.mocked(auth.loadSession).mockRejectedValueOnce(
       new Error("secret_provider_session_failure"),
     );
-    render(<App />);
+    const { container } = render(<App />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "暂时无法验证企业会话，请重试",
     );
+    const accessSurface = container.querySelector<HTMLElement>("[data-mail-access='login']");
+    expect(accessSurface?.querySelector(".mail-access__visual img")).toHaveAttribute("alt", "");
+    expect(container.querySelector("[data-mail-access='directory']")).toBeNull();
     expect(screen.queryByText(/secret_provider_session_failure/)).not.toBeInTheDocument();
   });
 });

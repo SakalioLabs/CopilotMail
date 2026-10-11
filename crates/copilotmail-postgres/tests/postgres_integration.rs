@@ -1,3 +1,5 @@
+mod support;
+
 use async_trait::async_trait;
 use chrono::Utc;
 use copilotmail_agent_auth::rsa_public_key_fingerprint;
@@ -13,8 +15,9 @@ use copilotmail_application::{
     ActivateRetentionPolicyVersionCommand, AddAgentCredentialCommand, AddAgentCredentialService,
     AddAgentMtlsCredentialCommand, AddAgentMtlsCredentialService, AgentCredentialStore,
     AgentEventCursorError, AgentEventCursorQueryStore, AgentEventCursorService,
-    AgentIngressRateLimitDecision, AgentIngressRateLimitStore, AgentMailPolicyQueryStore,
-    AgentMailPolicyService, AgentMailSandboxService, AgentMessageProcessingState,
+    AgentIngressRateLimitDecision, AgentIngressRateLimitStore, AgentInspectorError,
+    AgentInspectorService, AgentMailPolicyQueryStore, AgentMailPolicyService,
+    AgentMailSandboxService, AgentMailSubmissionEvidenceService, AgentMessageProcessingState,
     AgentProcessingService, AgentProcessingSubscriptionStatus, AppendRetentionPolicyVersionCommand,
     ApprovalGateService, ApprovalPolicyService, ApprovalProof, ApprovalQueryStore,
     ApprovalRequestView, ApprovalWorkflowService, ArchivedObjectRecord, AuditArchiveRecord,
@@ -29,7 +32,8 @@ use copilotmail_application::{
     CreateAuditCheckpointService, CreateHumanSessionCommand, CreateMailboxCommand,
     CreateRetentionPolicyCommand, CreateWebhookSubscriptionCommand, DecideApprovalCommand,
     DeleteScimGroupCommand, DraftService, EnsureAgentProcessingSubscriptionCommand,
-    ExecuteMailSubmissionCommand, ExternalIdentityResolver, GetApprovalRequestCommand,
+    ExecuteMailSubmissionCommand, ExternalIdentityResolver, GetAgentInspectorCommand,
+    GetAgentMailSubmissionEvidenceCommand, GetApprovalRequestCommand,
     GrantMailboxDelegationCommand, GrantRoleAssignmentCommand, HumanDraftError,
     HumanDraftListItemRecheck, HumanDraftListQuery, HumanDraftListRecheck, HumanDraftQueryStore,
     HumanDraftRestoreQuery, HumanDraftService, HumanMailContentQueryStore,
@@ -40,43 +44,42 @@ use copilotmail_application::{
     IngestMailEngineEventsCommand, IssueScimTokenCommand, IssueScimTokenService,
     ListAgentProcessingDeadLettersCommand, ListApprovalRequestsCommand, ListHumanDraftsCommand,
     ListHumanMailboxDirectoryCommand, ListHumanSentSubmissionsCommand, ListRoleAssignmentsCommand,
-    MailDataPlaneFingerprintScheme, MailDeliveryQueryStore, MailDeliveryReconciliationResult,
-    MailDeliveryReconciliationService, MailDomainGovernanceError, MailDomainGovernanceService,
-    MailDomainQueryStore, MailDraftMetadataStore, MailDraftRecipientEvidence, MailDraftWrite,
-    MailEngineEventIngestionService, MailEngineMailboxBindingService, MailEventFingerprintScheme,
-    MailSubmissionExecutionResult, MailSubmissionExecutor, MailSubmissionIntentRecord,
-    MailSubmissionService, MailboxAuthorizationStore, MailboxDelegationService,
-    MailboxManagementService, NackAgentMessageCommand, OpenAgentEventStreamCommand, PendingEvent,
-    ProvisionScimGroupCommand, ProvisionScimUserCommand, PullAgentEventsCommand,
-    ReconcileMailDeliveryCommand, RecordAuditArchiveCommand, RecordAuditArchiveService,
-    RecordAuditExportDownloadCommand, RecordMailDomainDnsCommand, RegisterAgentCommand,
-    RegisterAgentService, RegisterMailDomainCommand, ReplaceScimGroupCommand,
-    ReplaceScimUserCommand, ReplayWebhookDeadLetterCommand, RequestApprovalCommand,
-    RequestMailSubmissionCommand, ResolveAuditExportObjectCommand, ResolveHumanSessionCommand,
-    RestoreHumanDraftCommand, RetentionPolicyQueryStore, RetentionPolicyService,
-    RevokeAgentCredentialCommand, RevokeAgentCredentialService, RevokeHumanSessionCommand,
-    RevokeMailboxDelegationCommand, RevokeRoleAssignmentCommand, RevokeScimTokenCommand,
-    RevokeScimTokenService, RoleGovernanceError, RoleGovernanceQueryStore, RoleGovernanceService,
+    MailDataPlaneFingerprintScheme, MailDeliveryQueryStore, MailDeliveryReconciliationError,
+    MailDeliveryReconciliationResult, MailDeliveryReconciliationService, MailDomainGovernanceError,
+    MailDomainGovernanceService, MailDomainQueryStore, MailDraftMetadataStore,
+    MailDraftRecipientEvidence, MailDraftWrite, MailEngineEventIngestionService,
+    MailEngineMailboxBindingService, MailEventFingerprintScheme, MailSubmissionExecutionResult,
+    MailSubmissionExecutor, MailSubmissionIntentRecord, MailSubmissionService,
+    MailboxAuthorizationStore, MailboxDelegationService, MailboxManagementService,
+    NackAgentMessageCommand, OpenAgentEventStreamCommand, PendingEvent, ProvisionScimGroupCommand,
+    ProvisionScimUserCommand, PullAgentEventsCommand, ReconcileMailDeliveryCommand,
+    RecordAuditArchiveCommand, RecordAuditArchiveService, RecordAuditExportDownloadCommand,
+    RecordMailDomainDnsCommand, RegisterAgentCommand, RegisterAgentService,
+    RegisterMailDomainCommand, ReplaceScimGroupCommand, ReplaceScimUserCommand,
+    ReplayWebhookDeadLetterCommand, RequestApprovalCommand, RequestMailSubmissionCommand,
+    ResolveAuditExportObjectCommand, ResolveHumanSessionCommand, RestoreHumanDraftCommand,
+    RetentionPolicyQueryStore, RetentionPolicyService, RevokeAgentCredentialCommand,
+    RevokeAgentCredentialService, RevokeHumanSessionCommand, RevokeMailboxDelegationCommand,
+    RevokeRoleAssignmentCommand, RevokeScimTokenCommand, RevokeScimTokenService,
+    RoleGovernanceError, RoleGovernanceQueryStore, RoleGovernanceService,
     RotateMailDomainChallengeCommand, SaveTextDraftCommand, SavedTextDraft,
     ScimDirectoryQueryStore, ScimGroupService, ScimUserService, SearchAuditEventsCommand,
-    SuspendMailDomainCommand, UpdateMailDomainRouteCommand, WebhookDeadLetterQueryStore,
-    WebhookDeadLetterService, WebhookSubscriptionService, role_assignment_approval_resource_id,
+    StoreError, SuspendMailDomainCommand, UpdateMailDomainRouteCommand,
+    WebhookDeadLetterQueryStore, WebhookDeadLetterService, WebhookSubscriptionService,
+    role_assignment_approval_resource_id,
 };
 use copilotmail_audit::RsaAuditCheckpointSigner;
+use copilotmail_crypto::RsaPrivateKey;
 use copilotmail_domain::{
     AUDIT_EVENT_CATALOG, AgentEnvironment, AgentRiskLevel, ApprovalAction, ApprovalDecision,
-    ApprovalStatus, AuditArchiveId, AuditCheckpointId, AuditRisk, AuthorizationContext,
-    ComplianceCaseId, ComplianceCaseStatus, DnsVerificationChecks, DnsVerificationEvidence,
-    DraftId, LeaseId, MailDataPlaneId, MailDomainRouteMode, MailDomainStatus,
-    MailEngineProjectionStatus, MailboxAddress, MailboxCapability, MailboxKind, OrganizationId,
-    Permission, PrincipalId, RetentionResourceKind, ScimTokenId, SystemRole,
+    ApprovalStatus, AuditArchiveId, AuditCheckpointId, AuditRisk, AuthenticationBinding,
+    AuthorizationContext, ComplianceCaseId, ComplianceCaseStatus, DnsVerificationChecks,
+    DnsVerificationEvidence, DraftId, HumanSessionId, LeaseId, MailDataPlaneId,
+    MailDomainRouteMode, MailDomainStatus, MailEngineProjectionStatus, MailboxAddress,
+    MailboxCapability, MailboxKind, OrganizationId, Permission, PrincipalId, RetentionResourceKind,
+    ScimTokenId, SystemRole,
 };
 use copilotmail_postgres::{PgControlPlaneStore, WebhookDeliveryOutcome};
-use rand_core_06::OsRng;
-use rsa::{
-    RsaPrivateKey, RsaPublicKey,
-    pkcs8::{EncodePrivateKey, EncodePublicKey, LineEnding},
-};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::{
@@ -99,14 +102,29 @@ fn legacy_mail_event_fingerprint_scheme() -> MailEventFingerprintScheme {
     MailEventFingerprintScheme::try_legacy_source("stalwart")
         .expect("static legacy mail event source is valid")
 }
+/// Serializes tests that share the cluster-wide login admission windows and
+/// login/session evidence tables (begin_login consumes a shared window count
+/// and sweeps expired login rows).
+static LOGIN_GATE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 async fn migrated_store() -> PgControlPlaneStore {
-    let database_url =
-        std::env::var("COPILOTMAIL_DATABASE_URL").expect("COPILOTMAIL_DATABASE_URL is required");
+    static MIGRATED: tokio::sync::OnceCell<()> = tokio::sync::OnceCell::const_new();
+    let database_url = support::database_url();
     let store = PgControlPlaneStore::connect(&database_url, 5)
         .await
         .expect("connect integration database");
-    store.migrate().await.expect("apply migrations");
+    MIGRATED
+        .get_or_try_init(|| async { store.migrate().await })
+        .await
+        .expect("apply migrations");
     store
+}
+
+/// PostgreSQL `timestamptz` stores microseconds; truncate fixture timestamps so
+/// domain values round-trip exactly through storage for equality assertions.
+fn pg_micros(value: chrono::DateTime<Utc>) -> chrono::DateTime<Utc> {
+    chrono::DateTime::from_timestamp_micros(value.timestamp_micros())
+        .expect("microsecond timestamp is representable")
 }
 
 fn bootstrap_command(slug: String) -> BootstrapOrganizationCommand {
@@ -117,6 +135,233 @@ fn bootstrap_command(slug: String) -> BootstrapOrganizationCommand {
         trace_id: Uuid::now_v7().to_string(),
         now: Utc::now(),
     }
+}
+
+#[tokio::test]
+#[ignore = "requires an explicitly opted-in disposable PostgreSQL database"]
+async fn retention_permission_recheck_and_single_connection_read_are_enforced() {
+    let store = migrated_store().await;
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "retention-code-quality-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .unwrap();
+    let now = Utc::now();
+    let actor = insert_approval_test_owner(
+        &store,
+        bootstrap.organization_id,
+        bootstrap.root_principal_id,
+        now,
+    )
+    .await;
+    // Preserve an independent owner while the first actor loses its grant.
+    insert_approval_test_owner(
+        &store,
+        bootstrap.organization_id,
+        bootstrap.root_principal_id,
+        now,
+    )
+    .await;
+    let context = store
+        .resolve_authorization(actor, now)
+        .await
+        .unwrap()
+        .unwrap();
+    let policy = RetentionPolicyService::new(store.clone())
+        .create(CreateRetentionPolicyCommand {
+            context: context.clone(),
+            policy_key: "audit.quality".into(),
+            display_name: "Quality policy".into(),
+            resource_kind: RetentionResourceKind::AuditEvidence,
+            minimum_retention_days: 365,
+            archive_after_days: None,
+            delete_after_days: None,
+            rule: json!({}),
+            trace_id: Uuid::new_v4().to_string(),
+            now,
+        })
+        .await
+        .unwrap();
+
+    let single = PgControlPlaneStore::connect(&support::database_url(), 1)
+        .await
+        .unwrap();
+    let read = copilotmail_application::GetRetentionPolicyCommand {
+        context: context.clone(),
+        policy_id: policy.policy.id(),
+        trace_id: Uuid::new_v4().to_string(),
+        now,
+    };
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        RetentionPolicyService::new(single).get(read.clone()),
+    )
+    .await
+    .expect("read must not acquire a second pool connection")
+    .unwrap();
+    assert_eq!(result.policy.id(), policy.policy.id());
+
+    sqlx::query("UPDATE role_assignments SET revoked_at = clock_timestamp() WHERE organization_id = $1 AND principal_id = $2 AND revoked_at IS NULL")
+        .bind(bootstrap.organization_id.as_uuid()).bind(actor.as_uuid()).execute(store.pool()).await.unwrap();
+    assert!(matches!(
+        RetentionPolicyService::new(store.clone()).get(read).await,
+        Err(copilotmail_application::RetentionPolicyError::Forbidden)
+    ));
+    let mut transaction = store.begin().await.unwrap();
+    assert!(
+        !transaction
+            .authorize_human_permission(
+                bootstrap.organization_id,
+                actor,
+                Permission::RetentionManage
+            )
+            .await
+            .unwrap()
+    );
+    assert!(
+        !transaction
+            .authorize_principal_permission(
+                bootstrap.organization_id,
+                actor,
+                Permission::RetentionManage,
+            )
+            .await
+            .unwrap()
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires an explicitly opted-in disposable PostgreSQL database"]
+async fn retention_activation_rejects_backdated_expired_approval() {
+    let store = migrated_store().await;
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "retention-expiry-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .unwrap();
+    let now = Utc::now();
+    let actor = BindOidcOwnerService::new(store.clone())
+        .execute(BindOidcOwnerCommand {
+            organization_id: bootstrap.organization_id,
+            issuer: "https://quality-owner.example.test".into(),
+            subject: Uuid::new_v4().to_string(),
+            display_name: "Retention Test Owner".into(),
+            trace_id: Uuid::new_v4().to_string(),
+            now,
+        })
+        .await
+        .unwrap()
+        .principal_id;
+    let approver_a = insert_approval_test_owner(
+        &store,
+        bootstrap.organization_id,
+        bootstrap.root_principal_id,
+        now,
+    )
+    .await;
+    let approver_b = insert_approval_test_owner(
+        &store,
+        bootstrap.organization_id,
+        bootstrap.root_principal_id,
+        now,
+    )
+    .await;
+    let context = store
+        .resolve_authorization(actor, now)
+        .await
+        .unwrap()
+        .unwrap();
+    let draft = RetentionPolicyService::new(store.clone())
+        .create(CreateRetentionPolicyCommand {
+            context: context.clone(),
+            policy_key: "audit.expiry".into(),
+            display_name: "Expiry boundary".into(),
+            resource_kind: RetentionResourceKind::AuditEvidence,
+            minimum_retention_days: 365,
+            archive_after_days: None,
+            delete_after_days: None,
+            rule: json!({}),
+            trace_id: Uuid::new_v4().to_string(),
+            now,
+        })
+        .await
+        .unwrap();
+    ApprovalPolicyService::new(store.clone())
+        .create(CreateApprovalPolicyCommand {
+            organization_id: bootstrap.organization_id,
+            policy_key: "retention.expiry.review".into(),
+            display_name: "Retention expiry review".into(),
+            action: ApprovalAction::RetentionChange,
+            required_approvals: 2,
+            rule: json!({}),
+            trace_id: Uuid::new_v4().to_string(),
+            now,
+        })
+        .await
+        .unwrap();
+    let database_now: chrono::DateTime<Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
+        .fetch_one(store.pool())
+        .await
+        .unwrap();
+    let expires_at = database_now + chrono::Duration::seconds(5);
+    let workflow = ApprovalWorkflowService::new(store.clone());
+    let approval_id = workflow
+        .request(RequestApprovalCommand {
+            context,
+            policy_key: "retention.expiry.review".into(),
+            action: ApprovalAction::RetentionChange,
+            resource_kind: "compliance.retention_policy_version".into(),
+            resource_id: draft.version.id().to_string(),
+            reason: "Expiry must use execution time".into(),
+            ticket_reference: None,
+            expires_at,
+            trace_id: Uuid::new_v4().to_string(),
+            now: database_now,
+        })
+        .await
+        .unwrap();
+    for approver in [approver_a, approver_b] {
+        let context = store
+            .resolve_authorization(approver, database_now)
+            .await
+            .unwrap()
+            .unwrap();
+        workflow
+            .decide(DecideApprovalCommand {
+                context,
+                request_id: approval_id,
+                decision: ApprovalDecision::Approved,
+                reason: "Reviewed exact version".into(),
+                trace_id: Uuid::new_v4().to_string(),
+                now: database_now,
+            })
+            .await
+            .unwrap();
+    }
+    // Wait until the database clock confirms the approval has expired; timer
+    // granularity on virtualized hosts cannot be trusted for the boundary.
+    for _ in 0..120 {
+        let observed: chrono::DateTime<Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
+            .fetch_one(store.pool())
+            .await
+            .unwrap();
+        if observed > expires_at {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    // Simulate a queued operation retaining its original, pre-expiry timestamp.
+    // The trigger must overwrite it with DB time and reject the expired proof.
+    let result = sqlx::query("INSERT INTO retention_policy_activations(id,organization_id,policy_id,policy_version_id,approval_request_id,activated_by,activated_at) VALUES ($1,$2,$3,$4,$5,$6,$7)")
+        .bind(Uuid::new_v4()).bind(bootstrap.organization_id.as_uuid())
+        .bind(draft.policy.id().as_uuid()).bind(draft.version.id().as_uuid())
+        .bind(approval_id.as_uuid()).bind(actor.as_uuid()).bind(database_now)
+        .execute(store.pool()).await;
+    assert_check_violation(result);
 }
 
 fn random_numeric_engine_ref() -> String {
@@ -1228,7 +1473,7 @@ async fn webhook_delivery_ledger_skips_terminal_subscriptions() {
                 organization_id: bootstrap.organization_id,
                 principal_id: agent.principal_id,
                 endpoint_url: "https://hooks.example.test/copilotmail".into(),
-                event_types: vec!["message.received.v1".into()],
+                event_types: vec!["agent.message.dead_lettered.v1".into()],
                 signing_key_reference: "agent-hook-2026-01".into(),
                 trace_id: Uuid::now_v7().to_string(),
                 now: Utc::now(),
@@ -1243,7 +1488,7 @@ async fn webhook_delivery_ledger_skips_terminal_subscriptions() {
         .pending_webhook_delivery_targets(
             bootstrap.organization_id,
             event_id,
-            "message.received.v1",
+            "agent.message.dead_lettered.v1",
             Utc::now(),
         )
         .await
@@ -1272,7 +1517,7 @@ async fn webhook_delivery_ledger_skips_terminal_subscriptions() {
         .pending_webhook_delivery_targets(
             bootstrap.organization_id,
             event_id,
-            "message.received.v1",
+            "agent.message.dead_lettered.v1",
             Utc::now(),
         )
         .await
@@ -1299,7 +1544,7 @@ async fn webhook_delivery_ledger_skips_terminal_subscriptions() {
             .pending_webhook_delivery_targets(
                 bootstrap.organization_id,
                 event_id,
-                "message.received.v1",
+                "agent.message.dead_lettered.v1",
                 Utc::now(),
             )
             .await
@@ -1341,7 +1586,7 @@ async fn webhook_delivery_ledger_skips_terminal_subscriptions() {
             schema_version, payload, occurred_at
         )
         VALUES(
-            $1, 'message.received.v1', 'message', $2,
+            $1, 'agent.message.dead_lettered.v1', 'message', $2,
             1, $3, $4
         )
         "#,
@@ -1509,7 +1754,7 @@ async fn webhook_delivery_ledger_skips_terminal_subscriptions() {
         .pending_webhook_delivery_targets(
             bootstrap.organization_id,
             replay_event_id,
-            "message.received.v1",
+            "agent.message.dead_lettered.v1",
             replay_occurred_at,
         )
         .await
@@ -1874,14 +2119,12 @@ async fn signed_audit_checkpoint_is_atomic_idempotent_and_portable() {
         )))
         .await
         .expect("bootstrap checkpoint fixture");
-    let private = RsaPrivateKey::new(&mut OsRng, 2_048).expect("generate checkpoint key");
-    let public = RsaPublicKey::from(&private);
+    let private = RsaPrivateKey::generate_for_testing().expect("generate checkpoint key");
+    let public = private.public_key();
     let private_pem = private
-        .to_pkcs8_pem(LineEnding::LF)
+        .pkcs8_pem_for_testing()
         .expect("encode checkpoint private key");
-    let public_pem = public
-        .to_public_key_pem(LineEnding::LF)
-        .expect("encode checkpoint public key");
+    let public_pem = public.spki_pem().expect("encode checkpoint public key");
     let signer = RsaAuditCheckpointSigner::new(
         "audit-integration-2026".into(),
         private_pem.as_bytes(),
@@ -1981,7 +2224,7 @@ async fn signed_audit_checkpoint_is_atomic_idempotent_and_portable() {
             .await,
     );
 
-    let verified_at = Utc::now();
+    let verified_at = pg_micros(Utc::now());
     let archive_id = AuditArchiveId::new();
     let archive = AuditArchiveRecord {
         archive_id,
@@ -2065,13 +2308,18 @@ async fn signed_audit_checkpoint_is_atomic_idempotent_and_portable() {
             .await,
     );
 
-    let export_requester = insert_approval_test_owner(
-        &store,
-        bootstrap.organization_id,
-        bootstrap.root_principal_id,
-        verified_at,
-    )
-    .await;
+    let export_requester = BindOidcOwnerService::new(store.clone())
+        .execute(BindOidcOwnerCommand {
+            organization_id: bootstrap.organization_id,
+            issuer: "https://quality-owner.example.test".into(),
+            subject: Uuid::new_v4().to_string(),
+            display_name: "Export Test Owner".into(),
+            trace_id: Uuid::new_v4().to_string(),
+            now: verified_at,
+        })
+        .await
+        .expect("bind the operator-only policy owner's identity")
+        .principal_id;
     let export_context = store
         .resolve_authorization(export_requester, verified_at)
         .await
@@ -2183,7 +2431,7 @@ async fn signed_audit_checkpoint_is_atomic_idempotent_and_portable() {
             context: export_context.clone(),
             grant_id: grant.id(),
             artifact: AuditExportArtifact::Events,
-            now: verified_at,
+            now: Utc::now(),
         })
         .await
         .expect("resolve exact audit export object");
@@ -2193,10 +2441,12 @@ async fn signed_audit_checkpoint_is_atomic_idempotent_and_portable() {
             retrieved: authorized.object.clone(),
             authorized,
             trace_id: Uuid::now_v7().to_string(),
-            now: verified_at,
+            now: Utc::now(),
         })
         .await
         .expect("record exact audit export download");
+    assert!(download.downloaded_at >= grant.created_at());
+    assert!(download.downloaded_at < grant.expires_at());
     let download_counts: (i64, i64, i64) = sqlx::query_as(
         r#"
         SELECT
@@ -2283,6 +2533,90 @@ async fn signed_audit_checkpoint_is_atomic_idempotent_and_portable() {
             .await,
     );
 
+    // These direct SQL probes intentionally bypass the service clock. All
+    // fixture copies are rolled back: no unaudited grant is kept by the test.
+    for expired_approval in [false, true] {
+        let mut probe = store.pool().begin().await.unwrap();
+        let copied_approval = Uuid::now_v7();
+        sqlx::query(
+            r#"
+            INSERT INTO approval_requests (
+                id, organization_id, policy_version_id, action, resource_kind,
+                resource_id, requested_by, reason, ticket_reference,
+                required_approvals, status, created_at, expires_at, completed_at
+            )
+            SELECT $1, organization_id, policy_version_id, action, resource_kind,
+                   resource_id, requested_by, reason, ticket_reference,
+                   required_approvals, status,
+                   CASE WHEN $3 THEN clock_timestamp() - interval '2 minutes' ELSE created_at END,
+                   CASE WHEN $3 THEN clock_timestamp() - interval '1 minute' ELSE expires_at END,
+                   completed_at
+              FROM approval_requests WHERE id = $2
+            "#,
+        )
+        .bind(copied_approval)
+        .bind(export_approval_id.as_uuid())
+        .bind(expired_approval)
+        .execute(&mut *probe)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO approval_steps(id, organization_id, approval_request_id, approver_principal_id, decision, reason, decided_at) SELECT gen_random_uuid(), organization_id, $1, approver_principal_id, decision, reason, decided_at FROM approval_steps WHERE approval_request_id = $2",
+        ).bind(copied_approval).bind(export_approval_id.as_uuid()).execute(&mut *probe).await.unwrap();
+        let inserted = sqlx::query_as::<_, (Uuid, chrono::DateTime<Utc>, chrono::DateTime<Utc>)>(
+            r#"
+            INSERT INTO audit_export_grants (
+                id, organization_id, archive_id, approval_request_id,
+                requested_by, created_at, expires_at
+            ) SELECT $1, organization_id, archive_id, $2, requested_by,
+                     clock_timestamp() - interval '2 minutes',
+                     CASE WHEN $4 THEN clock_timestamp() - interval '1 minute'
+                          ELSE clock_timestamp() + interval '3 seconds' END
+                FROM audit_export_grants WHERE id = $3
+            RETURNING id, created_at, expires_at
+            "#,
+        )
+        .bind(Uuid::now_v7())
+        .bind(copied_approval)
+        .bind(grant.id().as_uuid())
+        .bind(expired_approval)
+        .fetch_one(&mut *probe)
+        .await;
+        let rejection = if expired_approval {
+            inserted.expect_err("a backdated caller clock cannot revive expired approval")
+        } else {
+            let (probe_grant, created_at, expires_at) = inserted.unwrap();
+            assert!(created_at >= grant.created_at());
+            sqlx::query("SELECT pg_sleep(GREATEST(EXTRACT(EPOCH FROM ($1::timestamptz - clock_timestamp())), 0) + 0.02)")
+                .bind(expires_at).execute(&mut *probe).await.unwrap();
+            sqlx::query(
+                r#"
+                INSERT INTO audit_export_downloads (
+                    id, organization_id, grant_id, archive_id, downloaded_by,
+                    artifact, object_key, object_version_id, sha256, size_bytes, downloaded_at
+                ) SELECT $1, organization_id, $2, archive_id, downloaded_by,
+                         artifact, object_key, object_version_id, sha256, size_bytes, $3
+                    FROM audit_export_downloads WHERE id = $4
+                "#,
+            )
+            .bind(Uuid::now_v7())
+            .bind(probe_grant)
+            .bind(created_at)
+            .bind(download.id.as_uuid())
+            .execute(&mut *probe)
+            .await
+            .expect_err("a backdated download cannot reuse an expired grant")
+        };
+        assert_eq!(
+            rejection
+                .as_database_error()
+                .and_then(sqlx::error::DatabaseError::code)
+                .as_deref(),
+            Some("23514")
+        );
+        probe.rollback().await.unwrap();
+    }
+
     let retention_service = RetentionPolicyService::new(store.clone());
     let retention_draft = retention_service
         .create(CreateRetentionPolicyCommand {
@@ -2312,7 +2646,7 @@ async fn signed_audit_checkpoint_is_atomic_idempotent_and_portable() {
     ApprovalPolicyService::new(store.clone())
         .create(CreateApprovalPolicyCommand {
             organization_id: bootstrap.organization_id,
-            policy_key: "compliance.retention.policy_change".into(),
+            policy_key: "compliance.retention.policychange".into(),
             display_name: "Retention policy activation".into(),
             action: ApprovalAction::RetentionChange,
             required_approvals: 2,
@@ -2325,7 +2659,7 @@ async fn signed_audit_checkpoint_is_atomic_idempotent_and_portable() {
     let retention_approval_id = workflow
         .request(RequestApprovalCommand {
             context: export_context.clone(),
-            policy_key: "compliance.retention.policy_change".into(),
+            policy_key: "compliance.retention.policychange".into(),
             action: ApprovalAction::RetentionChange,
             resource_kind: "compliance.retention_policy_version".into(),
             resource_id: retention_draft.version.id().to_string(),
@@ -2689,7 +3023,7 @@ async fn scim_provisioning_adopts_owner_is_idempotent_and_deprovisions_login() {
             token_id: ScimTokenId::new(),
             token_hash: token_hash.clone(),
             label: "PostgreSQL integration".into(),
-            expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
+            expires_at: Some(pg_micros(Utc::now()) + chrono::Duration::hours(1)),
             trace_id: Uuid::now_v7().to_string(),
             now: Utc::now(),
         })
@@ -3044,6 +3378,302 @@ async fn agent_credentials_overlap_reject_replay_and_revoke_immediately() {
 
 #[tokio::test]
 #[ignore = "requires a disposable PostgreSQL database"]
+async fn agent_inspector_is_scoped_by_live_credentials_rbac_and_owner_integrity() {
+    let store = migrated_store().await;
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "agent-inspector-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .expect("bootstrap Agent Inspector tenant");
+    let now = Utc::now();
+    let owner = BindOidcOwnerService::new(store.clone())
+        .execute(BindOidcOwnerCommand {
+            organization_id: bootstrap.organization_id,
+            issuer: format!("https://login-{}.example.test", Uuid::new_v4().simple()),
+            subject: format!("owner-{}", Uuid::new_v4().simple()),
+            display_name: "Agent Inspector Owner".into(),
+            trace_id: Uuid::now_v7().to_string(),
+            now,
+        })
+        .await
+        .expect("bind Agent Inspector owner");
+    let public_key = test_public_key();
+    let agent = RegisterAgentService::new(store.clone())
+        .execute(RegisterAgentCommand {
+            organization_id: bootstrap.organization_id,
+            display_name: "Agent Inspector Target".into(),
+            environment: AgentEnvironment::Testing,
+            risk_level: AgentRiskLevel::Medium,
+            purpose: "Inspect the Agent control-plane projection".into(),
+            review_due_at: now + chrono::Duration::days(90),
+            public_key_fingerprint: rsa_public_key_fingerprint(public_key.as_bytes()).unwrap(),
+            public_key_pem: public_key,
+            allowed_scopes: Permission::AGENT_TOKEN.into_iter().collect(),
+            credential_expires_at: now + chrono::Duration::days(30),
+            trace_id: Uuid::now_v7().to_string(),
+            now,
+        })
+        .await
+        .expect("register Agent Inspector target");
+    let owner_context = store
+        .resolve_authorization(owner.principal_id, now)
+        .await
+        .expect("resolve Agent Inspector owner authorization")
+        .expect("Agent Inspector owner is active");
+    let command = || GetAgentInspectorCommand {
+        context: owner_context.clone(),
+        organization_id: bootstrap.organization_id,
+        agent_id: agent.principal_id,
+        trace_id: Uuid::now_v7().to_string(),
+    };
+    let mailbox = MailboxManagementService::new(store.clone())
+        .create_authorized(
+            &owner_context,
+            CreateMailboxCommand {
+                organization_id: bootstrap.organization_id,
+                kind: MailboxKind::Agent,
+                primary_address: format!("inspector-{}@example.test", Uuid::new_v4().simple()),
+                trace_id: Uuid::now_v7().to_string(),
+                now,
+            },
+        )
+        .await
+        .expect("create Agent Inspector processing mailbox");
+    MailboxDelegationService::new(store.clone())
+        .grant_authorized(
+            &owner_context,
+            GrantMailboxDelegationCommand {
+                organization_id: bootstrap.organization_id,
+                mailbox_id: mailbox.mailbox_id,
+                grantee_principal_id: agent.principal_id,
+                capabilities: [MailboxCapability::Read].into_iter().collect(),
+                reason: "Inspect only aggregate processing state".into(),
+                valid_from: now,
+                valid_until: now + chrono::Duration::days(30),
+                trace_id: Uuid::now_v7().to_string(),
+                now,
+            },
+        )
+        .await
+        .expect("delegate Agent processing mailbox read");
+    let agent_context = store
+        .resolve_authorization(agent.principal_id, Utc::now())
+        .await
+        .expect("resolve Agent Inspector target authorization")
+        .expect("Agent Inspector target is active");
+    let processing = AgentProcessingService::new(store.clone());
+    let subscription = processing
+        .ensure_subscription(EnsureAgentProcessingSubscriptionCommand {
+            context: agent_context.clone(),
+            mailbox_id: mailbox.mailbox_id,
+            trace_id: Uuid::now_v7().to_string(),
+            now: Utc::now(),
+        })
+        .await
+        .expect("create Agent Inspector processing subscription");
+
+    let initial = AgentInspectorService::new(store.clone())
+        .get(command())
+        .await
+        .expect("read initial Agent Inspector snapshot");
+    assert_eq!(initial.agent.principal_id, agent.principal_id);
+    assert_eq!(initial.owner.principal_id, owner.principal_id);
+    assert_eq!(initial.token_access.active_credential_count, 1);
+    assert_eq!(
+        initial.token_access.effective_scopes,
+        Permission::AGENT_TOKEN.into_iter().collect()
+    );
+    assert_eq!(initial.token_access.state.as_str(), "effective");
+    assert_eq!(
+        initial.control_plane.mail_admission_state.as_str(),
+        "not_required"
+    );
+    assert_eq!(
+        initial.control_plane.active_processing_subscription_count,
+        1
+    );
+    assert_eq!(
+        initial.control_plane.paused_processing_subscription_count,
+        0
+    );
+    assert_eq!(
+        initial.control_plane.retired_processing_subscription_count,
+        0
+    );
+    assert!(initial.control_plane.last_processing_activity_at.is_none());
+
+    processing
+        .change_subscription(ChangeAgentProcessingSubscriptionCommand {
+            context: agent_context.clone(),
+            subscription_id: subscription.subscription_id,
+            expected_status: AgentProcessingSubscriptionStatus::Active,
+            target_status: AgentProcessingSubscriptionStatus::Paused,
+            idempotency_key: "agent-inspector-pause-subscription-000001".into(),
+            trace_id: Uuid::now_v7().to_string(),
+            now: Utc::now(),
+        })
+        .await
+        .expect("pause Agent Inspector processing subscription");
+    let paused = AgentInspectorService::new(store.clone())
+        .get(command())
+        .await
+        .expect("read Agent Inspector after subscription pause");
+    assert_eq!(paused.control_plane.active_processing_subscription_count, 0);
+    assert_eq!(paused.control_plane.paused_processing_subscription_count, 1);
+    assert_eq!(
+        paused.control_plane.retired_processing_subscription_count,
+        0
+    );
+    assert!(paused.control_plane.last_processing_activity_at.is_some());
+
+    processing
+        .change_subscription(ChangeAgentProcessingSubscriptionCommand {
+            context: agent_context,
+            subscription_id: subscription.subscription_id,
+            expected_status: AgentProcessingSubscriptionStatus::Paused,
+            target_status: AgentProcessingSubscriptionStatus::Retired,
+            idempotency_key: "agent-inspector-retire-subscription-00001".into(),
+            trace_id: Uuid::now_v7().to_string(),
+            now: Utc::now(),
+        })
+        .await
+        .expect("retire Agent Inspector processing subscription");
+    let retired = AgentInspectorService::new(store.clone())
+        .get(command())
+        .await
+        .expect("read Agent Inspector after subscription retirement");
+    assert_eq!(
+        retired.control_plane.active_processing_subscription_count,
+        0
+    );
+    assert_eq!(
+        retired.control_plane.paused_processing_subscription_count,
+        0
+    );
+    assert_eq!(
+        retired.control_plane.retired_processing_subscription_count,
+        1
+    );
+    assert!(retired.control_plane.last_processing_activity_at.is_some());
+
+    let revoked_assignment = sqlx::query(
+        r#"
+        UPDATE role_assignments
+           SET revoked_at = $3
+         WHERE organization_id = $1
+           AND principal_id = $2
+           AND revoked_at IS NULL
+        "#,
+    )
+    .bind(bootstrap.organization_id.as_uuid())
+    .bind(agent.principal_id.as_uuid())
+    .bind(Utc::now())
+    .execute(store.pool())
+    .await
+    .expect("revoke Agent runtime role assignment");
+    assert_eq!(revoked_assignment.rows_affected(), 1);
+
+    let rbac_restricted = AgentInspectorService::new(store.clone())
+        .get(command())
+        .await
+        .expect("read Agent Inspector after Agent role revocation");
+    assert_eq!(rbac_restricted.token_access.active_credential_count, 1);
+    assert!(rbac_restricted.token_access.effective_scopes.is_empty());
+    assert_eq!(
+        rbac_restricted.token_access.state.as_str(),
+        "no_effective_scope"
+    );
+    assert_eq!(
+        rbac_restricted
+            .control_plane
+            .retired_processing_subscription_count,
+        1
+    );
+
+    let expired_credential =
+        sqlx::query("UPDATE credentials SET expires_at = $2 WHERE id = $1 AND status = 'active'")
+            .bind(agent.credential_id.as_uuid())
+            // Expiry is evaluated on the database clock, so keep the margin
+            // wider than any realistic caller/database clock skew.
+            .bind(Utc::now() - chrono::Duration::minutes(1))
+            .execute(store.pool())
+            .await
+            .expect("expire Agent Inspector credential");
+    assert_eq!(expired_credential.rows_affected(), 1);
+
+    let expired = AgentInspectorService::new(store.clone())
+        .get(command())
+        .await
+        .expect("read Agent Inspector after credential expiry");
+    assert_eq!(expired.token_access.active_credential_count, 0);
+    assert!(expired.token_access.effective_scopes.is_empty());
+    assert_eq!(expired.token_access.state.as_str(), "no_active_credential");
+
+    sqlx::query(
+        r#"
+        UPDATE agent_profiles
+           SET owner_principal_id = $2
+         WHERE principal_id = $1
+        "#,
+    )
+    .bind(agent.principal_id.as_uuid())
+    .bind(bootstrap.root_principal_id.as_uuid())
+    .execute(store.pool())
+    .await
+    .expect("corrupt Agent profile owner to the bootstrap Service");
+    let corrupted = AgentInspectorService::new(store.clone())
+        .get(command())
+        .await;
+    assert!(
+        matches!(
+            corrupted,
+            Err(AgentInspectorError::Unavailable)
+                | Err(AgentInspectorError::Store(StoreError::Unavailable))
+        ),
+        "corrupted Agent owner must fail closed: {corrupted:?}"
+    );
+
+    let evidence: (i64, i64, bool, bool) = sqlx::query_as(
+        r#"
+        SELECT
+            (SELECT count(*)
+               FROM audit_events
+              WHERE organization_id = $1
+                AND action = 'identity.agent.queried'
+                AND resource_id = $2),
+            (SELECT count(*)
+               FROM outbox_events
+              WHERE event_type = 'identity.agent.queried.v1'
+                AND aggregate_type = 'identity.agent'
+                AND aggregate_id = $2),
+            (SELECT bool_and(details::text NOT LIKE '%Inspect the Agent control-plane projection%')
+               FROM audit_events
+              WHERE organization_id = $1
+                AND action = 'identity.agent.queried'),
+            (SELECT bool_and(payload::text NOT LIKE '%agent.mail.read%')
+               FROM outbox_events
+              WHERE event_type = 'identity.agent.queried.v1'
+                AND aggregate_id = $2)
+        "#,
+    )
+    .bind(bootstrap.organization_id.as_uuid())
+    .bind(agent.principal_id.to_string())
+    .fetch_one(store.pool())
+    .await
+    .expect("query Agent Inspector evidence");
+    assert_eq!(evidence.0, 5, "only successful reads are audited");
+    assert_eq!(evidence.1, 5, "only successful reads emit Outbox evidence");
+    assert!(evidence.2, "audit details must not disclose Agent purpose");
+    assert!(
+        evidence.3,
+        "Outbox payload must not disclose effective scopes"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires a disposable PostgreSQL database"]
 async fn mailbox_delegation_is_tenant_resource_time_and_send_as_bound() {
     let store = migrated_store().await;
     let bootstrap = BootstrapOrganizationService::new(store.clone())
@@ -3245,7 +3875,7 @@ async fn mailbox_delegation_is_tenant_resource_time_and_send_as_bound() {
             subject: format!("owner-{}", Uuid::new_v4().simple()),
             display_name: "Other Owner".into(),
             trace_id: Uuid::now_v7().to_string(),
-            now,
+            now: Utc::now(),
         })
         .await
         .expect("bind other owner");
@@ -3582,6 +4212,7 @@ async fn human_mailbox_directory_is_bound_authorized_cursor_safe_and_human_only(
         organization_id: bootstrap.organization_id,
         principal_id: PrincipalId::from_uuid(agent_id),
         permissions: [Permission::MailboxUse].into_iter().collect(),
+        authentication: None,
     };
     assert!(matches!(
         directory
@@ -3828,9 +4459,9 @@ async fn count_human_sent_directory_evidence(
               AND action = 'mail.submissions.queried'
               AND resource_id = $2),
           (SELECT count(*) FROM outbox_events
-            WHERE organization_id = $1
-              AND event_type = 'mail.submissions.queried.v1'
-              AND aggregate_id = $2)
+            WHERE event_type = 'mail.submissions.queried.v1'
+              AND aggregate_id = $2
+              AND payload ->> 'organization_id' = $1::text)
         "#,
     )
     .bind(organization_id.as_uuid())
@@ -3844,8 +4475,6 @@ async fn count_human_sent_directory_evidence(
 #[ignore = "requires a disposable PostgreSQL database"]
 async fn human_sent_directory_is_private_cursor_safe_audited_and_finally_rechecked() {
     let store = migrated_store().await;
-    // Keep grant validity safely before the database-clock final rechecks.
-    let now = Utc::now() - chrono::Duration::seconds(1);
     let bootstrap = BootstrapOrganizationService::new(store.clone())
         .execute(bootstrap_command(format!(
             "human-sent-{}",
@@ -3853,8 +4482,17 @@ async fn human_sent_directory_is_private_cursor_safe_audited_and_finally_recheck
         )))
         .await
         .expect("bootstrap Human sent-directory tenant");
+    // Keep grant validity safely before the database-clock final rechecks.
+    let now = Utc::now();
+    let owner_id = insert_approval_test_owner(
+        &store,
+        bootstrap.organization_id,
+        bootstrap.root_principal_id,
+        now,
+    )
+    .await;
     let owner_context = store
-        .resolve_authorization(bootstrap.root_principal_id, now)
+        .resolve_authorization(owner_id, now)
         .await
         .expect("resolve sent-directory owner")
         .expect("sent-directory owner is active");
@@ -3967,9 +4605,11 @@ async fn human_sent_directory_is_private_cursor_safe_audited_and_finally_recheck
     let adapter: Arc<dyn MailSubmissionAdapter> =
         Arc::new(IntegrationHumanSentSubmissionAdapter::default());
     let executor = MailSubmissionExecutor::new(store.clone(), Arc::clone(&adapter));
-    // The finalization SQL uses GREATEST(command.now, clock_timestamp()). Keep
-    // this well ahead of the database clock so the two accepts retain an
-    // exact, deterministic shared timestamp even on a slow CI runner.
+    // The finalization SQL stamps `accepted_at` with the database-owned
+    // `clock_timestamp()`, and terminal intents are immutable afterwards. To
+    // exercise the UUID tie-breaker deterministically, the two accepts are
+    // normalized to one shared timestamp through a dedicated replication-role
+    // connection; the shared pool never sees the relaxed session.
     let accepted_at = now + chrono::Duration::minutes(5);
     for (intent, executed_at) in [
         (&older, accepted_at),
@@ -3989,6 +4629,38 @@ async fn human_sent_directory_is_private_cursor_safe_audited_and_finally_recheck
                 .expect("accept sent-directory fixture submission"),
             MailSubmissionExecutionResult::Accepted
         );
+    }
+    {
+        // A single-connection pool guarantees the relaxed session setting and
+        // the fixture UPDATE share one session and are discarded together.
+        let surgery_pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&support::database_url())
+            .await
+            .expect("open fixture-surgery connection");
+        sqlx::query("SET session_replication_role = 'replica'")
+            .execute(&surgery_pool)
+            .await
+            .expect("enable fixture-surgery role");
+        sqlx::query(
+            r#"
+            UPDATE mail_submission_intents
+               SET accepted_at = (
+                   SELECT min(accepted_at)
+                     FROM mail_submission_intents
+                    WHERE organization_id = $1 AND id IN ($2, $3)
+               )
+             WHERE organization_id = $1
+               AND id IN ($2, $3)
+            "#,
+        )
+        .bind(bootstrap.organization_id.as_uuid())
+        .bind(older.submission_id.as_uuid())
+        .bind(newer.submission_id.as_uuid())
+        .execute(&surgery_pool)
+        .await
+        .expect("share one acceptance timestamp across the fixture");
+        surgery_pool.close().await;
     }
     let pending_lifecycle: (String, String) = sqlx::query_as(
         r#"
@@ -4023,7 +4695,7 @@ async fn human_sent_directory_is_private_cursor_safe_audited_and_finally_recheck
     let initial_batch = store
         .list_human_sent_submissions(&HumanSentListQuery {
             organization_id: bootstrap.organization_id,
-            principal_id: bootstrap.root_principal_id,
+            principal_id: owner_id,
             mailbox_id: mailbox.mailbox_id,
             after_submission_id: None,
             limit: 50,
@@ -4213,7 +4885,7 @@ async fn human_sent_directory_is_private_cursor_safe_audited_and_finally_recheck
         !snapshot_drift_transaction
             .human_sent_list_still_authorized(&HumanSentListRecheck {
                 organization_id: bootstrap.organization_id,
-                principal_id: bootstrap.root_principal_id,
+                principal_id: owner_id,
                 mailbox_id: mailbox.mailbox_id,
                 expected_submissions: vec![HumanSentListItemRecheck {
                     submission_id: newer.submission_id,
@@ -4940,9 +5612,9 @@ async fn human_drafts_are_private_authorized_binding_safe_and_finally_rechecked(
               AND action = 'mail.drafts.queried'
               AND resource_id = $2),
           (SELECT count(*) FROM outbox_events
-            WHERE organization_id = $1
-              AND event_type = 'mail.drafts.queried.v1'
-              AND aggregate_id = $2)
+            WHERE event_type = 'mail.drafts.queried.v1'
+              AND aggregate_id = $2
+              AND payload ->> 'organization_id' = $1::text)
         "#,
     )
     .bind(bootstrap.organization_id.as_uuid())
@@ -5134,9 +5806,9 @@ async fn human_drafts_are_private_authorized_binding_safe_and_finally_rechecked(
               AND action = 'mail.drafts.queried'
               AND resource_id = $2),
           (SELECT count(*) FROM outbox_events
-            WHERE organization_id = $1
-              AND event_type = 'mail.drafts.queried.v1'
-              AND aggregate_id = $2)
+            WHERE event_type = 'mail.drafts.queried.v1'
+              AND aggregate_id = $2
+              AND payload ->> 'organization_id' = $1::text)
         "#,
     )
     .bind(bootstrap.organization_id.as_uuid())
@@ -5305,7 +5977,7 @@ async fn approval_workflow_enforces_dual_control_scope_and_expiry() {
     ApprovalPolicyService::new(store.clone())
         .create(CreateApprovalPolicyCommand {
             organization_id: bootstrap.organization_id,
-            policy_key: "mail.send_as.external".into(),
+            policy_key: "mail.sendas.external".into(),
             display_name: "External Send As".into(),
             action: ApprovalAction::SendAs,
             required_approvals: 2,
@@ -5319,7 +5991,7 @@ async fn approval_workflow_enforces_dual_control_scope_and_expiry() {
     let request_id = workflow
         .request(RequestApprovalCommand {
             context: requester_context.clone(),
-            policy_key: "mail.send_as.external".into(),
+            policy_key: "mail.sendas.external".into(),
             action: ApprovalAction::SendAs,
             resource_kind: "mailbox".into(),
             resource_id: "mailbox-a".into(),
@@ -5473,8 +6145,10 @@ async fn approval_workflow_enforces_dual_control_scope_and_expiry() {
             .await
             .unwrap()
     );
+    // Persistence uses its own clock: a fabricated caller timestamp must not
+    // expire a live approval (or revive an expired one, checked below).
     assert!(
-        !store
+        store
             .approval_permits(&ApprovalProof {
                 now: now + chrono::Duration::hours(2),
                 ..proof
@@ -5486,7 +6160,7 @@ async fn approval_workflow_enforces_dual_control_scope_and_expiry() {
     let cancellation_id = workflow
         .request(RequestApprovalCommand {
             context: requester_context.clone(),
-            policy_key: "mail.send_as.external".into(),
+            policy_key: "mail.sendas.external".into(),
             action: ApprovalAction::SendAs,
             resource_kind: "mailbox".into(),
             resource_id: "mailbox-cancelled".into(),
@@ -5500,7 +6174,7 @@ async fn approval_workflow_enforces_dual_control_scope_and_expiry() {
         .expect("request approval for cancellation");
     let cancelled = workflow
         .cancel(CancelApprovalRequestCommand {
-            context: requester_context,
+            context: requester_context.clone(),
             request_id: cancellation_id,
             trace_id: Uuid::now_v7().to_string(),
             now,
@@ -5541,6 +6215,72 @@ async fn approval_workflow_enforces_dual_control_scope_and_expiry() {
     .await
     .expect("query approval evidence");
     assert_eq!(evidence, (2, 2, 2, 1, 4));
+
+    let clock_start = Utc::now();
+    let expiring = workflow
+        .request(RequestApprovalCommand {
+            context: requester_context.clone(),
+            policy_key: "mail.sendas.external".into(),
+            action: ApprovalAction::SendAs,
+            resource_kind: "mailbox".into(),
+            resource_id: "expiry-after-row-lock".into(),
+            reason: "Check the post-lock clock".into(),
+            ticket_reference: None,
+            expires_at: clock_start + chrono::Duration::seconds(2),
+            trace_id: Uuid::new_v4().to_string(),
+            now: clock_start,
+        })
+        .await
+        .unwrap();
+    let mut blocker = store.pool().begin().await.unwrap();
+    let expires_at: chrono::DateTime<Utc> =
+        sqlx::query_scalar("SELECT expires_at FROM approval_requests WHERE id = $1 FOR UPDATE")
+            .bind(expiring.as_uuid())
+            .fetch_one(&mut *blocker)
+            .await
+            .unwrap();
+    let mut decision_transaction = store.begin().await.unwrap();
+    let decision = copilotmail_application::ApprovalDecisionWrite {
+        organization_id: bootstrap.organization_id,
+        request_id: expiring,
+        step_id: copilotmail_domain::ApprovalStepId::new(),
+        approver: first_id,
+        decision: ApprovalDecision::Approved,
+        reason: "Wait across expiry".into(),
+        decided_at: clock_start,
+    };
+    let mut waiting = Box::pin(decision_transaction.record_approval_decision(&decision));
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(25), &mut waiting)
+            .await
+            .is_err()
+    );
+    sqlx::query("SELECT pg_sleep(GREATEST(EXTRACT(EPOCH FROM ($1::timestamptz - clock_timestamp())), 0) + 0.02)")
+        .bind(expires_at).execute(&mut *blocker).await.unwrap();
+    blocker.commit().await.unwrap();
+    assert!(matches!(
+        waiting.await,
+        Err(copilotmail_application::StoreError::Conflict)
+    ));
+    drop(decision_transaction);
+    assert!(matches!(
+        workflow
+            .cancel(CancelApprovalRequestCommand {
+                context: requester_context,
+                request_id: expiring,
+                trace_id: Uuid::new_v4().to_string(),
+                now: clock_start,
+            })
+            .await,
+        Err(copilotmail_application::ApprovalWorkflowError::Store(
+            copilotmail_application::StoreError::Conflict
+        ))
+    ));
+    let denied_rows: (i64, i64) = sqlx::query_as(
+        "SELECT (SELECT count(*) FROM approval_steps WHERE approval_request_id = $1), (SELECT count(*) FROM audit_events WHERE organization_id = $2 AND resource_id = $3 AND action IN ('authorization.approval.decided', 'authorization.approval.cancelled'))",
+    ).bind(expiring.as_uuid()).bind(bootstrap.organization_id.as_uuid()).bind(expiring.to_string())
+        .fetch_one(store.pool()).await.unwrap();
+    assert_eq!(denied_rows, (0, 0));
 
     let grant_now = chrono::DateTime::from_timestamp_millis(
         (now + chrono::Duration::seconds(1)).timestamp_millis(),
@@ -7226,6 +7966,72 @@ impl MailSubmissionAdapter for ExistingSubmissionAdapter {
     }
 }
 
+struct ProductionAgentAdmissionSubmissionAdapter {
+    account_ref: String,
+    engine_email_ref: String,
+    delivery_reads: Arc<AtomicU64>,
+}
+
+impl MailDataPlanePort for ProductionAgentAdmissionSubmissionAdapter {
+    fn data_plane_id(&self) -> MailDataPlaneId {
+        legacy_mail_data_plane_id()
+    }
+}
+
+#[async_trait]
+impl MailSubmissionAdapter for ProductionAgentAdmissionSubmissionAdapter {
+    async fn probe_submissions(&self) -> Result<(), MailEngineError> {
+        Ok(())
+    }
+
+    async fn reconcile_submission(
+        &self,
+        account_ref: &str,
+        engine_email_ref: &str,
+        expected_from: &str,
+    ) -> Result<MailSubmissionReconciliation, MailEngineError> {
+        assert_eq!(account_ref, self.account_ref);
+        assert_eq!(engine_email_ref, self.engine_email_ref);
+        assert!(expected_from.ends_with("@example.test"));
+        Ok(MailSubmissionReconciliation::Accepted {
+            identity_ref: "production-agent-evidence-identity".into(),
+            submission_ref: "production-agent-evidence-submission".into(),
+        })
+    }
+
+    async fn create_submission(
+        &self,
+        _account_ref: &str,
+        _engine_email_ref: &str,
+        _identity_ref: &str,
+    ) -> Result<CreatedMailSubmission, MailEngineError> {
+        panic!("existing production Agent submission must never be recreated")
+    }
+
+    async fn get_delivery_snapshot(
+        &self,
+        account_ref: &str,
+        engine_email_ref: &str,
+        identity_ref: &str,
+        submission_ref: &str,
+    ) -> Result<MailDeliverySnapshot, MailEngineError> {
+        self.delivery_reads.fetch_add(1, Ordering::SeqCst);
+        assert_eq!(account_ref, self.account_ref);
+        assert_eq!(engine_email_ref, self.engine_email_ref);
+        assert_eq!(identity_ref, "production-agent-evidence-identity");
+        assert_eq!(submission_ref, "production-agent-evidence-submission");
+        Ok(MailDeliverySnapshot {
+            submission_ref: submission_ref.into(),
+            source_state: "production-agent-evidence-terminal".into(),
+            recipients: vec![RecipientDeliveryEvidence {
+                recipient: MailboxAddress::parse("production-agent@example.test").unwrap(),
+                state: RecipientDeliveryState::Delivered,
+                smtp_reply: "250 2.0.0 Accepted".into(),
+            }],
+        })
+    }
+}
+
 #[tokio::test]
 #[ignore = "requires a disposable PostgreSQL database"]
 async fn production_agent_admission_is_approved_bounded_atomic_and_worker_visible() {
@@ -7530,6 +8336,247 @@ async fn production_agent_admission_is_approved_bounded_atomic_and_worker_visibl
     .await
     .expect("read atomic production admission evidence");
     assert_eq!(evidence_counts, (1, 1, 1));
+    let exact_evidence = AgentMailSubmissionEvidenceService::new(store.clone())
+        .get(GetAgentMailSubmissionEvidenceCommand {
+            context: owner_context.clone(),
+            organization_id: bootstrap.organization_id,
+            agent_id: agent.principal_id,
+            submission_id: first_intent.submission_id,
+            trace_id: Uuid::now_v7().to_string(),
+        })
+        .await
+        .expect("read exact production Agent submission evidence");
+    assert_eq!(exact_evidence.agent_id, agent.principal_id);
+    assert_eq!(exact_evidence.submission_id, first_intent.submission_id);
+    assert_eq!(exact_evidence.submission_status.as_str(), "pending");
+    assert_eq!(
+        exact_evidence.admission.policy_version,
+        policy_version.policy.version()
+    );
+    assert_eq!(
+        exact_evidence
+            .admission
+            .policy_activation_approval_request_id,
+        activation_approval_id
+    );
+    assert_eq!(
+        exact_evidence.admission.first_contact_approval_request_id,
+        Some(contact_approval_id)
+    );
+    assert!(exact_evidence.delivery.is_none());
+    assert_eq!(
+        exact_evidence
+            .audit_references
+            .iter()
+            .map(|reference| reference.action.as_str())
+            .collect::<Vec<_>>(),
+        vec!["mail.submission.requested", "agent.mail.admitted"]
+    );
+
+    let delivery_reads = Arc::new(AtomicU64::new(0));
+    let production_submission_adapter: Arc<dyn MailSubmissionAdapter> =
+        Arc::new(ProductionAgentAdmissionSubmissionAdapter {
+            account_ref: engine_account_ref.clone(),
+            engine_email_ref: "production-draft-1".into(),
+            delivery_reads: Arc::clone(&delivery_reads),
+        });
+    let pre_accept_delivery = MailDeliveryReconciliationService::new(
+        store.clone(),
+        Arc::clone(&production_submission_adapter),
+        MailDataPlaneFingerprintScheme::LegacyV1,
+    )
+    .reconcile(ReconcileMailDeliveryCommand {
+        submission_id: first_intent.submission_id,
+        now: Utc::now(),
+    })
+    .await;
+    assert!(matches!(
+        pre_accept_delivery,
+        Err(MailDeliveryReconciliationError::NotEligible)
+    ));
+    assert_eq!(
+        delivery_reads.load(Ordering::SeqCst),
+        0,
+        "a pending submission must not call the remote delivery reader"
+    );
+
+    let execution =
+        MailSubmissionExecutor::new(store.clone(), Arc::clone(&production_submission_adapter))
+            .execute(ExecuteMailSubmissionCommand {
+                submission_id: first_intent.submission_id,
+                trace_id: Uuid::now_v7().to_string(),
+                now: Utc::now(),
+            })
+            .await
+            .expect("reconcile and accept the approved production Agent submission");
+    assert_eq!(execution, MailSubmissionExecutionResult::Accepted);
+    let accepted_at: chrono::DateTime<Utc> = sqlx::query_scalar(
+        "SELECT accepted_at FROM mail_submission_intents WHERE id = $1 AND status = 'accepted'",
+    )
+    .bind(first_intent.submission_id.as_uuid())
+    .fetch_one(store.pool())
+    .await
+    .expect("read accepted production Agent timestamp");
+    let delivery = MailDeliveryReconciliationService::new(
+        store.clone(),
+        Arc::clone(&production_submission_adapter),
+        MailDataPlaneFingerprintScheme::LegacyV1,
+    )
+    .reconcile(ReconcileMailDeliveryCommand {
+        submission_id: first_intent.submission_id,
+        now: accepted_at + chrono::Duration::milliseconds(1),
+    })
+    .await
+    .expect("record terminal production Agent delivery aggregate");
+    assert_eq!(
+        delivery,
+        MailDeliveryReconciliationResult::Terminal { inserted: true }
+    );
+    assert_eq!(
+        delivery_reads.load(Ordering::SeqCst),
+        1,
+        "only the accepted submission may read its exact delivery snapshot"
+    );
+
+    let p3_evidence_reads_before: (i64, i64) = sqlx::query_as(
+        r#"
+        SELECT
+          (SELECT count(*)
+             FROM audit_events
+            WHERE organization_id = $1
+              AND actor_principal_id = $2
+              AND action = 'agent.mail_submission_evidence.queried'
+              AND resource_type = 'agent.mail_submission_evidence'
+              AND resource_id = $3
+              AND outcome = 'success'),
+          (SELECT count(*)
+             FROM outbox_events
+            WHERE event_type = 'agent.mail_submission_evidence.queried.v1'
+              AND aggregate_type = 'agent.mail_submission_evidence'
+              AND aggregate_id = $3
+              AND payload ->> 'organization_id' = $1::text
+              AND payload ->> 'agent_id' = $4)
+        "#,
+    )
+    .bind(bootstrap.organization_id.as_uuid())
+    .bind(owner.principal_id.as_uuid())
+    .bind(first_intent.submission_id.to_string())
+    .bind(agent.principal_id.to_string())
+    .fetch_one(store.pool())
+    .await
+    .expect("count pending P3 read evidence");
+    assert_eq!(p3_evidence_reads_before, (1, 1));
+
+    let terminal_evidence = AgentMailSubmissionEvidenceService::new(store.clone())
+        .get(GetAgentMailSubmissionEvidenceCommand {
+            context: owner_context.clone(),
+            organization_id: bootstrap.organization_id,
+            agent_id: agent.principal_id,
+            submission_id: first_intent.submission_id,
+            trace_id: Uuid::now_v7().to_string(),
+        })
+        .await
+        .expect("read terminal production Agent submission evidence");
+    assert_eq!(terminal_evidence.agent_id, agent.principal_id);
+    assert_eq!(terminal_evidence.submission_id, first_intent.submission_id);
+    assert_eq!(terminal_evidence.submission_status.as_str(), "accepted");
+    let terminal_delivery = terminal_evidence
+        .delivery
+        .as_ref()
+        .expect("accepted submission exposes its immutable aggregate delivery");
+    assert!(terminal_delivery.terminal);
+    assert_eq!(terminal_delivery.recipient_count, 1);
+    assert_eq!(terminal_delivery.delivered_count, 1);
+    assert_eq!(terminal_delivery.failed_count, 0);
+    assert_eq!(terminal_delivery.queued_count, 0);
+    assert_eq!(terminal_delivery.unknown_count, 0);
+    assert_eq!(
+        terminal_evidence
+            .audit_references
+            .iter()
+            .map(|reference| reference.action.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "mail.submission.requested",
+            "agent.mail.admitted",
+            "mail.submission.accepted"
+        ]
+    );
+    let terminal_audits: Vec<(String, String)> = sqlx::query_as(
+        r#"
+        SELECT action, outcome
+          FROM audit_events
+         WHERE organization_id = $1
+           AND actor_principal_id = $2
+           AND on_behalf_of_principal_id IS NULL
+           AND (
+               (action = 'mail.submission.requested'
+                AND resource_type = 'mail.submission'
+                AND resource_id = $3)
+               OR (action = 'agent.mail.admitted'
+                   AND resource_type = 'agent.mail_admission'
+                   AND resource_id = $4)
+               OR (action = 'mail.submission.accepted'
+                   AND resource_type = 'mail.submission'
+                   AND resource_id = $3)
+           )
+         ORDER BY CASE action
+                      WHEN 'mail.submission.requested' THEN 1
+                      WHEN 'agent.mail.admitted' THEN 2
+                      WHEN 'mail.submission.accepted' THEN 3
+                  END
+        "#,
+    )
+    .bind(bootstrap.organization_id.as_uuid())
+    .bind(agent.principal_id.as_uuid())
+    .bind(first_intent.submission_id.to_string())
+    .bind(terminal_evidence.admission.admission_id.to_string())
+    .fetch_all(store.pool())
+    .await
+    .expect("read exact accepted production Agent audit chain");
+    assert_eq!(
+        terminal_audits,
+        vec![
+            ("mail.submission.requested".into(), "success".into()),
+            ("agent.mail.admitted".into(), "success".into()),
+            ("mail.submission.accepted".into(), "success".into()),
+        ]
+    );
+    let p3_evidence_reads_after: (i64, i64) = sqlx::query_as(
+        r#"
+        SELECT
+          (SELECT count(*)
+             FROM audit_events
+            WHERE organization_id = $1
+              AND actor_principal_id = $2
+              AND action = 'agent.mail_submission_evidence.queried'
+              AND resource_type = 'agent.mail_submission_evidence'
+              AND resource_id = $3
+              AND outcome = 'success'),
+          (SELECT count(*)
+             FROM outbox_events
+            WHERE event_type = 'agent.mail_submission_evidence.queried.v1'
+              AND aggregate_type = 'agent.mail_submission_evidence'
+              AND aggregate_id = $3
+              AND payload ->> 'organization_id' = $1::text
+              AND payload ->> 'agent_id' = $4)
+        "#,
+    )
+    .bind(bootstrap.organization_id.as_uuid())
+    .bind(owner.principal_id.as_uuid())
+    .bind(first_intent.submission_id.to_string())
+    .bind(agent.principal_id.to_string())
+    .fetch_one(store.pool())
+    .await
+    .expect("read terminal P3 audit and Outbox evidence");
+    assert_eq!(
+        p3_evidence_reads_after,
+        (
+            p3_evidence_reads_before.0 + 1,
+            p3_evidence_reads_before.1 + 1
+        ),
+        "a successful P3 evidence read commits one Audit event and one Outbox event"
+    );
     let runtime = store
         .get_agent_mail_policy_runtime(bootstrap.organization_id, agent.principal_id)
         .await
@@ -7695,7 +8742,6 @@ async fn production_agent_admission_is_approved_bounded_atomic_and_worker_visibl
 #[ignore = "requires a disposable PostgreSQL database"]
 async fn testing_agent_sandbox_freezes_without_creating_a_deliverable_intent() {
     let store = migrated_store().await;
-    let now = Utc::now();
     let bootstrap = BootstrapOrganizationService::new(store.clone())
         .execute(bootstrap_command(format!(
             "agent-sandbox-{}",
@@ -7703,6 +8749,7 @@ async fn testing_agent_sandbox_freezes_without_creating_a_deliverable_intent() {
         )))
         .await
         .expect("bootstrap Agent sandbox tenant");
+    let now = Utc::now();
     let owner = BindOidcOwnerService::new(store.clone())
         .execute(BindOidcOwnerCommand {
             organization_id: bootstrap.organization_id,
@@ -7747,6 +8794,28 @@ async fn testing_agent_sandbox_freezes_without_creating_a_deliverable_intent() {
         })
         .await
         .expect("create testing Agent mailbox");
+    // Account ownership is claimed permanently across runs, so each fixture
+    // run needs a fresh account reference.
+    let account_ref = random_numeric_engine_ref();
+    MailEngineMailboxBindingService::try_new(
+        store.clone(),
+        legacy_mail_data_plane_id(),
+        "stalwart",
+    )
+    .expect("construct sandbox binding service")
+    .bind_authorized(
+        &owner_context,
+        BindMailEngineMailboxCommand {
+            organization_id: bootstrap.organization_id,
+            mailbox_id: mailbox.mailbox_id,
+            account_ref: account_ref.clone(),
+            expected_version: 0,
+            trace_id: Uuid::now_v7().to_string(),
+            now,
+        },
+    )
+    .await
+    .expect("bind testing Agent mailbox");
     MailboxDelegationService::new(store.clone())
         .grant_authorized(
             &owner_context,
@@ -7777,9 +8846,9 @@ async fn testing_agent_sandbox_freezes_without_creating_a_deliverable_intent() {
             mailbox_id: mailbox.mailbox_id,
             created_by: agent.principal_id,
             data_plane_id: legacy_mail_data_plane_id(),
-            engine_account_ref: "testing-agent-account".into(),
-            engine_email_ref: "testing-agent-draft".into(),
-            engine_thread_ref: "testing-agent-thread".into(),
+            engine_account_ref: account_ref.clone(),
+            engine_email_ref: format!("testing-agent-draft-{}", Uuid::new_v4().simple()),
+            engine_thread_ref: format!("testing-agent-thread-{}", Uuid::new_v4().simple()),
             reply_to_message_id: None,
             reply_to_automatic: false,
             body_ref: [71; 32],
@@ -7918,7 +8987,7 @@ async fn testing_agent_sandbox_freezes_without_creating_a_deliverable_intent() {
                 mailbox_id: mailbox.mailbox_id,
                 created_by: development_agent.principal_id,
                 data_plane_id: legacy_mail_data_plane_id(),
-                engine_account_ref: "development-agent-account".into(),
+                engine_account_ref: account_ref.clone(),
                 engine_email_ref: format!("development-duplicate-draft-{attempt}"),
                 engine_thread_ref: format!("development-duplicate-thread-{attempt}"),
                 reply_to_message_id: None,
@@ -7985,6 +9054,7 @@ async fn testing_agent_sandbox_freezes_without_creating_a_deliverable_intent() {
 #[tokio::test]
 #[ignore = "requires a disposable PostgreSQL database"]
 async fn human_sessions_store_only_digests_consume_once_and_revoke_idempotently() {
+    let _login_gate = LOGIN_GATE.lock().await;
     let store = migrated_store().await;
     let bootstrap = BootstrapOrganizationService::new(store.clone())
         .execute(bootstrap_command(format!(
@@ -8078,7 +9148,7 @@ async fn human_sessions_store_only_digests_consume_once_and_revoke_idempotently(
         Err(HumanSessionError::NotFound)
     );
 
-    let session_now = now + chrono::Duration::seconds(2);
+    let session_now = pg_micros(now + chrono::Duration::seconds(2));
     let raw_session_token = format!(
         "session_{}_{}",
         Uuid::new_v4().simple(),
@@ -8279,6 +9349,7 @@ async fn human_sessions_store_only_digests_consume_once_and_revoke_idempotently(
 #[tokio::test]
 #[ignore = "requires a disposable PostgreSQL database"]
 async fn human_session_database_constraints_fail_closed() {
+    let _login_gate = LOGIN_GATE.lock().await;
     let store = migrated_store().await;
     let bootstrap = BootstrapOrganizationService::new(store.clone())
         .execute(bootstrap_command(format!(
@@ -8424,6 +9495,7 @@ async fn human_session_database_constraints_fail_closed() {
 #[tokio::test]
 #[ignore = "requires a disposable PostgreSQL database"]
 async fn human_login_admission_is_cluster_wide_and_recovers_at_the_next_window() {
+    let _login_gate = LOGIN_GATE.lock().await;
     let store = migrated_store().await;
     let database_second: f64 =
         sqlx::query_scalar("SELECT extract(second FROM clock_timestamp())::double precision")
@@ -8580,6 +9652,7 @@ async fn human_login_admission_is_cluster_wide_and_recovers_at_the_next_window()
 #[tokio::test]
 #[ignore = "requires a disposable PostgreSQL database"]
 async fn human_login_cleanup_is_bounded_and_preserves_live_or_session_evidence() {
+    let _login_gate = LOGIN_GATE.lock().await;
     let store = migrated_store().await;
     let bootstrap = BootstrapOrganizationService::new(store.clone())
         .execute(bootstrap_command(format!(
@@ -8921,9 +9994,13 @@ async fn insert_approval_test_owner(
 
 fn assert_append_only_error(result: Result<sqlx::postgres::PgQueryResult, sqlx::Error>) {
     let error = result.expect_err("audit mutation must fail");
-    assert_eq!(
-        error.as_database_error().and_then(|error| error.code()),
-        Some(std::borrow::Cow::Borrowed("55000"))
+    // 55000 is the append-only trigger rejection; 0A000 is PostgreSQL's own
+    // refusal to truncate a table referenced by foreign keys. Both preserve
+    // the invariant under test.
+    let code = error.as_database_error().and_then(|error| error.code());
+    assert!(
+        matches!(code.as_deref(), Some("55000") | Some("0A000")),
+        "append-only mutation must be rejected, got {code:?}"
     );
 }
 
@@ -8936,8 +10013,399 @@ fn assert_check_violation(result: Result<sqlx::postgres::PgQueryResult, sqlx::Er
 }
 
 fn test_public_key() -> String {
-    let private = RsaPrivateKey::new(&mut OsRng, 2_048).unwrap();
-    RsaPublicKey::from(&private)
-        .to_public_key_pem(LineEnding::LF)
+    RsaPrivateKey::generate_for_testing()
         .unwrap()
+        .public_key()
+        .spki_pem()
+        .unwrap()
+}
+
+async fn create_fenced_human_session(
+    store: &PgControlPlaneStore,
+    organization_id: OrganizationId,
+    principal_id: PrincipalId,
+    now: chrono::DateTime<Utc>,
+) -> (HumanSessionId, String) {
+    let service = HumanSessionService::new(store.clone());
+    let raw_state = format!("fence-state-{}", Uuid::new_v4().simple());
+    let raw_nonce = format!("fence-nonce-{}", Uuid::new_v4().simple());
+    let _login = service
+        .begin_login(BeginHumanLoginCommand {
+            client_key: HumanSessionClient::Admin,
+            return_to: "/".into(),
+            state: raw_state.clone(),
+            browser_nonce: raw_nonce.clone(),
+            encrypted_pkce_verifier: vec![0x5a; 96],
+            admission_limit: 100_000,
+            cleanup_limit: 100,
+            now: Utc::now(),
+            expires_at: now + chrono::Duration::minutes(5),
+        })
+        .await
+        .expect("begin fencing login");
+    let consumed = service
+        .consume_login(ConsumeHumanLoginCommand {
+            state: raw_state,
+            browser_nonce: raw_nonce,
+            now: Utc::now(),
+        })
+        .await
+        .expect("consume fencing login");
+    let token = format!("fence-session-{}", Uuid::new_v4().simple());
+    let session = service
+        .create_session(CreateHumanSessionCommand {
+            organization_id,
+            principal_id,
+            login_transaction_id: consumed.login_transaction_id,
+            client_key: consumed.client_key,
+            session_token: token.clone(),
+            oidc_access_token: format!("header.{}.signature", Uuid::new_v4().simple()),
+            oidc_jti: None,
+            upstream_expires_at: now + chrono::Duration::hours(2),
+            expires_at: now + chrono::Duration::hours(1),
+            trace_id: Uuid::now_v7().to_string(),
+            now: Utc::now(),
+        })
+        .await
+        .expect("create fencing session");
+    (session.session_id, token)
+}
+
+fn fenced_context(
+    organization_id: OrganizationId,
+    principal_id: PrincipalId,
+    authentication: AuthenticationBinding,
+) -> AuthorizationContext {
+    AuthorizationContext {
+        principal_id,
+        organization_id,
+        permissions: Permission::ORG_OWNER.into_iter().collect(),
+        authentication: Some(authentication),
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires a disposable PostgreSQL database"]
+async fn request_authentication_fences_human_session_revocation() {
+    let _login_gate = LOGIN_GATE.lock().await;
+    let store = migrated_store().await;
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "fence-session-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .expect("bootstrap fencing tenant");
+    let owner = BindOidcOwnerService::new(store.clone())
+        .execute(BindOidcOwnerCommand {
+            organization_id: bootstrap.organization_id,
+            issuer: format!("https://login-{}.example.test", Uuid::new_v4().simple()),
+            subject: format!("fence-owner-{}", Uuid::new_v4().simple()),
+            display_name: "Fencing Session Owner".into(),
+            trace_id: Uuid::now_v7().to_string(),
+            now: Utc::now(),
+        })
+        .await
+        .expect("bind fencing owner")
+        .principal_id;
+    let (session_id, session_token) =
+        create_fenced_human_session(&store, bootstrap.organization_id, owner, Utc::now()).await;
+    let context = fenced_context(
+        bootstrap.organization_id,
+        owner,
+        AuthenticationBinding::HumanSession { session_id },
+    );
+
+    store
+        .begin_authorized(&context)
+        .await
+        .expect("live session binds")
+        .commit()
+        .await
+        .expect("live session commits");
+
+    let transaction = store
+        .begin_authorized(&context)
+        .await
+        .expect("bind before concurrent revocation");
+    let revoke_store = store.clone();
+    let revoke = tokio::spawn(async move {
+        HumanSessionService::new(revoke_store)
+            .revoke_session(RevokeHumanSessionCommand {
+                session_token,
+                cause: HumanSessionRevocationCause::SecurityResponse,
+                trace_id: Uuid::now_v7().to_string(),
+                now: Utc::now(),
+            })
+            .await
+    });
+    transaction
+        .commit()
+        .await
+        .expect("commit wins: revocation cannot land while the session row is fenced");
+    revoke
+        .await
+        .expect("join revocation task")
+        .expect("revocation completes once the fenced transaction ends");
+    assert!(
+        matches!(
+            store.begin_authorized(&context).await,
+            Err(copilotmail_application::StoreError::AuthenticationInvalid)
+        ),
+        "revoked session must fail at bind"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires a disposable PostgreSQL database"]
+async fn request_authentication_fences_agent_credential_lifecycle() {
+    let store = migrated_store().await;
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "fence-agent-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .expect("bootstrap fencing tenant");
+    BindOidcOwnerService::new(store.clone())
+        .execute(BindOidcOwnerCommand {
+            organization_id: bootstrap.organization_id,
+            issuer: format!("https://login-{}.example.test", Uuid::new_v4().simple()),
+            subject: format!("owner-{}", Uuid::new_v4().simple()),
+            display_name: "Fence Owner".into(),
+            trace_id: Uuid::now_v7().to_string(),
+            now: Utc::now(),
+        })
+        .await
+        .expect("bind fencing owner");
+    let public_key = test_public_key();
+    let now = Utc::now();
+    let registered = RegisterAgentService::new(store.clone())
+        .execute(RegisterAgentCommand {
+            organization_id: bootstrap.organization_id,
+            display_name: "Fencing Agent".into(),
+            environment: AgentEnvironment::Testing,
+            risk_level: AgentRiskLevel::Low,
+            purpose: "Validate credential fencing".into(),
+            review_due_at: now + chrono::Duration::days(90),
+            public_key_pem: public_key.clone(),
+            public_key_fingerprint: rsa_public_key_fingerprint(public_key.as_bytes()).unwrap(),
+            allowed_scopes: Permission::AGENT_TOKEN.into_iter().collect(),
+            credential_expires_at: now + chrono::Duration::days(30),
+            trace_id: Uuid::now_v7().to_string(),
+            now,
+        })
+        .await
+        .expect("register fencing Agent");
+
+    let live = fenced_context(
+        bootstrap.organization_id,
+        registered.principal_id,
+        AuthenticationBinding::AgentCredential {
+            credential_id: registered.credential_id,
+            expires_at: now + chrono::Duration::minutes(30),
+            scopes: Permission::AGENT_TOKEN.into_iter().collect(),
+        },
+    );
+    store
+        .begin_authorized(&live)
+        .await
+        .expect("live credential binds")
+        .commit()
+        .await
+        .expect("live credential commits");
+
+    let expired_token = fenced_context(
+        bootstrap.organization_id,
+        registered.principal_id,
+        AuthenticationBinding::AgentCredential {
+            credential_id: registered.credential_id,
+            expires_at: now - chrono::Duration::seconds(1),
+            scopes: Permission::AGENT_TOKEN.into_iter().collect(),
+        },
+    );
+    assert!(
+        matches!(
+            store.begin_authorized(&expired_token).await,
+            Err(copilotmail_application::StoreError::AuthenticationInvalid)
+        ),
+        "expired access token must fail at bind"
+    );
+
+    RevokeAgentCredentialService::new(store.clone())
+        .execute(RevokeAgentCredentialCommand {
+            organization_id: bootstrap.organization_id,
+            credential_id: registered.credential_id,
+            trace_id: Uuid::now_v7().to_string(),
+            now: Utc::now(),
+        })
+        .await
+        .expect("revoke fencing credential");
+    assert!(
+        matches!(
+            store.begin_authorized(&live).await,
+            Err(copilotmail_application::StoreError::AuthenticationInvalid)
+        ),
+        "revoked credential must fail at bind"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires a disposable PostgreSQL database"]
+async fn request_authentication_fences_scim_token_revocation() {
+    let store = migrated_store().await;
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "fence-scim-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .expect("bootstrap fencing tenant");
+    BindOidcOwnerService::new(store.clone())
+        .execute(BindOidcOwnerCommand {
+            organization_id: bootstrap.organization_id,
+            issuer: format!("https://login-{}.example.test", Uuid::new_v4().simple()),
+            subject: format!("fence-owner-{}", Uuid::new_v4().simple()),
+            display_name: "Fencing SCIM Owner".into(),
+            trace_id: Uuid::now_v7().to_string(),
+            now: Utc::now(),
+        })
+        .await
+        .expect("bind fencing owner");
+    let plaintext = format!("fence-scim-{}", Uuid::new_v4());
+    let token_hash = Sha256::digest(plaintext.as_bytes()).to_vec();
+    let credential = IssueScimTokenService::new(store.clone())
+        .execute(IssueScimTokenCommand {
+            organization_id: bootstrap.organization_id,
+            token_id: ScimTokenId::new(),
+            token_hash: token_hash.clone(),
+            label: "Fencing token".into(),
+            expires_at: Some(pg_micros(Utc::now()) + chrono::Duration::hours(1)),
+            trace_id: Uuid::now_v7().to_string(),
+            now: Utc::now(),
+        })
+        .await
+        .expect("issue fencing SCIM token");
+
+    let context = fenced_context(
+        bootstrap.organization_id,
+        credential.actor_principal_id,
+        AuthenticationBinding::ScimToken {
+            token_id: credential.token_id,
+        },
+    );
+    store
+        .begin_authorized(&context)
+        .await
+        .expect("live SCIM token binds")
+        .commit()
+        .await
+        .expect("live SCIM token commits");
+
+    RevokeScimTokenService::new(store.clone())
+        .execute(RevokeScimTokenCommand {
+            organization_id: bootstrap.organization_id,
+            token_id: credential.token_id,
+            trace_id: Uuid::now_v7().to_string(),
+            now: Utc::now(),
+        })
+        .await
+        .expect("revoke fencing SCIM token");
+    assert!(
+        matches!(
+            store.begin_authorized(&context).await,
+            Err(copilotmail_application::StoreError::AuthenticationInvalid)
+        ),
+        "revoked SCIM token must fail at bind"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires a disposable PostgreSQL database"]
+async fn request_authentication_fences_bearer_expiry_at_commit() {
+    let store = migrated_store().await;
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "fence-bearer-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .expect("bootstrap fencing tenant");
+    let owner = bootstrap.root_principal_id;
+    let now = Utc::now();
+
+    let expired = fenced_context(
+        bootstrap.organization_id,
+        owner,
+        AuthenticationBinding::HumanBearer {
+            expires_at: now - chrono::Duration::hours(1),
+        },
+    );
+    assert!(
+        matches!(
+            store.begin_authorized(&expired).await,
+            Err(copilotmail_application::StoreError::AuthenticationInvalid)
+        ),
+        "expired bearer token must fail at bind"
+    );
+
+    let database_now: chrono::DateTime<Utc> = sqlx::query_scalar("SELECT now()")
+        .fetch_one(store.pool())
+        .await
+        .expect("read database clock");
+    let bearer_expires_at = database_now + chrono::Duration::seconds(2);
+    let expiring = fenced_context(
+        bootstrap.organization_id,
+        owner,
+        AuthenticationBinding::HumanBearer {
+            expires_at: bearer_expires_at,
+        },
+    );
+    let transaction = store
+        .begin_authorized(&expiring)
+        .await
+        .expect("live bearer token binds");
+    for _ in 0..30 {
+        let database_now: chrono::DateTime<Utc> = sqlx::query_scalar("SELECT now()")
+            .fetch_one(store.pool())
+            .await
+            .expect("read database clock");
+        if database_now > bearer_expires_at + chrono::Duration::seconds(1) {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+    assert!(
+        matches!(
+            transaction.commit().await,
+            Err(copilotmail_application::StoreError::AuthenticationInvalid)
+        ),
+        "commit must reject a bearer token that expired mid-transaction"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires a disposable PostgreSQL database"]
+async fn begin_authorized_without_binding_matches_plain_begin() {
+    let store = migrated_store().await;
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "fence-none-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .expect("bootstrap fencing tenant");
+    let context = AuthorizationContext {
+        principal_id: bootstrap.root_principal_id,
+        organization_id: bootstrap.organization_id,
+        permissions: Permission::ORG_OWNER.into_iter().collect(),
+        authentication: None,
+    };
+    store
+        .begin_authorized(&context)
+        .await
+        .expect("unauthenticated local work binds")
+        .commit()
+        .await
+        .expect("unauthenticated local work commits");
 }

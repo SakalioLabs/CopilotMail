@@ -22,6 +22,21 @@ function endpoint(config: RuntimeConfig, path: string): string {
   return `${sameOriginApiBaseUrl(config.apiBaseUrl)}${path}`;
 }
 
+type UnauthorizedAwareConfig = RuntimeConfig & {
+  onUnauthorized?: () => void;
+};
+
+function requireSuccessfulResponse(
+  config: RuntimeConfig,
+  response: Response,
+  operation: string,
+): void {
+  if (response.status === 401) {
+    (config as UnauthorizedAwareConfig).onUnauthorized?.();
+  }
+  if (!response.ok) throw new Error(`${operation}_${response.status}`);
+}
+
 const cookieRequest = {
   credentials: "same-origin" as const,
   cache: "no-store" as const,
@@ -969,7 +984,7 @@ export async function listMailboxes(
     endpoint(config, `/api/v2/mailboxes?${query}`),
     cookieRequest,
   );
-  if (!response.ok) throw new Error(`mailbox_directory_${response.status}`);
+  requireSuccessfulResponse(config, response, "mailbox_directory");
   return parseMailboxDirectoryPage(await response.json(), cursor);
 }
 
@@ -991,7 +1006,7 @@ export async function listDrafts(
     ),
     { ...cookieRequest, signal },
   );
-  if (!response.ok) throw new Error(`draft_list_${response.status}`);
+  requireSuccessfulResponse(config, response, "draft_list");
   return parseHumanDraftPage(await response.json(), cursor);
 }
 
@@ -1018,7 +1033,7 @@ export async function listSentSubmissions(
     ),
     { ...cookieRequest, signal },
   );
-  if (!response.ok) throw new Error(`sent_list_${response.status}`);
+  requireSuccessfulResponse(config, response, "sent_list");
   return parseHumanSentSubmissionPage(await response.json(), cursor);
 }
 
@@ -1065,7 +1080,7 @@ export async function restoreDraft(
       signal,
     },
   );
-  if (!response.ok) throw new Error(`draft_restore_${response.status}`);
+  requireSuccessfulResponse(config, response, "draft_restore");
   return parseHumanDraftRestore(await response.json(), expectedDraft);
 }
 
@@ -1082,7 +1097,7 @@ export async function listInbox(
     ),
     cookieRequest,
   );
-  if (!response.ok) throw new Error(`inbox_${response.status}`);
+  requireSuccessfulResponse(config, response, "inbox");
   return parseInboxPage(await response.json());
 }
 
@@ -1107,7 +1122,7 @@ export async function searchInbox(
       body: JSON.stringify({ text, cursor: cursor ?? null, page_size: 30 }),
     },
   );
-  if (!response.ok) throw new Error(`inbox_search_${response.status}`);
+  requireSuccessfulResponse(config, response, "inbox_search");
   return parseInboxPage(await response.json());
 }
 
@@ -1124,7 +1139,7 @@ export async function getMessage(
     ),
     { ...cookieRequest, signal },
   );
-  if (!response.ok) throw new Error(`message_${response.status}`);
+  requireSuccessfulResponse(config, response, "message");
   return parseMessageDetail(await response.json(), safeMessageId);
 }
 
@@ -1150,7 +1165,7 @@ export async function updateMessageState(
       body: JSON.stringify(update),
     },
   );
-  if (!response.ok) throw new Error(`message_state_${response.status}`);
+  requireSuccessfulResponse(config, response, "message_state");
   return parseMessageState(await response.json(), safeMessageId);
 }
 
@@ -1176,7 +1191,7 @@ export async function saveDraft(
       body: JSON.stringify(validatedDraft),
     },
   );
-  if (!response.ok) throw new Error(`draft_${response.status}`);
+  requireSuccessfulResponse(config, response, "draft");
   return parseDraftResult(await response.json(), validatedDraft);
 }
 
@@ -1216,7 +1231,7 @@ export async function requestSubmission(
       }),
     },
   );
-  if (!response.ok) throw new Error(`submission_${response.status}`);
+  requireSuccessfulResponse(config, response, "submission");
   return parseMailSubmission(
     await response.json(),
     mailboxId,
@@ -1251,7 +1266,7 @@ export async function getSubmission(
     ),
     cookieRequest,
   );
-  if (!response.ok) throw new Error(`submission_status_${response.status}`);
+  requireSuccessfulResponse(config, response, "submission_status");
   return parseMailSubmission(
     await response.json(),
     mailboxId,

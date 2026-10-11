@@ -132,7 +132,7 @@ impl<S: ControlPlaneStore> MailDomainGovernanceService<S> {
         context: &AuthorizationContext,
         command: RegisterMailDomainCommand,
     ) -> Result<RegisterMailDomainResult, MailDomainGovernanceError> {
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(context).await?;
         authorize(&mut *transaction, context, command.organization_id).await?;
         let name = MailDomainName::parse(&command.name)?;
         let mut domain = MailDomain::new(
@@ -193,7 +193,7 @@ impl<S: ControlPlaneStore> MailDomainGovernanceService<S> {
         context: &AuthorizationContext,
         command: RotateMailDomainChallengeCommand,
     ) -> Result<RotateMailDomainChallengeResult, MailDomainGovernanceError> {
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(context).await?;
         authorize(&mut *transaction, context, command.organization_id).await?;
         let mut domain = transaction
             .find_mail_domain_for_update(command.organization_id, command.mail_domain_id)
@@ -255,7 +255,7 @@ impl<S: ControlPlaneStore> MailDomainGovernanceService<S> {
         command: RecordMailDomainDnsCommand,
     ) -> Result<MailDomainStatus, MailDomainGovernanceError> {
         validate_observation_payload(&command)?;
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(context).await?;
         authorize(&mut *transaction, context, command.organization_id).await?;
         let mut domain = transaction
             .find_mail_domain_for_update(command.organization_id, command.mail_domain_id)
@@ -345,7 +345,7 @@ impl<S: ControlPlaneStore> MailDomainGovernanceService<S> {
         context: &AuthorizationContext,
         command: ActivateMailDomainCommand,
     ) -> Result<(), MailDomainGovernanceError> {
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(context).await?;
         authorize(&mut *transaction, context, command.organization_id).await?;
         let mut domain = transaction
             .find_mail_domain_for_update(command.organization_id, command.mail_domain_id)
@@ -408,7 +408,7 @@ impl<S: ControlPlaneStore> MailDomainGovernanceService<S> {
         command: SuspendMailDomainCommand,
     ) -> Result<(), MailDomainGovernanceError> {
         validate_reason_code(&command.reason_code)?;
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(context).await?;
         authorize(&mut *transaction, context, command.organization_id).await?;
         let mut domain = transaction
             .find_mail_domain_for_update(command.organization_id, command.mail_domain_id)
@@ -479,7 +479,7 @@ impl<S: ControlPlaneStore> MailDomainGovernanceService<S> {
         context: &AuthorizationContext,
         command: UpdateMailDomainRouteCommand,
     ) -> Result<UpdateMailDomainRouteResult, MailDomainGovernanceError> {
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(context).await?;
         authorize(&mut *transaction, context, command.organization_id).await?;
         let domain = transaction
             .find_mail_domain_for_update(command.organization_id, command.mail_domain_id)
@@ -854,6 +854,7 @@ mod tests {
             principal_id,
             organization_id,
             permissions: BTreeSet::from([Permission::MailAdmin]),
+            authentication: None,
         }
     }
 

@@ -17,12 +17,52 @@ jobs:
       - working-directory: web
         run: npm audit --audit-level=moderate
       - run: python3 scripts/check_web_i18n.py --self-test
+      - run: python3 scripts/check_design_governance.py --self-test
       - working-directory: web
         run: npm run check
       - working-directory: web
-        run: npm test
+        run: npm run test:coverage
+      - name: Build function and test declaration inventories
+        run: node web/scripts/build-quality-inventory.mjs
+      - run: python3 scripts/check_function_test_matrix.py --self-test
+      - name: Upload measured Web coverage
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-coverage-${{ github.run_attempt }}
+          path: |
+            quality/coverage/web-*
+            quality/reports/web-coverage.json
+          retention-days: 7
       - working-directory: web
         run: npm run build
+
+  web-browser:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - working-directory: web
+        run: npm ci
+      - name: Install Chromium for isolated browser regression tests
+        working-directory: web
+        run: npm run e2e:install
+      - working-directory: web
+        run: npm run e2e
+      - name: Upload browser regression diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-browser-regression-${{ github.run_attempt }}
+          path: |
+            web/playwright-report
+            web/test-results
+          if-no-files-found: ignore
+          retention-days: 7
   rust:
     runs-on: ubuntu-latest
     steps:
@@ -31,16 +71,57 @@ jobs:
         with:
           components: rustfmt, clippy
       - run: cargo fmt --all --check
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python3 -m pip install -r scripts/requirements-quality.txt
+      - run: python3 scripts/check_postgres_syntax.py --self-test
       - run: python3 scripts/check_audit_governance.py
+      - run: python3 -m unittest discover -s scripts -p test_audit_governance.py
       - run: python3 scripts/check_architecture.py --self-test
+      - run: python3 scripts/check_crypto_boundary.py --self-test
+      - run: python3 scripts/check_function_test_matrix.py --self-test
+      - name: Require reviewed function evidence for a tagged candidate
+        if: startsWith(github.ref, 'refs/tags/')
+        run: python3 scripts/check_function_test_matrix.py --release
       - run: python3 scripts/check_agent_skill.py
       - run: python3 scripts/check_documentation.py
       - run: python3 scripts/render_stalwart_poc_plan.py --self-test
       - run: python3 tests/stalwart_poc.py self-test
+      - run: python3 -m unittest discover -s tests -p test_mail_client_transport.py
       - run: cargo test --workspace --locked
       - run: cargo clippy --workspace --locked --all-targets -- -D warnings
       - run: cargo build --workspace --locked
       - run: python3 tests/e2e.py
+  rust-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Audit locked dependencies without advisory suppressions
+        run: cargo audit
+  rust-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          components: llvm-tools-preview
+      - run: cargo install cargo-llvm-cov --version 0.9.1 --locked
+      - run: mkdir -p quality/coverage
+      - run: cargo llvm-cov --workspace --locked --json --output-path quality/coverage/rust-workspace.json
+      - run: python3 scripts/build_quality_inventory.py --llvm-report
+      - name: Upload measured Rust coverage without claiming integration coverage
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-coverage-${{ github.run_attempt }}
+          path: |
+            quality/coverage/rust-workspace.json
+            quality/reports/rust-coverage.json
+            quality/reports/rust-function-inventory.json
+          retention-days: 7
   postgres:
     runs-on: ubuntu-latest
     services:
@@ -59,6 +140,7 @@ jobs:
           --health-retries 10
     env:
       COPILOTMAIL_DATABASE_URL: postgres://copilotmail:ci-only-password@127.0.0.1:5432/copilotmail
+      COPILOTMAIL_ALLOW_ISOLATED_DB_TESTS: "1"
       PGHOST: 127.0.0.1
       PGPORT: "5432"
       PGUSER: copilotmail
@@ -154,6 +236,13 @@ jobs:
           )"
           [[ "$leaked_database_count" == "0" ]]
       - run: cargo test --locked -p copilotmail-postgres --test postgres_integration -- --ignored --test-threads=1
+      - name: Verify authenticated Agent Inspector HTTP boundary
+        env:
+          COPILOTMAIL_ALLOW_AGENT_INSPECTOR_HTTP_TEST_WRITES: "1"
+        run: >-
+          cargo test --locked -p copilotmail-control --lib
+          agent_inspector_http_route_enforces_bff_human_session_rbac_tenant_non_disclosure_and_sensitive_headers
+          -- --ignored --test-threads=1
   object-lock:
     runs-on: ubuntu-latest
     env:
@@ -243,6 +332,18 @@ jobs:
       - run: docker build -f deploy/docker/Dockerfile.control-plane -t copilotmail-control:test .
       - run: docker build -f deploy/docker/Dockerfile.admin-app -t copilotmail-admin:test .
       - run: docker build -f deploy/docker/Dockerfile.mail-app -t copilotmail-mail:test .
+      - name: Check Web container runtime verification script syntax
+        shell: bash
+        run: |
+          if grep -q $'\r' scripts/check_web_container_runtime.sh; then
+            echo "Web container runtime verification script must use LF line endings" >&2
+            exit 1
+          fi
+          bash -n scripts/check_web_container_runtime.sh
+      - name: Verify Web container Nginx and cache contracts
+        shell: bash
+        timeout-minutes: 5
+        run: bash scripts/check_web_container_runtime.sh
       - name: Smoke Pilot startup and SIGTERM graceful restart
         shell: bash
         timeout-minutes: 25

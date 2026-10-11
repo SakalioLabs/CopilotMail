@@ -25,8 +25,8 @@ MAIL_ENGINE_SOURCE = MAIL_ENGINE_MANIFEST.parent / "src" / "lib.rs"
 INTERNAL_PREFIX = "copilotmail-"
 LAYER_ALLOWED_INTERNAL = {
     "domain": frozenset(),
-    "audit": frozenset({"copilotmail-domain"}),
-    "application": frozenset({"copilotmail-audit", "copilotmail-domain"}),
+    "audit": frozenset({"copilotmail-domain", "copilotmail-crypto"}),
+    "application": frozenset({"copilotmail-audit", "copilotmail-domain", "copilotmail-crypto"}),
 }
 LAYER_PACKAGE_NAMES = {
     "domain": "copilotmail-domain",
@@ -345,12 +345,26 @@ def validate_resolved_layer_graphs(
         for package_id, name in package_names.items()
         if name.startswith(INTERNAL_PREFIX)
     )
+    member_names: dict[str, str] = {}
+    for package_id in workspace_members:
+        name = package_names[package_id]
+        if name in member_names:
+            raise ArchitectureError(
+                f"cargo metadata must contain exactly one workspace package named {name}"
+            )
+        member_names[name] = package_id
     for layer, package_name in LAYER_PACKAGE_NAMES.items():
         root = canonical_ids[package_name]
-        allowed_ids = frozenset(
-            canonical_ids[allowed_name]
-            for allowed_name in LAYER_ALLOWED_INTERNAL[layer]
-        )
+        try:
+            allowed_ids = frozenset(
+                member_names[allowed_name]
+                for allowed_name in LAYER_ALLOWED_INTERNAL[layer]
+            )
+        except KeyError as error:
+            raise ArchitectureError(
+                f"{layer} layer allowlist references unknown workspace package: "
+                f"{error.args[0]}"
+            ) from error
         forbidden_ids = internal_ids - allowed_ids - {root}
         path = shortest_forbidden_path(
             root,
@@ -866,6 +880,7 @@ def self_test() -> None:
 
     synthetic_package_names = {
         "domain-id": "copilotmail-domain",
+        "crypto-id": "copilotmail-crypto",
         "audit-id": "copilotmail-audit",
         "application-id": "copilotmail-application",
         "external-id": "external-facade",
@@ -873,6 +888,7 @@ def self_test() -> None:
     }
     synthetic_workspace_members = [
         "domain-id",
+        "crypto-id",
         "audit-id",
         "application-id",
         "adapter-id",

@@ -1010,6 +1010,179 @@ def validate_sensitive_auth_logging() -> None:
                 )
 
 
+def validate_nginx_asset_cache_text(text: str, context: str) -> None:
+    """Keep hashed assets cacheable without turning missing chunks into HTML."""
+
+    masked = list(text)
+    quote: str | None = None
+    escaped = False
+    comment = False
+    for index, character in enumerate(text):
+        if comment:
+            if character == "\n":
+                comment = False
+            else:
+                masked[index] = " "
+            continue
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+            continue
+        if character == "#":
+            comment = True
+            masked[index] = " "
+        elif character in {'"', "'"}:
+            quote = character
+    code_text = "".join(masked)
+
+    def depth_at(offset: int) -> int:
+        depth = 0
+        quote: str | None = None
+        comment = False
+        escaped = False
+        for character in code_text[:offset]:
+            if comment:
+                if character == "\n":
+                    comment = False
+                continue
+            if quote is not None:
+                if escaped:
+                    escaped = False
+                elif character == "\\":
+                    escaped = True
+                elif character == quote:
+                    quote = None
+                continue
+            if character == "#":
+                comment = True
+            elif character in {'"', "'"}:
+                quote = character
+            elif character == "{":
+                depth += 1
+            elif character == "}":
+                depth -= 1
+                if depth < 0:
+                    raise SecurityGateError(f"{context} has an unmatched closing brace")
+        return depth
+
+    if depth_at(len(code_text)) != 0:
+        raise SecurityGateError(f"{context} has unbalanced braces")
+
+    maps = list(
+        re.finditer(
+            r'map\s+"\$status:\$uri"\s+(?P<variable>\$[a-zA-Z0-9_]+)\s*'
+            r"\{(?P<body>[^{}]*)\}",
+            code_text,
+            re.DOTALL,
+        )
+    )
+    if len(maps) != 1:
+        raise SecurityGateError(
+            f"{context} must define exactly one status-aware Web cache map"
+        )
+    cache_map = maps[0]
+    if depth_at(cache_map.start()) != 0:
+        raise SecurityGateError(
+            f"{context} cache map must be declared at the http include level"
+        )
+    map_lines = {
+        line.strip()
+        for line in cache_map["body"].splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    required_map_lines = {
+        'default "no-store";',
+        '~^(?:200|206|304):/assets/ "public, max-age=31536000, immutable";',
+    }
+    if map_lines != required_map_lines:
+        raise SecurityGateError(
+            f"{context} cache map must make only successful hashed assets immutable "
+            "and every other response no-store"
+        )
+
+    variable = cache_map["variable"]
+    cache_headers = list(re.finditer(
+        r"\badd_header\s+Cache-Control\s+([^;]+?)\s*;",
+        code_text,
+    ))
+    if (
+        len(cache_headers) != 1
+        or cache_headers[0].group(1).strip() != f"{variable} always"
+        or depth_at(cache_headers[0].start()) != 1
+    ):
+        raise SecurityGateError(
+            f"{context} must emit exactly one server-level Cache-Control header "
+            f"from {variable} with always"
+        )
+
+    servers = [
+        match
+        for match in re.finditer(r"\bserver\s*\{", code_text)
+        if depth_at(match.start()) == 0
+    ]
+    if len(servers) != 1:
+        raise SecurityGateError(f"{context} must contain exactly one top-level server")
+
+    asset_locations = list(
+        re.finditer(
+            r"location\s+/assets/\s*\{(?P<body>[^{}]*)\}",
+            code_text,
+            re.DOTALL,
+        )
+    )
+    if len(asset_locations) != 1:
+        raise SecurityGateError(
+            f"{context} must define exactly one literal /assets/ location"
+        )
+    if depth_at(asset_locations[0].start()) != 1:
+        raise SecurityGateError(
+            f"{context} /assets/ must be a direct server location"
+        )
+    asset_body = asset_locations[0]["body"]
+    asset_statements = [
+        re.sub(r"\s+", " ", statement.strip())
+        for statement in asset_body.split(";")
+        if statement.strip()
+    ]
+    if asset_statements != ["try_files $uri =404"]:
+        raise SecurityGateError(
+            f"{context} /assets/ must contain only an exact missing-hash 404"
+        )
+
+    spa_locations = [
+        match
+        for match in re.finditer(
+            r"location\s+/\s*\{(?P<body>[^{}]*)\}",
+            code_text,
+            re.DOTALL,
+        )
+        if depth_at(match.start()) == 1
+    ]
+    spa_statements = [
+        re.sub(r"\s+", " ", statement.strip())
+        for statement in (spa_locations[0]["body"] if spa_locations else "").split(";")
+        if statement.strip()
+    ]
+    if len(spa_locations) != 1 or spa_statements != [
+        "try_files $uri $uri/ /index.html"
+    ]:
+        raise SecurityGateError(
+            f"{context} must keep one direct SPA location with the exact index fallback"
+        )
+
+
+def validate_nginx_asset_cache() -> None:
+    for path in NGINX_CONFIGS:
+        validate_nginx_asset_cache_text(
+            path.read_text(encoding="utf-8"),
+            str(path.relative_to(ROOT)),
+        )
+
+
 def yaml_sequence_values(text: str, key: str, context: str) -> list[str]:
     lines = text.splitlines()
     matches = [
@@ -1144,6 +1317,75 @@ def validate_dockerignore() -> None:
 
 
 def self_test() -> None:
+    valid_nginx_cache = """\
+map "$status:$uri" $web_cache_control {
+    default "no-store";
+    ~^(?:200|206|304):/assets/ "public, max-age=31536000, immutable";
+}
+server {
+    add_header Cache-Control $web_cache_control always;
+    location /assets/ { try_files $uri =404; }
+    location / { try_files $uri $uri/ /index.html; }
+}
+"""
+    validate_nginx_asset_cache_text(valid_nginx_cache, "self-test Nginx")
+    for invalid_nginx_cache in (
+        valid_nginx_cache.replace("=404", "/index.html"),
+        valid_nginx_cache.replace('default "no-store";', 'default "public";'),
+        valid_nginx_cache.replace("$status:$uri", "$uri"),
+        valid_nginx_cache.replace(
+            "    add_header Cache-Control $web_cache_control always;",
+            "    location = /runtime-config.js {\n"
+            "        add_header Cache-Control $web_cache_control always;\n"
+            "    }",
+        ),
+        valid_nginx_cache.replace(
+            "    add_header Cache-Control $web_cache_control always;",
+            "    # add_header Cache-Control $web_cache_control always;",
+        ),
+        valid_nginx_cache.replace(
+            "    location /assets/ { try_files $uri =404; }",
+            "    # location /assets/ { try_files $uri =404; }",
+        ),
+        valid_nginx_cache.replace(
+            "    location / { try_files $uri $uri/ /index.html; }",
+            "    location / { try_files $uri $uri/ =404; }",
+        ),
+        valid_nginx_cache.replace(
+            "location /assets/ {",
+            "location /assets/ { return 200;",
+        ),
+        valid_nginx_cache.replace(
+            "location / {",
+            "location / { return 404;",
+        ),
+        valid_nginx_cache.replace(
+            "    location /assets/",
+            '    add_header Cache-Control "public" always;\n    location /assets/',
+        ),
+        valid_nginx_cache.replace(
+            "map \"$status:$uri\" $web_cache_control {\n"
+            "    default \"no-store\";\n"
+            "    ~^(?:200|206|304):/assets/ \"public, max-age=31536000, immutable\";\n"
+            "}\nserver {",
+            "server {\n"
+            "    map \"$status:$uri\" $web_cache_control {\n"
+            "        default \"no-store\";\n"
+            "        ~^(?:200|206|304):/assets/ \"public, max-age=31536000, immutable\";\n"
+            "    }",
+        ),
+    ):
+        try:
+            validate_nginx_asset_cache_text(
+                invalid_nginx_cache, "self-test invalid Nginx"
+            )
+        except SecurityGateError:
+            pass
+        else:
+            raise SecurityGateError(
+                "self-test accepted a stale-chunk or unsafe Web cache boundary"
+            )
+
     valid = (
         "${COPILOTMAIL_DEV_BIND_HOST:-127.0.0.1}:"
         "${COPILOTMAIL_HTTP_PORT:-8080}:8080"
@@ -1342,6 +1584,7 @@ def main() -> None:
         validate_pilot_runtime()
         validate_compose_hazards()
         validate_sensitive_auth_logging()
+        validate_nginx_asset_cache()
         validate_web_frontend_sandbox()
         validate_dockerignore()
     except (OSError, SecurityGateError) as error:
@@ -1352,7 +1595,8 @@ def main() -> None:
         f"{checked_ports} loopback-bound published ports, "
         "one Stalwart origin, mail fail-closed and bootstrap isolated, "
         "Human Session key isolated, "
-        "sensitive auth logging disabled, non-root web sandboxes enforced, "
+        "sensitive auth logging disabled, stale Web chunks fail closed, "
+        "non-root web sandboxes enforced, "
         "container boundary and read-only bind allowlist enforced, "
         "Pilot runtime bounded, "
         "deployment secrets excluded"

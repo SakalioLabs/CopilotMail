@@ -34,6 +34,66 @@ const messageSummary = {
 afterEach(() => vi.restoreAllMocks());
 
 describe("cookie-authenticated mail API", () => {
+  it("notifies the session controller for every protected 401 response", async () => {
+    const onUnauthorized = vi.fn();
+    const protectedConfig = { ...config, onUnauthorized };
+    const draftId = "018f0000-0000-7000-8000-000000000002";
+    const previous: MailSubmission = {
+      submission_id: "018f0000-0000-7000-8000-000000000003",
+      mailbox_id: config.mailboxId,
+      draft_id: draftId,
+      draft_version: 2,
+      status: "pending",
+      state_version: 1,
+      created_at: "2026-07-27T12:00:00Z",
+      updated_at: "2026-07-27T12:00:00Z",
+      delivery: null,
+    };
+    const listedDraft = {
+      draft_id: draftId,
+      version: 2,
+      reply_to_message_id: null,
+      recipient_count: 1,
+      created_at: "2026-07-27T12:00:00Z",
+      updated_at: "2026-07-27T12:00:00Z",
+    };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 401 }),
+    );
+    const requests = [
+      () => listMailboxes(protectedConfig),
+      () => listDrafts(protectedConfig),
+      () => listSentSubmissions(protectedConfig),
+      () => restoreDraft(protectedConfig, listedDraft),
+      () => listInbox(protectedConfig),
+      () => searchInbox(protectedConfig, "status"),
+      () => getMessage(protectedConfig, messageId),
+      () => updateMessageState(protectedConfig, messageId, { is_read: true }),
+      () => saveDraft(protectedConfig, {
+        draft_id: null,
+        expected_version: null,
+        reply_to_message_id: null,
+        to: ["recipient@example.test"],
+        cc: [],
+        bcc: [],
+        subject: "Status",
+        text_body: "Ready.",
+      }),
+      () => requestSubmission(
+        protectedConfig,
+        draftId,
+        2,
+        "stable-idempotency-key-000001",
+      ),
+      () => getSubmission(protectedConfig, previous),
+    ];
+
+    for (const request of requests) {
+      await expect(request()).rejects.toThrow(/_401$/);
+    }
+    expect(onUnauthorized).toHaveBeenCalledTimes(requests.length);
+  });
+
   it("lists the bounded mailbox directory with the exact cursor contract", async () => {
     const cursor = "v1.018f0000-0000-7000-8000-000000000001";
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(

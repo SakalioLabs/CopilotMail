@@ -115,7 +115,7 @@ where
             return Err(AgentMailContentError::Unavailable);
         }
 
-        let mut transaction = self.store.begin().await?;
+        let mut transaction = self.store.begin_authorized(context).await?;
         let audit = AuditEvent::new(
             context.organization_id,
             AuditActor {
@@ -409,6 +409,7 @@ mod tests {
                     permissions: [Permission::MailboxUse, Permission::AgentMailRead]
                         .into_iter()
                         .collect(),
+                    authentication: None,
                 },
                 ReadAgentMailContentCommand {
                     mailbox_id,
@@ -438,6 +439,7 @@ mod tests {
                     ]
                     .into_iter()
                     .collect(),
+                    authentication: None,
                 },
                 ReadAgentMailContentCommand {
                     mailbox_id,
