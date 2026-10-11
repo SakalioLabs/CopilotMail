@@ -385,7 +385,9 @@
         ],
         "concurrency": [
           "pg_pool",
-          "pg_expiry"
+          "pg_expiry",
+          "pg_clock",
+          "pg_pointer"
         ]
       },
       "test_refs": {
@@ -443,9 +445,19 @@
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "retention_activation_rejects_backdated_expired_approval",
           "execution": "passed"
+        },
+        "pg_clock": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "retention_activation_samples_database_time_after_approval_lock",
+          "execution": "passed"
+        },
+        "pg_pointer": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "retention_activation_pointer_change_rechecks_approval",
+          "execution": "passed"
         }
       },
-      "environment": "Local deterministic tests; real PostgreSQL/mail concurrency deferred",
+      "environment": "Earlier retention PostgreSQL refs keep their prior passed result. On 2026-10-12 a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI, passed the post-lock clock and activation-pointer recheck tests.",
       "evidence_ref": "docs/CODE_QUALITY_REVIEW.zh-CN.md",
       "candidate_revision": "quality-unsealed-working-tree-2026-09-19",
       "owner": "primary-implementer",
@@ -572,7 +584,8 @@
           "rollback"
         ],
         "concurrency": [
-          "pg"
+          "pg",
+          "pg_clock"
         ]
       },
       "test_refs": {
@@ -625,11 +638,16 @@
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "signed_audit_checkpoint_is_atomic_idempotent_and_portable",
           "execution": "passed"
+        },
+        "pg_clock": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "audit_export_download_samples_database_time_after_actor_lock",
+          "execution": "passed"
         }
       },
-      "environment": "Local deterministic tests; real PostgreSQL/mail concurrency deferred",
+      "environment": "The checkpoint ref keeps its prior passed result. On 2026-10-12 a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI, passed the post-lock download clock test.",
       "evidence_ref": "docs/CODE_QUALITY_REVIEW.zh-CN.md",
-      "candidate_revision": "quality-unsealed-working-tree-2026-09-19",
+      "candidate_revision": "local-pg17-batch5-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -2029,12 +2047,12 @@
         "revoked": {
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "request_authentication_fences_human_session_revocation",
-          "execution": "not_run"
+          "execution": "passed"
         },
         "suspended": {
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "request_authentication_rejects_suspended_principal_at_commit",
-          "execution": "not_run"
+          "execution": "passed"
         },
         "agent": {
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
@@ -2057,9 +2075,9 @@
           "execution": "passed"
         }
       },
-      "environment": "Human session revocation and principal-suspension fence tests were rewritten and not executed; other fencing refs keep their earlier disposable PostgreSQL result",
+      "environment": "On 2026-10-12 a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI, passed the human-session revocation and principal-suspension fences. Other fencing refs keep their earlier passed result.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "b16-session-governance-2026-10-12",
+      "candidate_revision": "local-pg17-batch5-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -2133,12 +2151,12 @@
         "fence": {
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "request_authentication_fences_human_session_revocation",
-          "execution": "not_run"
+          "execution": "passed"
         }
       },
-      "environment": "Rust unit fixtures passed; rewritten PostgreSQL fence test not executed",
+      "environment": "Rust unit fixtures keep their prior passed result. On 2026-10-12 a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI, passed the session-revocation fence.",
       "evidence_ref": "docs/HUMAN_OIDC_SESSION.zh-CN.md",
-      "candidate_revision": "b16-session-governance-2026-10-12",
+      "candidate_revision": "local-pg17-batch5-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -2462,7 +2480,7 @@
           "execution": "passed"
         }
       },
-      "environment": "Disposable PostgreSQL 17 integration suite executed green",
+      "environment": "Earlier disposable PostgreSQL evidence stays passed. On 2026-10-12 a local non-CI PostgreSQL 17.11 database named copilotmail_test_<suffix> returned SQLSTATE 42501 for SET session_replication_role until the non-superuser role received GRANT SET ON PARAMETER session_replication_role. That single test then passed in 0.59s and the grant was revoked. A dirty-database rerun is not repeatable because several fixtures use fixed unique keys.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
       "candidate_revision": "post-fence-remediation-2026-08-22",
       "owner": "primary-implementer",
@@ -5387,15 +5405,15 @@
         "live": {
           "path": "apps/copilotmail-control/src/tests.rs",
           "symbol": "agent_inspector_http_route_enforces_bff_human_session_rbac_tenant_non_disclosure_and_sensitive_headers",
-          "execution": "not_run"
+          "execution": "passed"
         },
         "post": {
           "path": "apps/copilotmail-control/src/tests.rs",
           "symbol": "agent_mail_submission_evidence_http_post_route_enforces_human_rbac_scope_csrf_non_disclosure_and_sensitive_headers",
-          "execution": "not_run"
+          "execution": "passed"
         }
       },
-      "environment": "Rust unit fixtures; disposable PostgreSQL 17 suite executed green",
+      "environment": "Rust unit fixtures keep their prior passed result. On 2026-10-12 the two ignored HTTP tests passed against a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI, with the inspector write opt-in.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
       "candidate_revision": "post-fence-remediation-2026-08-22",
       "owner": "primary-implementer",

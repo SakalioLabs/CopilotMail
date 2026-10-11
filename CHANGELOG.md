@@ -42,7 +42,17 @@ implementation evidence remains in
   (`logout`); omitting `retain_current_session` also revokes the current
   session. SCIM deactivation revokes that principal's control-plane browser
   sessions (`principal_deactivated`), and an in-flight authorized request fails
-  closed at commit once the principal is no longer active. Authorized outcomes
+  closed at commit once the principal is no longer active. Single-session
+  token revocation takes `FOR KEY SHARE` on the append-only session row and
+  inserts the unique revocation row, so it can commit while an in-flight
+  request holds `FOR SHARE`. That request then fails at its commit recheck.
+  `FOR UPDATE` cannot do this: it waits until the request ends. A revocation
+  or suspension that commits after the recheck statement returns and before
+  `COMMIT` is still not visible. The SCIM commit recheck no longer requires
+  `principal.status = 'active'`, because bind already holds `FOR UPDATE` on
+  that principal and deprovisioning the token actor updates the status in the
+  same transaction. The next call fails at bind. Human-session and Agent
+  credential rechecks still require an active principal. Authorized outcomes
   do not disclose whether the target exists or how many sessions were revoked.
   This does not perform IdP back-channel logout or add a step-up requirement.
 - Protected request contracts now fail closed on adversarial JSON without

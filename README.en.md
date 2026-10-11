@@ -42,7 +42,7 @@ Chinese-first and is being translated incrementally.
 > and then start only the new binaries. Follow the
 > [Ubuntu / WSL Pilot runbook](docs/UBUNTU_WSL_PILOT.zh-CN.md).
 
-> The latest repository migration is `0061_human_session_governance.sql`; the new migrations have not been deployed. The
+> The latest repository migration is `0061_human_session_governance.sql`; the new migrations have not been deployed. On 2026-10-12 a local disposable PostgreSQL 17.11 database named `copilotmail_test_<suffix>` (not CI) applied migrations 0001–0061 and ran the ignored integration tests. That run is not a deployment and is not a CI pass. The
 > 0053 stop-the-world rule still applies only to upgrades that cross 0053;
 > Migrations 0054 through 0061 and the full dynamic chain require a clean, isolated
 > PostgreSQL acceptance run. NixOS is currently a constrained development or

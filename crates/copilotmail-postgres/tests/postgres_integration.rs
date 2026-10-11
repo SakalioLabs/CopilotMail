@@ -364,6 +364,671 @@ async fn retention_activation_rejects_backdated_expired_approval() {
     assert_check_violation(result);
 }
 
+async fn database_now(store: &PgControlPlaneStore) -> chrono::DateTime<Utc> {
+    sqlx::query_scalar("SELECT clock_timestamp()")
+        .fetch_one(store.pool())
+        .await
+        .expect("read database clock")
+}
+
+struct RetentionClockTenant {
+    store: PgControlPlaneStore,
+    organization_id: OrganizationId,
+    actor: PrincipalId,
+    approvers: [PrincipalId; 2],
+    policy_id: copilotmail_domain::RetentionPolicyId,
+    first_version_id: copilotmail_domain::RetentionPolicyVersionId,
+}
+
+async fn bootstrap_retention_clock_tenant(slug_prefix: &str) -> RetentionClockTenant {
+    let store = migrated_store().await;
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "{slug_prefix}-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .expect("bootstrap retention clock tenant");
+    let now = Utc::now();
+    let actor = BindOidcOwnerService::new(store.clone())
+        .execute(BindOidcOwnerCommand {
+            organization_id: bootstrap.organization_id,
+            issuer: "https://quality-owner.example.test".into(),
+            subject: Uuid::new_v4().to_string(),
+            display_name: "Retention Clock Owner".into(),
+            trace_id: Uuid::new_v4().to_string(),
+            now,
+        })
+        .await
+        .expect("bind retention clock owner")
+        .principal_id;
+    let approvers = [
+        insert_approval_test_owner(
+            &store,
+            bootstrap.organization_id,
+            bootstrap.root_principal_id,
+            now,
+        )
+        .await,
+        insert_approval_test_owner(
+            &store,
+            bootstrap.organization_id,
+            bootstrap.root_principal_id,
+            now,
+        )
+        .await,
+    ];
+    let context = store
+        .resolve_authorization(actor, now)
+        .await
+        .unwrap()
+        .expect("resolve retention clock owner");
+    let draft = RetentionPolicyService::new(store.clone())
+        .create(CreateRetentionPolicyCommand {
+            context,
+            policy_key: "audit.clock".into(),
+            display_name: "Clock policy".into(),
+            resource_kind: RetentionResourceKind::AuditEvidence,
+            minimum_retention_days: 365,
+            archive_after_days: None,
+            delete_after_days: None,
+            rule: json!({}),
+            trace_id: Uuid::new_v4().to_string(),
+            now,
+        })
+        .await
+        .expect("create retention clock policy");
+    ApprovalPolicyService::new(store.clone())
+        .create(CreateApprovalPolicyCommand {
+            organization_id: bootstrap.organization_id,
+            policy_key: "retention.clock.review".into(),
+            display_name: "Retention clock review".into(),
+            action: ApprovalAction::RetentionChange,
+            required_approvals: 2,
+            rule: json!({}),
+            trace_id: Uuid::new_v4().to_string(),
+            now,
+        })
+        .await
+        .expect("create retention clock approval policy");
+    RetentionClockTenant {
+        store,
+        organization_id: bootstrap.organization_id,
+        actor,
+        approvers,
+        policy_id: draft.policy.id(),
+        first_version_id: draft.version.id(),
+    }
+}
+
+async fn approve_retention_version(
+    tenant: &RetentionClockTenant,
+    resource_id: &str,
+    lifetime: chrono::Duration,
+) -> (Uuid, chrono::DateTime<Utc>, chrono::DateTime<Utc>) {
+    let now = database_now(&tenant.store).await;
+    let context = tenant
+        .store
+        .resolve_authorization(tenant.actor, now)
+        .await
+        .unwrap()
+        .expect("resolve retention requester");
+    let workflow = ApprovalWorkflowService::new(tenant.store.clone());
+    let approval_id = workflow
+        .request(RequestApprovalCommand {
+            context,
+            policy_key: "retention.clock.review".into(),
+            action: ApprovalAction::RetentionChange,
+            resource_kind: "compliance.retention_policy_version".into(),
+            resource_id: resource_id.to_string(),
+            reason: "Database clock must authorize retention activation".into(),
+            ticket_reference: None,
+            expires_at: now + lifetime,
+            trace_id: Uuid::new_v4().to_string(),
+            now,
+        })
+        .await
+        .expect("request retention approval");
+    for approver in tenant.approvers {
+        let context = tenant
+            .store
+            .resolve_authorization(approver, now)
+            .await
+            .unwrap()
+            .expect("resolve retention approver");
+        workflow
+            .decide(DecideApprovalCommand {
+                context,
+                request_id: approval_id,
+                decision: ApprovalDecision::Approved,
+                reason: "Reviewed exact version".into(),
+                trace_id: Uuid::new_v4().to_string(),
+                now,
+            })
+            .await
+            .expect("approve retention version");
+    }
+    let stored: (chrono::DateTime<Utc>, chrono::DateTime<Utc>) =
+        sqlx::query_as("SELECT created_at, expires_at FROM approval_requests WHERE id = $1")
+            .bind(approval_id.as_uuid())
+            .fetch_one(tenant.store.pool())
+            .await
+            .expect("read stored approval window");
+    assert!(stored.1 > stored.0);
+    (approval_id.as_uuid(), stored.0, stored.1)
+}
+
+const LOCK_WAIT: std::time::Duration = std::time::Duration::from_secs(15);
+
+async fn expect_no_lock_hang<T>(operation: impl std::future::Future<Output = T>) -> T {
+    tokio::time::timeout(LOCK_WAIT, operation)
+        .await
+        .expect("operation blocked on a database lock for more than 15s")
+}
+
+fn assert_constraint_rejection(result: Result<sqlx::postgres::PgQueryResult, sqlx::Error>) {
+    let error = result.expect_err("stored database time must reject the caller clock");
+    assert_eq!(
+        error
+            .as_database_error()
+            .and_then(sqlx::error::DatabaseError::code)
+            .as_deref(),
+        Some("23514")
+    );
+}
+
+async fn sleep_until_database_deadline(
+    blocker: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    deadline: chrono::DateTime<Utc>,
+) {
+    sqlx::query(
+        "SELECT pg_sleep(GREATEST(EXTRACT(EPOCH FROM ($1::timestamptz - clock_timestamp())), 0) + 0.05)",
+    )
+    .bind(deadline)
+    .execute(&mut **blocker)
+    .await
+    .expect("hold the row lock across the database deadline");
+}
+
+#[tokio::test]
+#[ignore = "requires an explicitly opted-in disposable PostgreSQL database"]
+async fn retention_activation_samples_database_time_after_approval_lock() {
+    let tenant = bootstrap_retention_clock_tenant("ret-lock").await;
+    let (approval_id, stored_created_at, expires_at) = approve_retention_version(
+        &tenant,
+        &tenant.first_version_id.to_string(),
+        chrono::Duration::seconds(20),
+    )
+    .await;
+    let mut blocker = tenant
+        .store
+        .pool()
+        .begin()
+        .await
+        .expect("begin approval lock");
+    let locked: Uuid =
+        sqlx::query_scalar("SELECT id FROM approval_requests WHERE id = $1 FOR UPDATE")
+            .bind(approval_id)
+            .fetch_one(&mut *blocker)
+            .await
+            .expect("lock approval request");
+    assert_eq!(locked, approval_id);
+
+    // The supplied timestamp is still inside the approval window. Keeping it
+    // would authorize the insert; only a clock read after this lock wait fails.
+    let mut waiting = Box::pin(
+        sqlx::query(
+            r#"
+            INSERT INTO retention_policy_activations(
+                id, organization_id, policy_id, policy_version_id,
+                approval_request_id, activated_by, activated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(tenant.organization_id.as_uuid())
+        .bind(tenant.policy_id.as_uuid())
+        .bind(tenant.first_version_id.as_uuid())
+        .bind(approval_id)
+        .bind(tenant.actor.as_uuid())
+        .bind(stored_created_at)
+        .execute(tenant.store.pool()),
+    );
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_secs(1), &mut waiting)
+            .await
+            .is_err(),
+        "activation insert must wait until the approval lock is released"
+    );
+    assert!(
+        database_now(&tenant.store).await < expires_at,
+        "the lock wait must begin before the approval expires"
+    );
+    sleep_until_database_deadline(&mut blocker, expires_at).await;
+    blocker.commit().await.expect("release approval lock");
+    assert_constraint_rejection(expect_no_lock_hang(waiting).await);
+    let kept: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM retention_policy_activations WHERE approval_request_id = $1",
+    )
+    .bind(approval_id)
+    .fetch_one(tenant.store.pool())
+    .await
+    .expect("count rejected activation");
+    assert_eq!(kept, 0);
+}
+
+#[tokio::test]
+#[ignore = "requires an explicitly opted-in disposable PostgreSQL database"]
+async fn retention_activation_pointer_change_rechecks_approval() {
+    let tenant = bootstrap_retention_clock_tenant("ret-pointer").await;
+    let (first_approval, first_created_at, _) = approve_retention_version(
+        &tenant,
+        &tenant.first_version_id.to_string(),
+        chrono::Duration::hours(1),
+    )
+    .await;
+    let caller_time = first_created_at - chrono::Duration::days(1);
+    let before = database_now(&tenant.store).await;
+    let stored_at: chrono::DateTime<Utc> = sqlx::query_scalar(
+        r#"
+        INSERT INTO retention_policy_activations(
+            id, organization_id, policy_id, policy_version_id,
+            approval_request_id, activated_by, activated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING activated_at
+        "#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(tenant.organization_id.as_uuid())
+    .bind(tenant.policy_id.as_uuid())
+    .bind(tenant.first_version_id.as_uuid())
+    .bind(first_approval)
+    .bind(tenant.actor.as_uuid())
+    .bind(caller_time)
+    .fetch_one(tenant.store.pool())
+    .await
+    .expect("insert fresh retention activation");
+    let after = database_now(&tenant.store).await;
+    assert!(stored_at > caller_time + chrono::Duration::hours(12));
+    assert!(stored_at >= before && stored_at <= after);
+    let moved = sqlx::query(
+        r#"
+        UPDATE retention_policies
+           SET active_version_id = $3
+         WHERE organization_id = $1
+           AND id = $2
+           AND active_version_id IS NOT DISTINCT FROM $4
+        "#,
+    )
+    .bind(tenant.organization_id.as_uuid())
+    .bind(tenant.policy_id.as_uuid())
+    .bind(tenant.first_version_id.as_uuid())
+    .bind(None::<Uuid>)
+    .execute(tenant.store.pool())
+    .await
+    .expect("fresh approval lets the active pointer move");
+    assert_eq!(moved.rows_affected(), 1);
+
+    let now = database_now(&tenant.store).await;
+    let context = tenant
+        .store
+        .resolve_authorization(tenant.actor, now)
+        .await
+        .unwrap()
+        .expect("resolve version author");
+    let second = RetentionPolicyService::new(tenant.store.clone())
+        .append_version(AppendRetentionPolicyVersionCommand {
+            context,
+            policy_id: tenant.policy_id,
+            minimum_retention_days: 400,
+            archive_after_days: None,
+            delete_after_days: None,
+            rule: json!({}),
+            trace_id: Uuid::new_v4().to_string(),
+            now,
+        })
+        .await
+        .expect("append second retention version");
+    let (second_approval, _, second_expires_at) = approve_retention_version(
+        &tenant,
+        &second.id().to_string(),
+        chrono::Duration::seconds(20),
+    )
+    .await;
+    sqlx::query(
+        r#"
+        INSERT INTO retention_policy_activations(
+            id, organization_id, policy_id, policy_version_id,
+            approval_request_id, activated_by, activated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        "#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(tenant.organization_id.as_uuid())
+    .bind(tenant.policy_id.as_uuid())
+    .bind(second.id().as_uuid())
+    .bind(second_approval)
+    .bind(tenant.actor.as_uuid())
+    .bind(caller_time)
+    .execute(tenant.store.pool())
+    .await
+    .expect("activation evidence exists before the pointer moves");
+
+    let mut blocker = tenant
+        .store
+        .pool()
+        .begin()
+        .await
+        .expect("begin pointer approval lock");
+    let locked: Uuid =
+        sqlx::query_scalar("SELECT id FROM approval_requests WHERE id = $1 FOR UPDATE")
+            .bind(second_approval)
+            .fetch_one(&mut *blocker)
+            .await
+            .expect("lock the second approval");
+    assert_eq!(locked, second_approval);
+    let mut waiting = Box::pin(
+        sqlx::query(
+            r#"
+            UPDATE retention_policies
+               SET active_version_id = $3
+             WHERE organization_id = $1
+               AND id = $2
+               AND active_version_id IS NOT DISTINCT FROM $4
+            "#,
+        )
+        .bind(tenant.organization_id.as_uuid())
+        .bind(tenant.policy_id.as_uuid())
+        .bind(second.id().as_uuid())
+        .bind(tenant.first_version_id.as_uuid())
+        .execute(tenant.store.pool()),
+    );
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_secs(1), &mut waiting)
+            .await
+            .is_err(),
+        "pointer update must wait until the approval lock is released"
+    );
+    assert!(
+        database_now(&tenant.store).await < second_expires_at,
+        "the pointer recheck must start before the approval expires"
+    );
+    sleep_until_database_deadline(&mut blocker, second_expires_at).await;
+    blocker
+        .commit()
+        .await
+        .expect("release the second approval lock");
+    assert_constraint_rejection(expect_no_lock_hang(waiting).await);
+    let active: Uuid =
+        sqlx::query_scalar("SELECT active_version_id FROM retention_policies WHERE id = $1")
+            .bind(tenant.policy_id.as_uuid())
+            .fetch_one(tenant.store.pool())
+            .await
+            .expect("read unchanged active pointer");
+    assert_eq!(active, tenant.first_version_id.as_uuid());
+}
+
+#[tokio::test]
+#[ignore = "requires an explicitly opted-in disposable PostgreSQL database"]
+async fn audit_export_download_samples_database_time_after_actor_lock() {
+    let store = migrated_store().await;
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "exp-lock-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .expect("bootstrap export clock tenant");
+    let private = RsaPrivateKey::generate_for_testing().expect("generate export clock key");
+    let public = private.public_key();
+    let private_pem = private
+        .pkcs8_pem_for_testing()
+        .expect("encode export clock private key");
+    let public_pem = public.spki_pem().expect("encode export clock public key");
+    let signer = RsaAuditCheckpointSigner::new(
+        "audit-clock-2026".into(),
+        private_pem.as_bytes(),
+        public_pem.as_bytes(),
+    )
+    .expect("configure export clock signer");
+    let checkpoint_id = AuditCheckpointId::new();
+    CreateAuditCheckpointService::new(store.clone(), signer)
+        .execute(CreateAuditCheckpointCommand {
+            checkpoint_id,
+            organization_id: bootstrap.organization_id,
+            actor_principal_id: bootstrap.root_principal_id,
+            archive_object_key: format!(
+                "audit/{}/{}.jsonl",
+                bootstrap.organization_id, checkpoint_id
+            ),
+            trace_id: Uuid::now_v7().to_string(),
+            now: Utc::now(),
+        })
+        .await
+        .expect("create export clock checkpoint");
+    let verified_at = pg_micros(Utc::now());
+    let archive_id = AuditArchiveId::new();
+    let events_key = format!("audit/{checkpoint_id}/events.jsonl");
+    let events_version = "events-version-1".to_string();
+    let events_sha = "a".repeat(64);
+    let events_size = 1024_i64;
+    let archive = AuditArchiveRecord {
+        archive_id,
+        organization_id: bootstrap.organization_id,
+        checkpoint_id,
+        provider: "s3".into(),
+        bucket: "copilotmail-audit".into(),
+        events: ArchivedObjectRecord {
+            key: events_key.clone(),
+            version_id: events_version.clone(),
+            sha256_hex: events_sha.clone(),
+            size_bytes: u64::try_from(events_size).unwrap(),
+        },
+        manifest: ArchivedObjectRecord {
+            key: format!("audit/{checkpoint_id}/manifest.json"),
+            version_id: "manifest-version-1".into(),
+            sha256_hex: "b".repeat(64),
+            size_bytes: 512,
+        },
+        retention_mode: "compliance".into(),
+        retain_until: verified_at + chrono::Duration::days(365),
+        verified_at,
+        created_by: bootstrap.root_principal_id,
+        created_at: verified_at + chrono::Duration::milliseconds(1),
+    };
+    RecordAuditArchiveService::new(store.clone())
+        .execute(RecordAuditArchiveCommand {
+            archive,
+            actor_principal_id: bootstrap.root_principal_id,
+            trace_id: Uuid::now_v7().to_string(),
+        })
+        .await
+        .expect("record export clock archive");
+    let now = database_now(&store).await;
+    let requester = BindOidcOwnerService::new(store.clone())
+        .execute(BindOidcOwnerCommand {
+            organization_id: bootstrap.organization_id,
+            issuer: "https://quality-owner.example.test".into(),
+            subject: Uuid::new_v4().to_string(),
+            display_name: "Export Clock Owner".into(),
+            trace_id: Uuid::new_v4().to_string(),
+            now,
+        })
+        .await
+        .expect("bind export clock owner")
+        .principal_id;
+    let approvers = [
+        insert_approval_test_owner(
+            &store,
+            bootstrap.organization_id,
+            bootstrap.root_principal_id,
+            now,
+        )
+        .await,
+        insert_approval_test_owner(
+            &store,
+            bootstrap.organization_id,
+            bootstrap.root_principal_id,
+            now,
+        )
+        .await,
+    ];
+    let context = store
+        .resolve_authorization(requester, now)
+        .await
+        .unwrap()
+        .expect("resolve export requester");
+    ApprovalPolicyService::new(store.clone())
+        .create(CreateApprovalPolicyCommand {
+            organization_id: bootstrap.organization_id,
+            policy_key: "audit.clock.export".into(),
+            display_name: "Export clock review".into(),
+            action: ApprovalAction::AuditExport,
+            required_approvals: 2,
+            rule: json!({}),
+            trace_id: Uuid::new_v4().to_string(),
+            now,
+        })
+        .await
+        .expect("create export clock policy");
+    let workflow = ApprovalWorkflowService::new(store.clone());
+    let approval_id = workflow
+        .request(RequestApprovalCommand {
+            context: context.clone(),
+            policy_key: "audit.clock.export".into(),
+            action: ApprovalAction::AuditExport,
+            resource_kind: "audit.archive".into(),
+            resource_id: archive_id.to_string(),
+            reason: "Database clock must authorize the download ledger".into(),
+            ticket_reference: None,
+            expires_at: now + chrono::Duration::seconds(20),
+            trace_id: Uuid::new_v4().to_string(),
+            now,
+        })
+        .await
+        .expect("request export approval");
+    for approver in approvers {
+        let approver_context = store
+            .resolve_authorization(approver, now)
+            .await
+            .unwrap()
+            .expect("resolve export approver");
+        workflow
+            .decide(DecideApprovalCommand {
+                context: approver_context,
+                request_id: approval_id,
+                decision: ApprovalDecision::Approved,
+                reason: "Reviewed exact archive".into(),
+                trace_id: Uuid::new_v4().to_string(),
+                now,
+            })
+            .await
+            .expect("approve export");
+    }
+    let grant = AuditExportAuthorizationService::new(store.clone())
+        .authorize(AuthorizeAuditExportCommand {
+            context,
+            archive_id,
+            approval: ApprovalProof {
+                organization_id: bootstrap.organization_id,
+                request_id: approval_id,
+                requested_by: requester,
+                action: ApprovalAction::AuditExport,
+                resource_kind: "audit.archive".into(),
+                resource_id: archive_id.to_string(),
+                now,
+            },
+            trace_id: Uuid::new_v4().to_string(),
+            now,
+        })
+        .await
+        .expect("authorize short export grant");
+    let (grant_created_at, grant_expires_at): (chrono::DateTime<Utc>, chrono::DateTime<Utc>) =
+        sqlx::query_as("SELECT created_at, expires_at FROM audit_export_grants WHERE id = $1")
+            .bind(grant.id().as_uuid())
+            .fetch_one(store.pool())
+            .await
+            .expect("read stored grant window");
+    assert!(database_now(&store).await < grant_expires_at);
+    let caller_time = grant_created_at - chrono::Duration::days(1);
+    let before = database_now(&store).await;
+    let stored_download_at: chrono::DateTime<Utc> = sqlx::query_scalar(
+        r#"
+        INSERT INTO audit_export_downloads(
+            id, organization_id, grant_id, archive_id, downloaded_by,
+            artifact, object_key, object_version_id, sha256, size_bytes,
+            downloaded_at
+        )
+        VALUES ($1, $2, $3, $4, $5, 'events', $6, $7, $8, $9, $10)
+        RETURNING downloaded_at
+        "#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(bootstrap.organization_id.as_uuid())
+    .bind(grant.id().as_uuid())
+    .bind(archive_id.as_uuid())
+    .bind(requester.as_uuid())
+    .bind(&events_key)
+    .bind(&events_version)
+    .bind(&events_sha)
+    .bind(events_size)
+    .bind(caller_time)
+    .fetch_one(store.pool())
+    .await
+    .expect("record a download with a backdated caller clock");
+    let after = database_now(&store).await;
+    assert!(stored_download_at > caller_time + chrono::Duration::hours(12));
+    assert!(stored_download_at >= before && stored_download_at <= after);
+    assert!(stored_download_at >= grant_created_at && stored_download_at < grant_expires_at);
+
+    let mut blocker = store.pool().begin().await.expect("begin actor lock");
+    let locked: Uuid = sqlx::query_scalar("SELECT id FROM principals WHERE id = $1 FOR UPDATE")
+        .bind(requester.as_uuid())
+        .fetch_one(&mut *blocker)
+        .await
+        .expect("lock download actor");
+    assert_eq!(locked, requester.as_uuid());
+    let mut waiting = Box::pin(
+        sqlx::query(
+            r#"
+            INSERT INTO audit_export_downloads(
+                id, organization_id, grant_id, archive_id, downloaded_by,
+                artifact, object_key, object_version_id, sha256, size_bytes,
+                downloaded_at
+            )
+            VALUES ($1, $2, $3, $4, $5, 'events', $6, $7, $8, $9, $10)
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(bootstrap.organization_id.as_uuid())
+        .bind(grant.id().as_uuid())
+        .bind(archive_id.as_uuid())
+        .bind(requester.as_uuid())
+        .bind(&events_key)
+        .bind(&events_version)
+        .bind(&events_sha)
+        .bind(events_size)
+        .bind(grant_created_at)
+        .execute(store.pool()),
+    );
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_secs(1), &mut waiting)
+            .await
+            .is_err(),
+        "download insert must wait until the actor lock is released"
+    );
+    assert!(
+        database_now(&store).await < grant_expires_at,
+        "the download lock wait must begin before the grant expires"
+    );
+    sleep_until_database_deadline(&mut blocker, grant_expires_at).await;
+    blocker.commit().await.expect("release actor lock");
+    assert_constraint_rejection(expect_no_lock_hang(waiting).await);
+}
+
 fn random_numeric_engine_ref() -> String {
     const MAX_REF: u128 = 9_000_000_000_000_000_000;
     ((Uuid::new_v4().as_u128() % MAX_REF) + 1).to_string()
@@ -639,8 +1304,7 @@ async fn outbox_rollback_skip_locked_release_and_expired_lease_are_recoverable()
         .expect("hold the oldest Outbox row");
 
     let skip_worker = Uuid::now_v7();
-    let skipped = store
-        .claim_outbox_batch(skip_worker, None, 1)
+    let skipped = expect_no_lock_hang(store.claim_outbox_batch(skip_worker, None, 1))
         .await
         .expect("claim around held row");
     assert_eq!(skipped.len(), 1);
@@ -897,10 +1561,13 @@ async fn concurrent_bootstrap_is_idempotent_and_atomic() {
     let first = BootstrapOrganizationService::new(store.clone());
     let second = BootstrapOrganizationService::new(store.clone());
 
-    let (first_result, second_result) = tokio::join!(
-        first.execute(bootstrap_command(slug.clone())),
-        second.execute(bootstrap_command(slug.clone()))
-    );
+    let (first_result, second_result) = expect_no_lock_hang(async {
+        tokio::join!(
+            first.execute(bootstrap_command(slug.clone())),
+            second.execute(bootstrap_command(slug.clone()))
+        )
+    })
+    .await;
     let first_result = first_result.expect("first bootstrap");
     let second_result = second_result.expect("second bootstrap");
 
@@ -1011,7 +1678,8 @@ async fn mail_domain_lifecycle_is_atomic_versioned_and_append_only() {
             now,
         },
     );
-    let (first_result, second_result) = tokio::join!(first_rotation, second_rotation);
+    let (first_result, second_result) =
+        expect_no_lock_hang(async { tokio::join!(first_rotation, second_rotation) }).await;
     assert_ne!(first_result.is_ok(), second_result.is_ok());
     assert!(
         matches!(&first_result, Err(MailDomainGovernanceError::Conflict))
@@ -2066,7 +2734,8 @@ async fn concurrent_audit_appends_form_one_verifiable_tenant_chain() {
         bootstrap.root_principal_id,
         second_id,
     );
-    let (first_result, second_result) = tokio::join!(first, second);
+    let (first_result, second_result) =
+        expect_no_lock_hang(async { tokio::join!(first, second) }).await;
     first_result.expect("first concurrent audit append");
     second_result.expect("second concurrent audit append");
 
@@ -2936,8 +3605,10 @@ async fn concurrent_oidc_owner_handover_retires_bootstrap_privilege() {
     };
     let first = BindOidcOwnerService::new(store.clone());
     let second = BindOidcOwnerService::new(store.clone());
-    let (first_result, second_result) =
-        tokio::join!(first.execute(command.clone()), second.execute(command));
+    let (first_result, second_result) = expect_no_lock_hang(async {
+        tokio::join!(first.execute(command.clone()), second.execute(command))
+    })
+    .await;
     let first_result = first_result.expect("first owner handover");
     let second_result = second_result.expect("second owner handover");
 
@@ -6259,7 +6930,7 @@ async fn approval_workflow_enforces_dual_control_scope_and_expiry() {
         .bind(expires_at).execute(&mut *blocker).await.unwrap();
     blocker.commit().await.unwrap();
     assert!(matches!(
-        waiting.await,
+        expect_no_lock_hang(waiting).await,
         Err(copilotmail_application::StoreError::Conflict)
     ));
     drop(decision_transaction);
@@ -7000,16 +7671,19 @@ async fn inbound_mail_event_is_bound_atomic_replay_safe_and_append_only() {
         legacy_mail_data_plane_id(),
         legacy_mail_event_fingerprint_scheme(),
     );
-    let (first, second) = tokio::join!(
-        first_service.ingest(IngestInboundMailEventsCommand {
-            events: vec![source_event.clone()],
-            received_at: now,
-        }),
-        second_service.ingest(IngestInboundMailEventsCommand {
-            events: vec![source_event.clone()],
-            received_at: now,
-        })
-    );
+    let (first, second) = expect_no_lock_hang(async {
+        tokio::join!(
+            first_service.ingest(IngestInboundMailEventsCommand {
+                events: vec![source_event.clone()],
+                received_at: now,
+            }),
+            second_service.ingest(IngestInboundMailEventsCommand {
+                events: vec![source_event.clone()],
+                received_at: now,
+            })
+        )
+    })
+    .await;
     let first = first.expect("first concurrent ingress");
     let second = second.expect("second concurrent ingress");
     assert_eq!(first.inserted + second.inserted, 1);
@@ -9552,7 +10226,7 @@ async fn human_login_admission_is_cluster_wide_and_recovers_at_the_next_window()
         now,
         expires_at: now + chrono::Duration::minutes(5),
     });
-    let (first, second) = tokio::join!(first, second);
+    let (first, second) = expect_no_lock_hang(async { tokio::join!(first, second) }).await;
     let outcomes = [first, second];
     assert_eq!(outcomes.iter().filter(|result| result.is_ok()).count(), 1);
     assert_eq!(
@@ -10128,25 +10802,26 @@ async fn request_authentication_fences_human_session_revocation() {
         .begin_authorized(&context)
         .await
         .expect("bind before revocation");
-    HumanSessionService::new(store.clone())
-        .revoke_session(RevokeHumanSessionCommand {
+    expect_no_lock_hang(HumanSessionService::new(store.clone()).revoke_session(
+        RevokeHumanSessionCommand {
             session_token,
             cause: HumanSessionRevocationCause::SecurityResponse,
             trace_id: Uuid::now_v7().to_string(),
             now: Utc::now(),
-        })
-        .await
-        .expect("revocation commits while the session row is only share-locked");
+        },
+    ))
+    .await
+    .expect("revocation commits while the session row is only share-locked");
     assert!(
         matches!(
-            transaction.commit().await,
+            expect_no_lock_hang(transaction.commit()).await,
             Err(StoreError::AuthenticationInvalid)
         ),
         "a revocation that commits first must fail the open request at commit"
     );
     assert!(
         matches!(
-            store.begin_authorized(&context).await,
+            expect_no_lock_hang(store.begin_authorized(&context)).await,
             Err(StoreError::AuthenticationInvalid)
         ),
         "revoked session must fail at the next bind"
@@ -10188,14 +10863,16 @@ async fn request_authentication_rejects_suspended_principal_at_commit() {
         .begin_authorized(&context)
         .await
         .expect("bind before principal suspension");
-    sqlx::query("UPDATE principals SET status = 'suspended' WHERE id = $1")
-        .bind(owner.as_uuid())
-        .execute(store.pool())
-        .await
-        .expect("suspend principal without a session revocation");
+    expect_no_lock_hang(
+        sqlx::query("UPDATE principals SET status = 'suspended' WHERE id = $1")
+            .bind(owner.as_uuid())
+            .execute(store.pool()),
+    )
+    .await
+    .expect("suspend principal without a session revocation");
     assert!(
         matches!(
-            transaction.commit().await,
+            expect_no_lock_hang(transaction.commit()).await,
             Err(StoreError::AuthenticationInvalid)
         ),
         "a committed principal suspension must fail the open request"

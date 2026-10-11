@@ -26,7 +26,7 @@ V2 已建立 Rust Cargo Workspace、统一 `Principal` 领域模型、人与 Age
 > 单独运行新版本 `migrate` 并核对数据平面 Origin 绑定，再只启动新版本进程。完整顺序见
 > [Ubuntu / WSL Pilot 部署手册](docs/UBUNTU_WSL_PILOT.zh-CN.md)。
 
-> 当前仓库最新迁移为 `0061_human_session_governance.sql`，新增迁移尚未部署。0053 的停写规则仍只适用于跨越 0053 的
+> 当前仓库最新迁移为 `0061_human_session_governance.sql`，新增迁移尚未部署。2026-10-12 曾在本机一次性 PostgreSQL 17.11 测试库 `copilotmail_test_<suffix>`（非 CI）上应用 0001–0061 并运行 ignored 集成测试；该结果不是部署，也不是 CI 通过。0053 的停写规则仍只适用于跨越 0053 的
 > 升级；0054–0061 及完整动态迁移链必须在干净、隔离的 PostgreSQL 环境重新验收。
 > 0056 使用 `CREATE INDEX CONCURRENTLY`，必须由单一迁移进程完成后再通过只读 `check`；
 > 不得在生产提交表上手工改用阻塞式建索引。

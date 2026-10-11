@@ -39,6 +39,12 @@ impl PgControlPlaneTransaction {
         cause: HumanSessionRevocationCause,
         revoked_at: DateTime<Utc>,
     ) -> Result<Option<HumanSessionRevocationResult>, StoreError> {
+        // The session row is append-only. Revocation is a separate unique row.
+        // FOR KEY SHARE does not conflict with the FOR SHARE held by an
+        // in-flight begin_authorized request, so this revocation can commit
+        // and fail that request at its commit recheck. FOR UPDATE cannot:
+        // it waits until the request ends. Two revocations of one session
+        // serialize on the unique session_id constraint below.
         let session = sqlx::query_as::<_, HumanSessionRow>(
             r#"
             SELECT id, organization_id, principal_id, login_transaction_id,
@@ -46,7 +52,7 @@ impl PgControlPlaneTransaction {
                    created_at, expires_at
               FROM human_browser_sessions
              WHERE token_sha256 = $1
-             FOR UPDATE
+             FOR KEY SHARE
             "#,
         )
         .bind(token_sha256.as_slice())
@@ -86,12 +92,13 @@ impl PgControlPlaneTransaction {
             }));
         }
 
-        sqlx::query(
+        let inserted = sqlx::query(
             r#"
             INSERT INTO human_browser_session_revocations(
                 id, session_id, organization_id, principal_id, cause, revoked_at
             )
             VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (session_id) DO NOTHING
             "#,
         )
         .bind(revocation_id.as_uuid())
@@ -103,6 +110,29 @@ impl PgControlPlaneTransaction {
         .execute(&mut **self.transaction()?)
         .await
         .map_err(map_store_error)?;
+        if inserted.rows_affected() == 0 {
+            let Some(existing) = sqlx::query_as::<_, RevocationRow>(
+                r#"
+                SELECT id, cause, revoked_at
+                  FROM human_browser_session_revocations
+                 WHERE session_id = $1
+                "#,
+            )
+            .bind(session.session_id.as_uuid())
+            .fetch_optional(&mut **self.transaction()?)
+            .await
+            .map_err(map_store_error)?
+            else {
+                return Err(StoreError::Unavailable);
+            };
+            return Ok(Some(HumanSessionRevocationResult {
+                session,
+                revocation_id: HumanSessionRevocationId::from_uuid(existing.id),
+                cause: human_session_revocation_cause_from_str(&existing.cause)?,
+                revoked_at: existing.revoked_at,
+                newly_revoked: false,
+            }));
+        }
         Ok(Some(HumanSessionRevocationResult {
             session,
             revocation_id,

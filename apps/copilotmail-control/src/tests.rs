@@ -1130,11 +1130,10 @@ async fn create_inspector_http_admin_session(
         .await
         .expect("consume Agent Inspector HTTP Admin browser login");
     let session_now = login_now + chrono::Duration::seconds(2);
-    let session_token = format!(
-        "session_{}_{}",
-        Uuid::new_v4().simple(),
-        Uuid::new_v4().simple()
-    );
+    // The cookie parser accepts only the production shape: 32 bytes encoded
+    // as 43 unpadded URL-safe characters. A longer label is rejected as an
+    // invalid session before RBAC or CSRF.
+    let session_token = URL_SAFE_NO_PAD.encode(rand::random::<[u8; 32]>());
     session_service
         .create_session(CreateHumanSessionCommand {
             organization_id,

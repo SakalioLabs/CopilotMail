@@ -67,12 +67,19 @@ pub(crate) async fn human_session_csrf_guard(
     if record.client_key != cookie_client {
         return invalid_human_session_cookie(&request_id);
     }
-    let Some(client) = runtime.client(record.client_key.as_str()) else {
-        return invalid_human_session_cookie(&request_id);
-    };
+    // Safe methods do not compare Origin. The session allowlist is enough
+    // to accept the cookie client; the OIDC relying party exists so an
+    // unsafe method can require that client's exact public origin.
+    let client = runtime.client(record.client_key.as_str());
     if safe_method {
+        if client.is_none() && !runtime.session_client_is_configured(record.client_key) {
+            return invalid_human_session_cookie(&request_id);
+        }
         return next.run(request).await;
     }
+    let Some(client) = client else {
+        return invalid_human_session_cookie(&request_id);
+    };
     let mut origins = request.headers().get_all(header::ORIGIN).iter();
     let origin = origins.next().and_then(|value| value.to_str().ok());
     if origin != Some(client.public_origin.as_str()) || origins.next().is_some() {

@@ -222,7 +222,9 @@ private schema.
   Owner roles, registers `identity.human_sessions.revoked`, and creates the
   append-only `human_session_governance_executions` table. It does not rewrite
   session or approval history. This migration has not been applied in this
-  code-only change.
+  code-only change. A later local disposable PostgreSQL 17.11 run, database
+  name `copilotmail_test_<suffix>`, not CI and not a deployment, applied this
+  file.
 
 Offline SQL and PL/pgSQL grammar checks use the pinned PostgreSQL 17 parser in
 `scripts/requirements-quality.txt`: run

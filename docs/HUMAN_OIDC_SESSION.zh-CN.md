@@ -48,6 +48,8 @@ sequenceDiagram
   检查会话过期/撤销、Active Human、租户一致性和实时 RBAC；生产配置拒绝
   Human Bearer 降级路径。
 - 非安全方法必须携带与该 Session 客户端完全一致且唯一的 `Origin`。
+  安全方法不比对 Origin。会话允许列表已经包含该客户端时，不必再要求 OIDC
+  relying party 对象；没有允许列表、也没有该客户端的 Origin 配置时仍拒绝。
   Cookie 与任意 `Authorization` Header 同时出现时按身份歧义拒绝。
 - Admin 与 Mail Session 是不同客户端边界：邮件客户端不能调用管理/合规
   API，管理客户端不能借管理会话读取正文或写信。Agent 继续使用独立的短期
@@ -153,9 +155,17 @@ Secrets Manager 或编排器提供，轮换需使所有 BFF 实例原子切换�
   Principal 的两类客户端会话，原因是 `security_response`，且不撤销操作者当前
   会话。SCIM 将 Principal 置为停用时，在同一事务撤销其全部本控制面浏览器会话，
   原因是 `principal_deactivated`。这三项都不调用 IdP，也不新增 Step-up/AAL。
-- `begin_authorized` 在绑定和提交前都复查 Human Principal 仍为 active。停用后，
-  已打开的请求在提交前失败并回滚；会话行使用 `FOR SHARE`，不锁 Principal 行，
-  因此停用不必等待该会话锁。设备列表仍未实现。
+- `begin_authorized` 绑定 Human 会话时对会话行取 `FOR SHARE`，并要求 Principal
+  仍为 active。单会话撤销对会话行取 `FOR KEY SHARE`，再插入
+  `human_browser_session_revocations` 的唯一行；它不与 `FOR SHARE` 冲突，所以
+  撤销可以在在途请求仍持有共享锁时提交。提交前复查若已看见该撤销行或 Principal
+  已停用，在途请求失败并回滚。`FOR UPDATE` 做不到这一点，它会等到请求结束。
+  复查语句返回之后、`COMMIT` 之前才提交的撤销或停用，READ COMMITTED 仍看不见。
+  不把复查升级为 `FOR UPDATE`，否则撤销会再次被挡住。Principal 行不加锁，停用
+  不必等待会话共享锁。SCIM 绑定对 Principal 和令牌持有 `FOR UPDATE` 直到事务
+  结束，提交前复查不再要求 Principal 为 active，否则停用令牌 Actor 的同一笔
+  事务无法提交；下一笔调用在绑定处失败。Human 会话和 Agent 凭据的复查仍要求
+  Principal 为 active。设备列表仍未实现。
 - 尚未把已验证的 `acr`、`amr`、`auth_time` 写入 Session 并对高危操作执行
   Step-up；企业 Pilot 前不能宣称达到公司指定 AAL。
 - 匿名失败登录的独立安全账本和设备列表仍待后续增量；不得把原始 OAuth 参数

@@ -136,10 +136,15 @@ impl PgControlPlaneTransaction {
     }
 
     /// Rechecks the bound credential against the database clock immediately
-    /// before commit. Human sessions are share-locked, so a concurrent
-    /// revocation or principal suspension can commit and fail this check.
-    /// The principal row itself is not locked here: an update of principal
-    /// status must not deadlock with the session fence.
+    /// before commit. The human session row stays `FOR SHARE` for the whole
+    /// request. Token revocation takes `FOR KEY SHARE` and inserts the unique
+    /// revocation row, so that revocation can commit while this share lock is
+    /// held and fail this read. The principal row is not locked: a status
+    /// update must not wait on, or deadlock with, the session fence. A
+    /// revocation or suspension that commits after this statement returns and
+    /// before `COMMIT` is not visible to this read. Upgrading the session row
+    /// to `FOR UPDATE` here would close that gap only by blocking revocation
+    /// again, including behind locks this request already holds.
     pub(crate) async fn tx_bound_authentication_still_valid(&mut self) -> Result<bool, StoreError> {
         let Some(binding) = self.bound_authentication.clone() else {
             return Ok(true);
@@ -204,6 +209,11 @@ impl PgControlPlaneTransaction {
             }
             AuthenticationBinding::ScimToken { token_id } => sqlx::query_scalar::<_, bool>(
                 r#"
+                    -- Bind holds FOR UPDATE on this principal for the whole
+                    -- transaction, so another session cannot change it first.
+                    -- Do not require status = active here: deprovisioning the
+                    -- token actor updates that status in this transaction and
+                    -- must still commit. The next call fails at bind.
                     SELECT EXISTS (
                         SELECT 1
                           FROM scim_tokens AS token
@@ -213,7 +223,6 @@ impl PgControlPlaneTransaction {
                            AND token.status = 'active'
                            AND token.revoked_at IS NULL
                            AND principal.kind = 'human'
-                           AND principal.status = 'active'
                            AND (
                                token.expires_at IS NULL
                                OR token.expires_at > clock_timestamp()
