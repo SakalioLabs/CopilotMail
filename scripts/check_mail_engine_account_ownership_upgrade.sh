@@ -37,6 +37,37 @@ valid_generated_database() {
     ((${#database} <= 63))
 }
 
+# SQLx 0.9 runs a migration outside a transaction only when the file bytes
+# start with "-- no-transaction". A marker later in the file does not count.
+# 0056 needs that mode for CREATE INDEX CONCURRENTLY; every other file stays
+# in one transaction.
+migration_opts_out_of_transaction() {
+  local migration="$1"
+  local prefix="-- no-transaction"
+  local head
+  head="$(head -c "${#prefix}" -- "${migration}" 2>/dev/null || true)"
+  [[ "${head}" == "${prefix}" ]]
+}
+
+# Version, description, and SHA-384 match SQLx 0.9 with no ignored characters:
+# the numeric filename prefix, the remaining name with "_" turned into spaces,
+# and sha384 of the file bytes. schema_ready compares this ledger, not only
+# the presence of tables.
+migration_ledger_fields() {
+  local migration="$1"
+  local base version description checksum
+  base="$(basename -- "${migration}")"
+  [[ "${base}" =~ ^[0-9]+_.+\.sql$ ]] || return 1
+  version="${base%%_*}"
+  version=$((10#${version}))
+  description="${base#*_}"
+  description="${description%.sql}"
+  description="${description//_/ }"
+  checksum="$(sha384sum -- "${migration}" | awk '{print $1}')"
+  [[ "${checksum}" =~ ^[0-9a-f]{96}$ ]] || return 1
+  printf '%s\t%s\t%s\n' "${version}" "${description}" "${checksum}"
+}
+
 self_test() {
   local source_database="copilotmail"
   local generated_database="copilotmail_owner_upgrade_20260727123000_123_456"
@@ -59,6 +90,44 @@ self_test() {
     "${source_database}"; then
     die "self-test accepted an overlong database name"
   fi
+
+  local scratch
+  scratch="$(mktemp -d)"
+  chmod 0700 "${scratch}"
+  printf '%s\n' '-- no-transaction' 'SELECT 1;' >"${scratch}/concurrent.sql"
+  printf '%s\n' 'SELECT 1;' >"${scratch}/ordinary.sql"
+  printf '%s\n' '-- comment' '-- no-transaction' >"${scratch}/later.sql"
+  local autocommit_ok=0 ordinary_stays_transactional=0 later_stays_transactional=0
+  if migration_opts_out_of_transaction "${scratch}/concurrent.sql"; then
+    autocommit_ok=1
+  fi
+  if ! migration_opts_out_of_transaction "${scratch}/ordinary.sql"; then
+    ordinary_stays_transactional=1
+  fi
+  if ! migration_opts_out_of_transaction "${scratch}/later.sql"; then
+    later_stays_transactional=1
+  fi
+  printf '%s\n' '-- ordinary migration' >"${scratch}/0007_alpha_beta.sql"
+  local published_migration identity expected_checksum generated_identity
+  local ledger_0056_ok=0 generated_name_ok=0
+  published_migration="${MIGRATION_DIRECTORY}/0056_human_mail_sent_directory_index.sql"
+  identity="$(migration_ledger_fields "${published_migration}" || true)"
+  expected_checksum="$(sha384sum -- "${published_migration}" | awk '{print $1}')"
+  [[ "${identity}" == $'56\thuman mail sent directory index\t'"${expected_checksum}" ]] &&
+    ledger_0056_ok=1
+  generated_identity="$(migration_ledger_fields "${scratch}/0007_alpha_beta.sql" || true)"
+  [[ "${generated_identity}" == $'7\talpha beta\t'* ]] && generated_name_ok=1
+  rm -rf -- "${scratch}"
+  ((autocommit_ok)) ||
+    die "self-test missed a SQLx no-transaction prefix"
+  ((ordinary_stays_transactional)) ||
+    die "self-test treated an ordinary migration as autocommit"
+  ((later_stays_transactional)) ||
+    die "self-test accepted a no-transaction marker after the first bytes"
+  ((ledger_0056_ok)) ||
+    die "self-test ledger identity for 0056 does not match SQLx"
+  ((generated_name_ok)) ||
+    die "self-test parsed a generated migration name incorrectly"
 
   printf 'mail-engine account ownership upgrade safety self-test passed\n'
 }
@@ -131,6 +200,58 @@ psql_database() {
     "$@"
 }
 
+record_applied_migration() {
+  local database="$1"
+  local migration="$2"
+  local identity version description checksum
+  identity="$(migration_ledger_fields "${migration}")"
+  IFS=$'\t' read -r version description checksum <<<"${identity}"
+  psql_database "${database}" \
+    --quiet \
+    --single-transaction \
+    --set=migration_version="${version}" \
+    --set=migration_description="${description}" \
+    --set=migration_checksum="${checksum}" <<'SQL'
+SET client_min_messages TO warning;
+CREATE TABLE IF NOT EXISTS public._sqlx_migrations (
+    version BIGINT PRIMARY KEY,
+    description TEXT NOT NULL,
+    installed_on TIMESTAMPTZ NOT NULL DEFAULT now(),
+    success BOOLEAN NOT NULL,
+    checksum BYTEA NOT NULL,
+    execution_time BIGINT NOT NULL
+);
+INSERT INTO public._sqlx_migrations (
+    version, description, success, checksum, execution_time
+) VALUES (
+    :'migration_version'::bigint,
+    :'migration_description',
+    TRUE,
+    decode(:'migration_checksum', 'hex'),
+    -1
+);
+SQL
+}
+
+apply_sql_file() {
+  local database="$1"
+  local migration="$2"
+  # Callers use `apply_sql_file || return`, which disables set -e for this
+  # whole function. A failing migration must return before the ledger insert,
+  # or a rolled-back file would be recorded as applied.
+  if migration_opts_out_of_transaction "${migration}"; then
+    psql_database "${database}" \
+      --quiet \
+      --file="${migration}" >/dev/null || return $?
+  else
+    psql_database "${database}" \
+      --quiet \
+      --single-transaction \
+      --file="${migration}" >/dev/null || return $?
+  fi
+  record_applied_migration "${database}" "${migration}" || return $?
+}
+
 apply_migrations_through_0050() {
   local database="$1"
   local migration migration_name applied=0
@@ -138,11 +259,7 @@ apply_migrations_through_0050() {
   while IFS= read -r migration; do
     migration_name="$(basename -- "${migration}")"
     [[ "${migration_name}" < "0051_" ]] || break
-    psql_database "${database}" \
-      --quiet \
-      --single-transaction \
-      --file="${migration}" >/dev/null ||
-      return $?
+    apply_sql_file "${database}" "${migration}" || return $?
     applied=$((applied + 1))
   done < <(
     find "${MIGRATION_DIRECTORY}" \
@@ -166,11 +283,7 @@ apply_migrations_after_0050() {
   while IFS= read -r migration; do
     migration_name="$(basename -- "${migration}")"
     [[ "${migration_name}" < "0051_" ]] && continue
-    psql_database "${database}" \
-      --quiet \
-      --single-transaction \
-      --file="${migration}" >/dev/null ||
-      return $?
+    apply_sql_file "${database}" "${migration}" || return $?
     applied=$((applied + 1))
   done < <(
     find "${MIGRATION_DIRECTORY}" \

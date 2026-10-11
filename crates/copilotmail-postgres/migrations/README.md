@@ -195,6 +195,11 @@ private schema.
   migration advisory lock remains in effect. A retry after a process failure
   uses `IF NOT EXISTS`; runtime readiness independently requires the resulting
   index to be valid and ready before serving this binary.
+  `scripts/check_mail_engine_account_ownership_upgrade.sh` follows the same
+  SQLx 0.9 prefix: only a file whose bytes start with `-- no-transaction` runs
+  outside a transaction. After a file succeeds, the script records the version,
+  description, and SHA-384 checksum `schema_ready` compares. A failed file
+  returns before that insert, so a rolled-back migration is not marked applied.
 - `0057_agent_inspector.sql` registers the successful, privileged,
   content-free single-Agent Inspector read. The inspector remains a
   transaction-bound projection of existing identity, credential, RBAC, mail
