@@ -27,6 +27,7 @@ mod human_draft;
 mod human_mailbox_directory;
 mod human_sent;
 mod human_session;
+mod human_session_governance;
 mod inbox;
 mod mail_delivery;
 mod mail_domain;
@@ -144,6 +145,10 @@ pub use human_session::{
     CreateHumanSessionCommand, HumanSessionError, HumanSessionService, ResolveHumanSessionCommand,
     RevokeHumanSessionCommand, RevokedHumanSession,
 };
+pub use human_session_governance::{
+    AcceptedBrowserSessionRevocation, HumanSessionGovernanceError, HumanSessionGovernanceService,
+    RevokeOwnBrowserSessionsCommand, RevokePrincipalBrowserSessionsCommand,
+};
 pub use inbox::{
     GetMessageCommand, HumanInboxMessageSummary, HumanInboxPage, HumanMessageDetail, InboxError,
     InboxService, ListInboxCommand, SearchInboxCommand, UpdateMessageStateCommand,
@@ -208,7 +213,8 @@ pub use ports::{
     HumanMailboxDirectoryBatch, HumanMailboxDirectoryCandidate, HumanMailboxDirectoryQuery,
     HumanMailboxDirectoryStore, HumanSentDeliveryEvidence, HumanSentListBatch,
     HumanSentListCandidate, HumanSentListItemRecheck, HumanSentListQuery, HumanSentListRecheck,
-    HumanSentQueryStore, HumanSessionClient, HumanSessionQueryStore, HumanSessionRecord,
+    HumanSentQueryStore, HumanSessionClient, HumanSessionGovernanceExecution,
+    HumanSessionGovernanceExecutionWrite, HumanSessionQueryStore, HumanSessionRecord,
     HumanSessionRevocationCause, HumanSessionRevocationResult, HumanSessionWrite,
     InboundMailEventInsert, InboundMailEventRecord, LegalHoldObjectEvidence,
     MailDeliveryQueryStore, MailDeliveryRecipientState, MailDeliveryRecipientWrite,
@@ -223,10 +229,11 @@ pub use ports::{
     MailboxQueryStore, MailboxSummary, OrganizationQueryStore, OrganizationSummary,
     OutboundMailEventInsert, OutboundMailEventKind, OutboundMailEventRecord,
     RetentionPolicyActivationRecord, RetentionPolicyDetail, RetentionPolicyQueryStore,
-    RetentionPolicyRecord, RoleAssignmentGrantRecord, RoleAssignmentListQuery,
-    RoleAssignmentRevocationResult, RoleAssignmentSummary, RoleGovernanceQueryStore, RoleSummary,
-    ScimCredential, ScimDirectoryQueryStore, StoreError, WebhookDeadLetterQueryStore,
-    WebhookDeadLetterSummary, WebhookSubscriptionQueryStore, WebhookSubscriptionSummary,
+    RetentionPolicyRecord, RevokeActiveHumanSessions, RoleAssignmentGrantRecord,
+    RoleAssignmentListQuery, RoleAssignmentRevocationResult, RoleAssignmentSummary,
+    RoleGovernanceQueryStore, RoleSummary, ScimCredential, ScimDirectoryQueryStore, StoreError,
+    WebhookDeadLetterQueryStore, WebhookDeadLetterSummary, WebhookSubscriptionQueryStore,
+    WebhookSubscriptionSummary,
 };
 pub use register_principal::{
     RegisterPrincipalCommand, RegisterPrincipalError, RegisterPrincipalService,

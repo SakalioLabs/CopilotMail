@@ -420,6 +420,47 @@ pub trait ControlPlaneTransaction: Send {
         Err(StoreError::Unavailable)
     }
 
+    /// Appends one revocation for every still-valid browser session of one
+    /// principal. A unique conflict aborts the caller transaction; nothing in
+    /// the batch may commit after a partial failure.
+    async fn revoke_active_human_browser_sessions(
+        &mut self,
+        _write: &RevokeActiveHumanSessions,
+    ) -> Result<Vec<HumanSessionRevocationResult>, StoreError> {
+        Err(StoreError::Unavailable)
+    }
+
+    /// Locks one human principal row when it exists. Any status counts: a
+    /// suspended principal can still have live browser sessions. `Ok(false)`
+    /// means that principal is not a human in this tenant. The default is
+    /// unavailable so a forgotten adapter cannot report success and skip the
+    /// revocation.
+    async fn human_principal_exists(
+        &mut self,
+        _organization_id: OrganizationId,
+        _principal_id: PrincipalId,
+    ) -> Result<bool, StoreError> {
+        Err(StoreError::Unavailable)
+    }
+
+    /// Records that one approval has been used for session revocation.
+    /// Replaying the same approval returns the original target and requester.
+    async fn insert_human_session_governance_execution(
+        &mut self,
+        _write: &HumanSessionGovernanceExecutionWrite,
+    ) -> Result<HumanSessionGovernanceExecution, StoreError> {
+        Err(StoreError::Unavailable)
+    }
+
+    /// Locks one approved request and rechecks dual control, separation of
+    /// duty, exact resource, and database expiry. Default deny.
+    async fn lock_exact_dual_approval(
+        &mut self,
+        _proof: &ApprovalProof,
+    ) -> Result<bool, StoreError> {
+        Ok(false)
+    }
+
     async fn insert_webhook_subscription(
         &mut self,
         _subscription: &WebhookSubscription,

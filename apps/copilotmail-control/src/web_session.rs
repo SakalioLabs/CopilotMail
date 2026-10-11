@@ -129,7 +129,7 @@ pub(crate) fn human_session_api_route_client(
         {
             human_session_client_from_segment(client)
         }
-        ["api", "v2", "auth", client, "logout"] if method == Method::POST => {
+        ["api", "v2", "auth", client, "logout" | "logout-all"] if method == Method::POST => {
             human_session_client_from_segment(client)
         }
         _ => None,

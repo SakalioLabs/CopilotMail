@@ -257,6 +257,40 @@ fn human_session_cookies_and_routes_are_strictly_client_partitioned() {
         &Method::POST,
         "/api/v2/auth/mail/logout"
     ));
+    assert!(human_client_route_permitted(
+        HumanSessionClient::Admin,
+        &Method::POST,
+        "/api/v2/auth/admin/logout-all"
+    ));
+    assert!(!human_client_route_permitted(
+        HumanSessionClient::Mail,
+        &Method::POST,
+        "/api/v2/auth/admin/logout-all"
+    ));
+    assert!(human_client_route_permitted(
+        HumanSessionClient::Mail,
+        &Method::POST,
+        "/api/v2/auth/mail/logout-all"
+    ));
+    assert!(!human_client_route_permitted(
+        HumanSessionClient::Admin,
+        &Method::POST,
+        "/api/v2/auth/mail/logout-all"
+    ));
+    let revocation_route = format!(
+        "/api/v2/organizations/{}/principals/{}/browser-session-revocations",
+        OrganizationId::new(),
+        PrincipalId::new()
+    );
+    assert!(human_client_route_permitted(
+        HumanSessionClient::Admin,
+        &Method::POST,
+        &revocation_route
+    ));
+    assert!(
+        !human_client_route_permitted(HumanSessionClient::Mail, &Method::POST, &revocation_route),
+        "Mail browser sessions cannot revoke another principal"
+    );
     assert!(!human_client_route_permitted(
         HumanSessionClient::Mail,
         &Method::GET,
@@ -349,6 +383,59 @@ async fn human_session_routes_fail_closed_without_configuration_or_storage_acces
     assert_eq!(logout.status(), StatusCode::UNAUTHORIZED);
     assert!(!logout.headers().contains_key(header::WWW_AUTHENTICATE));
     assert_eq!(logout.headers()[header::CACHE_CONTROL], "no-store");
+
+    for uri in [
+        "/api/v2/auth/admin/logout-all",
+        "/api/v2/auth/mail/logout-all",
+    ] {
+        let logout_all = router(disconnected_store())
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(uri)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(logout_all.status(), StatusCode::UNAUTHORIZED);
+        assert!(!logout_all.headers().contains_key(header::WWW_AUTHENTICATE));
+        assert_eq!(logout_all.headers()[header::CACHE_CONTROL], "no-store");
+        assert_eq!(logout_all.headers()["referrer-policy"], "no-referrer");
+    }
+
+    let missing_target = format!(
+        "/api/v2/organizations/{}/principals/{}/browser-session-revocations",
+        OrganizationId::new(),
+        PrincipalId::new()
+    );
+    let foreign_target = format!(
+        "/api/v2/organizations/{}/principals/{}/browser-session-revocations",
+        OrganizationId::new(),
+        PrincipalId::new()
+    );
+    let mut revocation_errors = Vec::new();
+    for uri in [missing_target, foreign_target] {
+        let response = router(disconnected_store())
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(uri)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        assert!(!response.headers().contains_key(header::WWW_AUTHENTICATE));
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        assert_eq!(response.headers()["referrer-policy"], "no-referrer");
+        let body = to_bytes(response.into_body(), 16 * 1024).await.unwrap();
+        let error: ErrorResponse = serde_json::from_slice(&body).unwrap();
+        assert!(!error.message.contains("revoked_session_count"));
+        revocation_errors.push((error.code, error.message, error.retryable));
+    }
+    assert_eq!(revocation_errors[0], revocation_errors[1]);
 }
 
 #[test]

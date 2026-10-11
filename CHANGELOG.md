@@ -35,6 +35,16 @@ implementation evidence remains in
 
 ### Security
 
+- Organization Owners can revoke another principal's current Admin and Mail
+  browser sessions with the dedicated `session.revoke_others` permission and
+  one exact two-person approval (`security_response`). The caller's current
+  session is left in place. A principal can sign out of every current device
+  (`logout`); omitting `retain_current_session` also revokes the current
+  session. SCIM deactivation revokes that principal's control-plane browser
+  sessions (`principal_deactivated`), and an in-flight authorized request fails
+  closed at commit once the principal is no longer active. Authorized outcomes
+  do not disclose whether the target exists or how many sessions were revoked.
+  This does not perform IdP back-channel logout or add a step-up requirement.
 - Protected request contracts now fail closed on adversarial JSON without
   echoing the payload. `parse_closed_json` covers every V2 request DTO for
   unknown fields, type confusion, bounds, and malformed documents. Axum's

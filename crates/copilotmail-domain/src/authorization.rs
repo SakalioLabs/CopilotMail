@@ -22,6 +22,9 @@ pub enum Permission {
     MailAdmin,
     /// Manage security controls and incident response.
     SecurityAdmin,
+    /// Revoke another principal's browser sessions. This is not implied by
+    /// `identity.manage` or `security.admin`.
+    SessionRevokeOthers,
     /// Search append-only audit metadata.
     AuditRead,
     /// Export audit evidence.
@@ -53,6 +56,7 @@ impl Permission {
             Self::AuthorizationManage => "authorization.manage",
             Self::MailAdmin => "mail.admin",
             Self::SecurityAdmin => "security.admin",
+            Self::SessionRevokeOthers => "session.revoke_others",
             Self::AuditRead => "audit.read",
             Self::AuditExport => "audit.export",
             Self::LegalHoldManage => "legal_hold.manage",
@@ -66,13 +70,14 @@ impl Permission {
     }
 
     /// Complete stable permission catalog.
-    pub const CATALOG: [Self; 15] = [
+    pub const CATALOG: [Self; 16] = [
         Self::OrganizationRead,
         Self::OrganizationManage,
         Self::IdentityManage,
         Self::AuthorizationManage,
         Self::MailAdmin,
         Self::SecurityAdmin,
+        Self::SessionRevokeOthers,
         Self::AuditRead,
         Self::AuditExport,
         Self::LegalHoldManage,
@@ -88,13 +93,14 @@ impl Permission {
     ///
     /// Content review and break-glass are intentionally excluded because they
     /// require separate roles, case context, and additional approval.
-    pub const ORG_OWNER: [Self; 12] = [
+    pub const ORG_OWNER: [Self; 13] = [
         Self::OrganizationRead,
         Self::OrganizationManage,
         Self::IdentityManage,
         Self::AuthorizationManage,
         Self::MailAdmin,
         Self::SecurityAdmin,
+        Self::SessionRevokeOthers,
         Self::AuditRead,
         Self::AuditExport,
         Self::LegalHoldManage,
@@ -475,8 +481,26 @@ mod tests {
         let role = Role::organization_owner(OrganizationId::new(), Utc::now());
         let permissions = role.permissions().collect::<BTreeSet<_>>();
         assert!(permissions.contains(&Permission::AuthorizationManage));
+        assert!(permissions.contains(&Permission::SessionRevokeOthers));
         assert!(!permissions.contains(&Permission::ContentReview));
         assert!(!permissions.contains(&Permission::BreakGlass));
+        let helpdesk = Role::built_in(OrganizationId::new(), SystemRole::Helpdesk, Utc::now());
+        assert!(
+            !helpdesk
+                .permissions()
+                .any(|permission| permission == Permission::SessionRevokeOthers)
+        );
+        let security = Role::built_in(OrganizationId::new(), SystemRole::SecurityAdmin, Utc::now());
+        assert!(
+            security
+                .permissions()
+                .any(|permission| permission == Permission::SecurityAdmin)
+        );
+        assert!(
+            !security
+                .permissions()
+                .any(|permission| permission == Permission::SessionRevokeOthers)
+        );
     }
 
     #[test]

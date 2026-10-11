@@ -22,7 +22,8 @@
 - 权限提升；
 - Legal Hold；
 - Break-glass；
-- 批量删除。
+- 批量删除；
+- 撤销他人浏览器会话（`session.revoke_others`）。
 
 ## 策略版本
 
@@ -142,6 +143,13 @@ copilotmail-control append-approval-policy-version \
   毫秒对齐且不超过 365 天，并把请求人绑定到当前 Active Human 操作人；同一审批
   不能改授其他主体、角色或期限。撤销不需要新的提升审批，但仍要求实时
   `authorization.manage`，且不能撤销租户最后一个有效 Owner。
+- 他人浏览器会话撤销已消费精确双人审批：动作固定为
+  `session.revoke_others`，资源类型固定为 `identity.principal`，资源 ID 固定为
+  目标 Principal UUID。执行权限不是 `identity.manage` 或 `security.admin`，
+  默认只授予 Organization Owner；审批人不能是发起人，且 `required_approvals`
+  小于 2 的策略不能执行。同一审批只使用一次。操作者当前会话不被撤销。
+  目标不存在、没有有效会话，以及路径组织与调用者组织不一致，对外都是同一个
+  空 `204`，响应不包含会话数量。
 - 尚未实现按 SCIM Group、部门或职责动态筛选审批人。
 - 尚未实现催办、通知、策略模拟和审批 SLA 指标。
 - 本地没有 PostgreSQL/Docker 时，数据库与 Object Lock 集成场景只能编译；CI

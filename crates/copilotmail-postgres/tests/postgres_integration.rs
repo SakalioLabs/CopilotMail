@@ -10127,32 +10127,78 @@ async fn request_authentication_fences_human_session_revocation() {
     let transaction = store
         .begin_authorized(&context)
         .await
-        .expect("bind before concurrent revocation");
-    let revoke_store = store.clone();
-    let revoke = tokio::spawn(async move {
-        HumanSessionService::new(revoke_store)
-            .revoke_session(RevokeHumanSessionCommand {
-                session_token,
-                cause: HumanSessionRevocationCause::SecurityResponse,
-                trace_id: Uuid::now_v7().to_string(),
-                now: Utc::now(),
-            })
-            .await
-    });
-    transaction
-        .commit()
+        .expect("bind before revocation");
+    HumanSessionService::new(store.clone())
+        .revoke_session(RevokeHumanSessionCommand {
+            session_token,
+            cause: HumanSessionRevocationCause::SecurityResponse,
+            trace_id: Uuid::now_v7().to_string(),
+            now: Utc::now(),
+        })
         .await
-        .expect("commit wins: revocation cannot land while the session row is fenced");
-    revoke
-        .await
-        .expect("join revocation task")
-        .expect("revocation completes once the fenced transaction ends");
+        .expect("revocation commits while the session row is only share-locked");
+    assert!(
+        matches!(
+            transaction.commit().await,
+            Err(StoreError::AuthenticationInvalid)
+        ),
+        "a revocation that commits first must fail the open request at commit"
+    );
     assert!(
         matches!(
             store.begin_authorized(&context).await,
-            Err(copilotmail_application::StoreError::AuthenticationInvalid)
+            Err(StoreError::AuthenticationInvalid)
         ),
-        "revoked session must fail at bind"
+        "revoked session must fail at the next bind"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires a disposable PostgreSQL database"]
+async fn request_authentication_rejects_suspended_principal_at_commit() {
+    let _login_gate = LOGIN_GATE.lock().await;
+    let store = migrated_store().await;
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "fence-suspend-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .expect("bootstrap suspension fence tenant");
+    let owner = BindOidcOwnerService::new(store.clone())
+        .execute(BindOidcOwnerCommand {
+            organization_id: bootstrap.organization_id,
+            issuer: format!("https://login-{}.example.test", Uuid::new_v4().simple()),
+            subject: format!("fence-suspended-{}", Uuid::new_v4().simple()),
+            display_name: "Suspended Fence Owner".into(),
+            trace_id: Uuid::now_v7().to_string(),
+            now: Utc::now(),
+        })
+        .await
+        .expect("bind suspended fence owner")
+        .principal_id;
+    let (session_id, _session_token) =
+        create_fenced_human_session(&store, bootstrap.organization_id, owner, Utc::now()).await;
+    let context = fenced_context(
+        bootstrap.organization_id,
+        owner,
+        AuthenticationBinding::HumanSession { session_id },
+    );
+    let transaction = store
+        .begin_authorized(&context)
+        .await
+        .expect("bind before principal suspension");
+    sqlx::query("UPDATE principals SET status = 'suspended' WHERE id = $1")
+        .bind(owner.as_uuid())
+        .execute(store.pool())
+        .await
+        .expect("suspend principal without a session revocation");
+    assert!(
+        matches!(
+            transaction.commit().await,
+            Err(StoreError::AuthenticationInvalid)
+        ),
+        "a committed principal suspension must fail the open request"
     );
 }
 

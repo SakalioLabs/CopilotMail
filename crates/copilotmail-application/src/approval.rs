@@ -802,6 +802,7 @@ const fn approval_action_permission(action: ApprovalAction) -> Permission {
         ApprovalAction::AgentFirstContact => Permission::AgentOperate,
         ApprovalAction::LegalHold => Permission::LegalHoldManage,
         ApprovalAction::BreakGlass => Permission::BreakGlass,
+        ApprovalAction::SessionRevokeOthers => Permission::SessionRevokeOthers,
     }
 }
 

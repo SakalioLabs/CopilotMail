@@ -17,16 +17,21 @@ impl PgControlPlaneTransaction {
                     r#"
                     SELECT session.id
                       FROM human_browser_sessions AS session
+                      JOIN principals AS principal
+                        ON principal.id = session.principal_id
+                       AND principal.organization_id = session.organization_id
                      WHERE session.id = $1
                        AND session.organization_id = $2
                        AND session.principal_id = $3
                        AND session.expires_at > clock_timestamp()
+                       AND principal.kind = 'human'
+                       AND principal.status = 'active'
                        AND NOT EXISTS (
                            SELECT 1
                              FROM human_browser_session_revocations AS revocation
                             WHERE revocation.session_id = session.id
                        )
-                     FOR UPDATE OF session
+                     FOR SHARE OF session
                     "#,
                 )
                 .bind(session_id.as_uuid())
@@ -131,8 +136,10 @@ impl PgControlPlaneTransaction {
     }
 
     /// Rechecks the bound credential against the database clock immediately
-    /// before commit. Credential rows stay locked, so this primarily observes
-    /// revocation evidence appended concurrently (sessions) and expiry.
+    /// before commit. Human sessions are share-locked, so a concurrent
+    /// revocation or principal suspension can commit and fail this check.
+    /// The principal row itself is not locked here: an update of principal
+    /// status must not deadlock with the session fence.
     pub(crate) async fn tx_bound_authentication_still_valid(&mut self) -> Result<bool, StoreError> {
         let Some(binding) = self.bound_authentication.clone() else {
             return Ok(true);
@@ -143,8 +150,13 @@ impl PgControlPlaneTransaction {
                     SELECT EXISTS (
                         SELECT 1
                           FROM human_browser_sessions AS session
+                          JOIN principals AS principal
+                            ON principal.id = session.principal_id
+                           AND principal.organization_id = session.organization_id
                          WHERE session.id = $1
                            AND session.expires_at > clock_timestamp()
+                           AND principal.kind = 'human'
+                           AND principal.status = 'active'
                            AND NOT EXISTS (
                                SELECT 1
                                  FROM human_browser_session_revocations AS revocation

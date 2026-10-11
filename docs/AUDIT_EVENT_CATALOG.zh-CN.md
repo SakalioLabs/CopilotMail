@@ -24,6 +24,7 @@
 | `identity.scim_group.deleted` | `identity.scim_group` | High | 是 |
 | `identity.human_session.created` | `identity.human_session` | High | 是 |
 | `identity.human_session.revoked` | `identity.human_session` | High | 是 |
+| `identity.human_sessions.revoked` | `identity.principal` | High | 是 |
 | `authorization.approval_policy.created` | `authorization.approval_policy` | High | 是 |
 | `authorization.approval_policy.versioned` | `authorization.approval_policy` | High | 是 |
 | `authorization.approval.requested` | `authorization.approval_request` | Medium | 是 |

@@ -100,6 +100,12 @@ audit_events!(
         true
     ),
     (
+        "identity.human_sessions.revoked",
+        "identity.principal",
+        High,
+        true
+    ),
+    (
         "identity.scim_user.provisioned",
         "identity.scim_user",
         Medium,

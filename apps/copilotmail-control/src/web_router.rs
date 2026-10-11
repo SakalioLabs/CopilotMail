@@ -56,6 +56,10 @@ pub(crate) fn router_with_state(state: AppState, scim_identity_provider: Option<
             "/api/v2/auth/{client}/logout",
             axum::routing::post(logout_human_session),
         )
+        .route(
+            "/api/v2/auth/{client}/logout-all",
+            axum::routing::post(logout_all_human_sessions),
+        )
         .route("/oauth2/token", axum::routing::post(issue_agent_token))
         .route("/oauth2/jwks.json", get(agent_jwks))
         .route(
@@ -65,6 +69,10 @@ pub(crate) fn router_with_state(state: AppState, scim_identity_provider: Option<
         .route(
             "/api/v2/organizations/{organization_id}",
             get(get_organization),
+        )
+        .route(
+            "/api/v2/organizations/{organization_id}/principals/{principal_id}/browser-session-revocations",
+            axum::routing::post(revoke_principal_browser_sessions),
         )
         .route(
             "/api/v2/organizations/{organization_id}/audit-events",

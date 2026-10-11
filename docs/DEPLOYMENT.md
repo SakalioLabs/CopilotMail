@@ -70,7 +70,7 @@ only to a script-generated database, and fails unless migration, immutable-audit
 trigger/catalog, and seeded-row evidence match.
 
 The latest repository migration is currently
-`0060_audit_export_runtime_clock.sql` (not deployed in the current code-only phase).
+`0061_human_session_governance.sql` (not deployed in the current code-only phase).
 Migration 0055 commits the sent-directory audit
 catalog entry; 0056 is deliberately an online `CREATE INDEX CONCURRENTLY`
 migration, and 0057 must be applied after it as part of the same governed

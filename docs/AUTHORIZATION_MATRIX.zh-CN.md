@@ -62,6 +62,7 @@ Human 与 Agent 使用同一授权内核。二者的登录方式、交互界面�
 | `retention.manage` | 创建、版本化并进入保留策略激活流程 | 绕过双人审批、Legal Hold 或直接删除数据 |
 | `content.review` | 进入合规正文审查流程 | 无案件、无审批的任意正文读取 |
 | `break_glass.invoke` | 发起紧急访问流程 | 自动取得资源权限 |
+| `session.revoke_others` | 经双人审批撤销指定 Principal 的本控制面浏览器会话 | `identity.manage`、`security.admin` 或撤销操作者当前会话 |
 
 ## 内置角色目录
 
@@ -70,7 +71,7 @@ Human 与 Agent 使用同一授权内核。二者的登录方式、交互界面�
 
 | 内置角色 | 初始权限 | 安全边界 |
 |---|---|---|
-| Organization Owner | 除 `content.review`、`break_glass.invoke` 外的租户治理权限 | 高风险动作仍需精确审批；不自动读取正文 |
+| Organization Owner | 除 `content.review`、`break_glass.invoke` 外的租户治理权限，含 `session.revoke_others` | 高风险动作仍需精确审批；不自动读取正文；批量撤销他人会话不包含在 `identity.manage` 或 `security.admin` 中 |
 | Mail Administrator | `organization.read`、`mail.admin`、`mailbox.use` | `mailbox.use` 仍需成员关系或委托；不能读取任意正文 |
 | Security Administrator | `organization.read`、`security.admin`、`audit.read` | 不含角色管理、正文审查或紧急访问 |
 | Compliance Auditor | `organization.read`、`audit.read`、`audit.export` | 保持只读；导出仍需双人审批和短期凭证 |
@@ -92,7 +93,7 @@ Active Human 可以查看目录与分配记录、授予或撤销角色。授予�
 
 审批是收窄层，不是放权捷径。当前审批上下文已包含不可变策略版本、请求人、审批步骤、职责分离、有效窗口、资源范围、用途说明和可选工单。即使审批通过，调用仍必须通过 Principal、租户、RBAC 和邮箱资源授权。
 
-当前支持 Send As、Send On Behalf Of、审计导出、保留策略变更、合规正文查看、权限提升、Legal Hold、Break-glass 和批量删除的动作标识。角色授予、审计归档 Legal Hold 与保留策略激活均已接入 Active Human、实时 RBAC/Scope、原申请人绑定和精确双人审批；其他尚未接入的入口不能宣称已受审批保护。
+当前支持 Send As、Send On Behalf Of、审计导出、保留策略变更、合规正文查看、权限提升、Legal Hold、Break-glass、批量删除和 `session.revoke_others` 的动作标识。角色授予、审计归档 Legal Hold、保留策略激活与他人浏览器会话撤销均已接入 Active Human、实时 RBAC/Scope、原申请人绑定和精确双人审批；其他尚未接入的入口不能宣称已受审批保护。他人会话撤销的执行权限只来自 `session.revoke_others`，默认只授予 Organization Owner。审批资源类型是 `identity.principal`，资源 ID 是目标 Principal。执行时不撤销操作者当前会话，同一审批不能再次使用。目标不存在、没有有效会话和路径租户与调用者租户不一致时，对外返回同一空成功结果，不提供会话计数。
 
 ## 审计动作
 

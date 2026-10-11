@@ -241,6 +241,74 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v2/auth/admin/logout-all:
+    post:
+      operationId: revokeAllAdminHumanBrowserSessions
+      summary: Revoke every current Admin and Mail browser session for the caller.
+      description: >
+        Requires an exact Admin Origin and Admin session cookie. An empty body
+        or retain_current_session false also revokes the current session and
+        clears its cookie. true keeps only that current session. Cause is
+        logout. There is no session count in the response.
+      security:
+        - adminBrowserSession: []
+      parameters:
+        - name: Origin
+          in: header
+          required: true
+          schema: { type: string, format: uri }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LogoutAllHumanSessionsRequest" }
+      responses:
+        "204":
+          description: Current sessions were revoked, or there were none left.
+          headers:
+            Set-Cookie:
+              description: Present only when the current Admin cookie is cleared.
+              schema: { type: string }
+            Cache-Control:
+              schema: { type: string, const: no-store }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v2/auth/mail/logout-all:
+    post:
+      operationId: revokeAllMailHumanBrowserSessions
+      summary: Revoke every current Admin and Mail browser session for the caller.
+      description: >
+        Requires an exact Mail Origin and Mail session cookie. An empty body
+        or retain_current_session false also revokes the current session and
+        clears its cookie. true keeps only that current session. Cause is
+        logout. There is no session count in the response.
+      security:
+        - mailBrowserSession: []
+      parameters:
+        - name: Origin
+          in: header
+          required: true
+          schema: { type: string, format: uri }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LogoutAllHumanSessionsRequest" }
+      responses:
+        "204":
+          description: Current sessions were revoked, or there were none left.
+          headers:
+            Set-Cookie:
+              description: Present only when the current Mail cookie is cleared.
+              schema: { type: string }
+            Cache-Control:
+              schema: { type: string, const: no-store }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /oauth2/token:
     post:
       operationId: issueAgentAccessToken
@@ -1159,6 +1227,56 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v2/organizations/{organization_id}/principals/{principal_id}/browser-session-revocations:
+    post:
+      operationId: revokePrincipalHumanBrowserSessions
+      summary: Revoke one principal's current Admin and Mail browser sessions.
+      description: >
+        Requires an Active Human Organization Owner with session.revoke_others.
+        The permission is not included in identity.manage or security.admin.
+        The approval action is session.revoke_others, the resource kind is
+        identity.principal, and the resource id is the target principal.
+        required_approvals must be at least 2 and the approver cannot be the
+        requester. The caller's current browser session is never revoked.
+        Cause is security_response. A missing principal, a non-human principal,
+        a principal with no current sessions, and a path organization that is
+        not the caller's organization all return the same empty 204. The body
+        never contains a session count. The same approval cannot be reused.
+      security: [{ adminBrowserSession: [] }, { bearerAuth: [session.revoke_others] }]
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: principal_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: Origin
+          in: header
+          required: false
+          schema: { type: string, format: uri }
+          description: Required when the caller presents an Admin browser session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RevokePrincipalBrowserSessionsRequest" }
+      responses:
+        "204":
+          description: >
+            The approval was accepted. No body and no session count. This shape
+            is also used when the target is not an eligible principal in the
+            caller's organization or has no current browser sessions.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+            Referrer-Policy:
+              schema: { type: string, const: no-referrer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "503": { $ref: "#/components/responses/Unavailable" }
   /api/v2/organizations/{organization_id}/role-assignments:
     get:
@@ -3192,6 +3310,27 @@ components:
         expires_at:
           type: string
           format: date-time
+    LogoutAllHumanSessionsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        retain_current_session:
+          type: boolean
+          default: false
+          description: >
+            False, omitted, or an empty body also revokes the current session.
+            True keeps only the caller's current browser session.
+    RevokePrincipalBrowserSessionsRequest:
+      type: object
+      additionalProperties: false
+      required: [approval_request_id]
+      properties:
+        approval_request_id:
+          type: string
+          format: uuid
+          description: >
+            Exact dual-approval request for action session.revoke_others and
+            resource identity.principal. The approver cannot be the requester.
     AgentJwks:
       type: object
       additionalProperties: false
@@ -5214,7 +5353,7 @@ components:
         permissions:
           type: array
           uniqueItems: true
-          maxItems: 14
+          maxItems: 16
           items:
             type: string
             enum:
@@ -5224,6 +5363,7 @@ components:
               - authorization.manage
               - mail.admin
               - security.admin
+              - session.revoke_others
               - audit.read
               - audit.export
               - legal_hold.manage

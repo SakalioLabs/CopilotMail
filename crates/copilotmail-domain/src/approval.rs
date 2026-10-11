@@ -22,6 +22,8 @@ pub enum ApprovalAction {
     BulkDelete,
     ProductionAgentMail,
     AgentFirstContact,
+    /// Revoke every current browser session of one exact principal.
+    SessionRevokeOthers,
 }
 
 impl ApprovalAction {
@@ -39,6 +41,7 @@ impl ApprovalAction {
             Self::BulkDelete => "mail.bulk_delete",
             Self::ProductionAgentMail => "agent.production_mail",
             Self::AgentFirstContact => "agent.first_contact",
+            Self::SessionRevokeOthers => "session.revoke_others",
         }
     }
 }

@@ -1147,6 +1147,68 @@ pub struct RetentionPolicyActivationRequest {
     pub approval_request_id: String,
 }
 
+/// Signs the caller out of every current browser session.
+///
+/// An omitted `retain_current_session` is false: the current session is revoked
+/// too. Keeping it requires an explicit true. Deserialization accepts only a
+/// JSON object. A derived struct would treat `[]` as that default.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct LogoutAllHumanSessionsRequest {
+    pub retain_current_session: bool,
+}
+
+impl<'de> Deserialize<'de> for LogoutAllHumanSessionsRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct Visitor;
+
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = LogoutAllHumanSessionsRequest;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("a JSON object")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let mut retain_current_session = None;
+                while let Some(key) = map.next_key::<String>()? {
+                    if key == "retain_current_session" {
+                        if retain_current_session.is_some() {
+                            return Err(serde::de::Error::duplicate_field(
+                                "retain_current_session",
+                            ));
+                        }
+                        retain_current_session = Some(map.next_value()?);
+                    } else {
+                        let _ignored: serde::de::IgnoredAny = map.next_value()?;
+                        return Err(serde::de::Error::unknown_field(
+                            &key,
+                            &["retain_current_session"],
+                        ));
+                    }
+                }
+                Ok(LogoutAllHumanSessionsRequest {
+                    retain_current_session: retain_current_session.unwrap_or(false),
+                })
+            }
+        }
+
+        deserializer.deserialize_map(Visitor)
+    }
+}
+
+/// Consumes one exact dual approval and revokes another principal's sessions.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RevokePrincipalBrowserSessionsRequest {
+    pub approval_request_id: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentMailPolicyActivationRequest {
@@ -2405,6 +2467,20 @@ mod tests {
     closed_request_test!(
         closed_retention_policy_activation_request,
         super::RetentionPolicyActivationRequest,
+        json!({"approval_request_id": "018f13b9-1111-7bc8-965d-48a28866f073"}),
+        Some("approval_request_id"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_logout_all_human_sessions_request,
+        super::LogoutAllHumanSessionsRequest,
+        json!({"retain_current_session": false}),
+        Some("retain_current_session"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_revoke_principal_browser_sessions_request,
+        super::RevokePrincipalBrowserSessionsRequest,
         json!({"approval_request_id": "018f13b9-1111-7bc8-965d-48a28866f073"}),
         Some("approval_request_id"),
         ClosedNumber::None

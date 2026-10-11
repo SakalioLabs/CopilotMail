@@ -389,6 +389,37 @@ impl ControlPlaneTransaction for PgControlPlaneTransaction {
             .await
     }
 
+    async fn revoke_active_human_browser_sessions(
+        &mut self,
+        write: &RevokeActiveHumanSessions,
+    ) -> Result<Vec<HumanSessionRevocationResult>, StoreError> {
+        self.tx_revoke_active_human_browser_sessions(write).await
+    }
+
+    async fn human_principal_exists(
+        &mut self,
+        organization_id: OrganizationId,
+        principal_id: PrincipalId,
+    ) -> Result<bool, StoreError> {
+        self.tx_human_principal_exists(organization_id, principal_id)
+            .await
+    }
+
+    async fn insert_human_session_governance_execution(
+        &mut self,
+        write: &HumanSessionGovernanceExecutionWrite,
+    ) -> Result<HumanSessionGovernanceExecution, StoreError> {
+        self.tx_insert_human_session_governance_execution(write)
+            .await
+    }
+
+    async fn lock_exact_dual_approval(
+        &mut self,
+        proof: &ApprovalProof,
+    ) -> Result<bool, StoreError> {
+        self.tx_lock_exact_dual_approval(proof).await
+    }
+
     async fn insert_webhook_subscription(
         &mut self,
         subscription: &WebhookSubscription,

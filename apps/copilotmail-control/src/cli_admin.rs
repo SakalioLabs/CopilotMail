@@ -617,6 +617,7 @@ pub(crate) fn approval_action_from_wire(value: &str) -> Option<ApprovalAction> {
         ApprovalAction::BulkDelete,
         ApprovalAction::ProductionAgentMail,
         ApprovalAction::AgentFirstContact,
+        ApprovalAction::SessionRevokeOthers,
     ]
     .into_iter()
     .find(|action| action.as_str() == value)
@@ -938,6 +939,7 @@ mod tests {
             ApprovalAction::BulkDelete,
             ApprovalAction::ProductionAgentMail,
             ApprovalAction::AgentFirstContact,
+            ApprovalAction::SessionRevokeOthers,
         ] {
             assert_eq!(approval_action_from_wire(action.as_str()), Some(action));
             assert_eq!(parse_approval_action(action.as_str()).unwrap(), action);

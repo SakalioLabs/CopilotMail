@@ -391,3 +391,283 @@ pub(crate) async fn logout_human_session(
     );
     Ok(response)
 }
+
+const SESSION_BODY_LIMIT: usize = 8 * 1024;
+
+pub(crate) async fn logout_all_human_sessions(
+    State(state): State<Arc<AppState>>,
+    Path(client_key): Path<String>,
+    Extension(request_id): Extension<RequestId>,
+    headers: HeaderMap,
+    request: Request,
+) -> Result<Response, Response> {
+    let request_id = request_id_value(&request_id);
+    let runtime = state
+        .human_session
+        .as_ref()
+        .ok_or_else(|| invalid_human_session_cookie(&request_id))?;
+    let expected_client = runtime
+        .client(&client_key)
+        .map(|client| client.client_key)
+        .ok_or_else(|| invalid_human_session_cookie(&request_id))?;
+    let (cookie_client, token) = select_human_browser_session(&headers, runtime.secure_cookie)
+        .map_err(|error| credential_selection_api_error(error, &request_id))?;
+    if cookie_client != expected_client {
+        return Err(human_client_route_denied(&request_id));
+    }
+    let existing = HumanSessionService::new(state.store.clone())
+        .resolve_session(ResolveHumanSessionCommand {
+            session_token: token,
+            now: Utc::now(),
+        })
+        .await
+        .map_err(|error| human_session_api_error(error, &request_id))?;
+    if existing.client_key != cookie_client {
+        return Err(invalid_human_session_cookie(&request_id));
+    }
+    let retain_current_session =
+        logout_all_retains_current_session(&headers, request, &request_id).await?;
+    let revoked = HumanSessionGovernanceService::new(state.store.clone())
+        .revoke_own_browser_sessions(RevokeOwnBrowserSessionsCommand {
+            context: AuthorizationContext {
+                principal_id: existing.principal_id,
+                organization_id: existing.organization_id,
+                permissions: BTreeSet::new(),
+                authentication: Some(AuthenticationBinding::HumanSession {
+                    session_id: existing.session_id,
+                }),
+            },
+            retain_current_session,
+            trace_id: request_id.clone(),
+            now: Utc::now(),
+        })
+        .await
+        .map_err(|error| human_session_governance_api_error(error, &request_id))?;
+    let mut response = StatusCode::NO_CONTENT.into_response();
+    if revoked.clear_current_cookie {
+        let clear_cookie = clear_browser_cookie_header(
+            runtime.session_cookie_name(cookie_client),
+            runtime.secure_cookie,
+        )
+        .map_err(|_| invalid_human_session_cookie(&request_id))?;
+        response
+            .headers_mut()
+            .append(header::SET_COOKIE, clear_cookie);
+    }
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        header::HeaderValue::from_static("no-store"),
+    );
+    Ok(response)
+}
+
+pub(crate) async fn revoke_principal_browser_sessions(
+    State(state): State<Arc<AppState>>,
+    Path((organization_id, principal_id)): Path<(OrganizationId, PrincipalId)>,
+    Extension(request_id): Extension<RequestId>,
+    ConnectionProof(connection): ConnectionProof,
+    headers: HeaderMap,
+    request: Request,
+) -> Response {
+    let request_id = request_id_value(&request_id);
+    let response = match revoke_principal_browser_sessions_authorized(
+        &state,
+        organization_id,
+        principal_id,
+        connection,
+        &headers,
+        request,
+        &request_id,
+    )
+    .await
+    {
+        Ok(response) => response,
+        Err(response) => response,
+    };
+    sensitive_admin_session_response(response)
+}
+
+async fn revoke_principal_browser_sessions_authorized(
+    state: &AppState,
+    organization_id: OrganizationId,
+    principal_id: PrincipalId,
+    connection: Option<TlsConnectionInfo>,
+    headers: &HeaderMap,
+    request: Request,
+    request_id: &str,
+) -> Result<Response, Response> {
+    let (identity, authorization) =
+        authenticate_api_request(state, headers, connection, request_id).await?;
+    if identity.principal_kind != AuthenticatedPrincipalKind::Human {
+        return Err(api_error(
+            StatusCode::FORBIDDEN,
+            "human_principal_required",
+            "revoking browser sessions requires an authenticated Human Principal",
+            false,
+            request_id,
+        ));
+    }
+    enforce_permission_and_scope(
+        &identity,
+        &authorization,
+        Permission::SessionRevokeOthers,
+        "session.revoke_others permission is required",
+        request_id,
+    )?;
+    if !request_content_type_is_json(headers) {
+        return Err(api_error(
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "invalid_content_type",
+            "Content-Type must be application/json",
+            false,
+            request_id,
+        ));
+    }
+    let body: RevokePrincipalBrowserSessionsRequest = read_closed_body(request, request_id).await?;
+    let approval_request_id = body
+        .approval_request_id
+        .parse::<ApprovalRequestId>()
+        .map_err(|_| invalid_session_governance_request(request_id))?;
+    let now = Utc::now();
+    HumanSessionGovernanceService::new(state.store.clone())
+        .revoke_principal_browser_sessions(RevokePrincipalBrowserSessionsCommand {
+            context: authorization.clone(),
+            path_organization_id: organization_id,
+            target_principal_id: principal_id,
+            approval: ApprovalProof {
+                organization_id: authorization.organization_id,
+                request_id: approval_request_id,
+                requested_by: authorization.principal_id,
+                action: ApprovalAction::SessionRevokeOthers,
+                resource_kind: "identity.principal".into(),
+                resource_id: principal_id.to_string(),
+                now,
+            },
+            trace_id: request_id.to_owned(),
+            now,
+        })
+        .await
+        .map_err(|error| human_session_governance_api_error(error, request_id))?;
+    Ok(StatusCode::NO_CONTENT.into_response())
+}
+
+async fn logout_all_retains_current_session(
+    headers: &HeaderMap,
+    request: Request,
+    request_id: &str,
+) -> Result<bool, Response> {
+    let bytes = to_bytes(request.into_body(), SESSION_BODY_LIMIT)
+        .await
+        .map_err(|_| session_payload_too_large(request_id))?;
+    if bytes.iter().all(u8::is_ascii_whitespace) {
+        return Ok(false);
+    }
+    if !request_content_type_is_json(headers) {
+        return Err(api_error(
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "invalid_content_type",
+            "Content-Type must be application/json",
+            false,
+            request_id,
+        ));
+    }
+    let body: LogoutAllHumanSessionsRequest =
+        parse_closed_json(&bytes).map_err(|_| invalid_session_governance_request(request_id))?;
+    Ok(body.retain_current_session)
+}
+
+async fn read_closed_body<T>(request: Request, request_id: &str) -> Result<T, Response>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let bytes = to_bytes(request.into_body(), SESSION_BODY_LIMIT)
+        .await
+        .map_err(|_| session_payload_too_large(request_id))?;
+    parse_closed_json(&bytes).map_err(|_| invalid_session_governance_request(request_id))
+}
+
+fn request_content_type_is_json(headers: &HeaderMap) -> bool {
+    headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(';').next())
+        .map(str::trim)
+        .is_some_and(|value| {
+            value.eq_ignore_ascii_case("application/json")
+                || value
+                    .strip_prefix("application/")
+                    .is_some_and(|subtype| subtype.to_ascii_lowercase().ends_with("+json"))
+        })
+}
+
+fn invalid_session_governance_request(request_id: &str) -> Response {
+    api_error(
+        StatusCode::BAD_REQUEST,
+        "invalid_human_session_request",
+        "the Human session request is invalid",
+        false,
+        request_id,
+    )
+}
+
+fn session_payload_too_large(request_id: &str) -> Response {
+    api_error(
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "request_payload_too_large",
+        "request payload exceeds the accepted limit",
+        false,
+        request_id,
+    )
+}
+
+fn human_session_governance_api_error(
+    error: HumanSessionGovernanceError,
+    request_id: &str,
+) -> Response {
+    match error {
+        HumanSessionGovernanceError::InvalidRequest => {
+            invalid_session_governance_request(request_id)
+        }
+        HumanSessionGovernanceError::Forbidden => api_error(
+            StatusCode::FORBIDDEN,
+            "human_session_governance_forbidden",
+            "the session revocation approval is not accepted",
+            false,
+            request_id,
+        ),
+        HumanSessionGovernanceError::PermissionDenied => api_error(
+            StatusCode::FORBIDDEN,
+            "permission_denied",
+            "session.revoke_others permission is required",
+            false,
+            request_id,
+        ),
+        HumanSessionGovernanceError::Conflict | HumanSessionGovernanceError::Unavailable => {
+            api_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "human_session_unavailable",
+                "Human browser session revocation could not be completed",
+                true,
+                request_id,
+            )
+        }
+        HumanSessionGovernanceError::AuthenticationInvalid => {
+            let mut response = authentication_invalid(request_id);
+            response.headers_mut().remove(header::WWW_AUTHENTICATE);
+            response
+        }
+    }
+}
+
+fn sensitive_admin_session_response(mut response: Response) -> Response {
+    response.headers_mut().remove(header::WWW_AUTHENTICATE);
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        header::HeaderValue::from_static("no-store"),
+    );
+    response.headers_mut().insert(
+        header::HeaderName::from_static("referrer-policy"),
+        header::HeaderValue::from_static("no-referrer"),
+    );
+    response
+}

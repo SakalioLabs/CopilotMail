@@ -42,9 +42,9 @@ Chinese-first and is being translated incrementally.
 > and then start only the new binaries. Follow the
 > [Ubuntu / WSL Pilot runbook](docs/UBUNTU_WSL_PILOT.zh-CN.md).
 
-> The latest repository migration is `0060_audit_export_runtime_clock.sql`; the new migrations have not been deployed. The
+> The latest repository migration is `0061_human_session_governance.sql`; the new migrations have not been deployed. The
 > 0053 stop-the-world rule still applies only to upgrades that cross 0053;
-> Migrations 0054 through 0060 and the full dynamic chain require a clean, isolated
+> Migrations 0054 through 0061 and the full dynamic chain require a clean, isolated
 > PostgreSQL acceptance run. NixOS is currently a constrained development or
 > isolated-test node only, not an approved deployment target; see the
 > [NixOS development-node boundary](docs/NIXOS_DEVELOPMENT_NODE.zh-CN.md).
@@ -330,7 +330,7 @@ disposable PostgreSQL 17. That evidence does not claim the complete ignored
 PostgreSQL suite, a target Pilot upgrade, or the S3-compatible Object Lock
 scenarios; those external-runtime acceptance criteria remain separate CI or
 Pilot gates.
-The repository now contains Migrations 0054 through 0060; the existing 0001→0053
+The repository now contains Migrations 0054 through 0061; the existing 0001→0053
 evidence does not cover them or constitute a NixOS target-host runtime
 acceptance result.
 

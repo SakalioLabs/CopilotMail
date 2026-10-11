@@ -172,6 +172,7 @@ pub(crate) fn approval_request_permission(action: ApprovalAction) -> Permission 
         ApprovalAction::AgentFirstContact => Permission::AgentOperate,
         ApprovalAction::LegalHold => Permission::LegalHoldManage,
         ApprovalAction::BreakGlass => Permission::BreakGlass,
+        ApprovalAction::SessionRevokeOthers => Permission::SessionRevokeOthers,
     }
 }
 

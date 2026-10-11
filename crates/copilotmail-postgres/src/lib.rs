@@ -42,7 +42,8 @@ use copilotmail_application::{
     HumanMailboxDirectoryBatch, HumanMailboxDirectoryCandidate, HumanMailboxDirectoryQuery,
     HumanMailboxDirectoryStore, HumanSentDeliveryEvidence, HumanSentListBatch,
     HumanSentListCandidate, HumanSentListQuery, HumanSentListRecheck, HumanSentQueryStore,
-    HumanSessionClient, HumanSessionQueryStore, HumanSessionRecord, HumanSessionRevocationCause,
+    HumanSessionClient, HumanSessionGovernanceExecution, HumanSessionGovernanceExecutionWrite,
+    HumanSessionQueryStore, HumanSessionRecord, HumanSessionRevocationCause,
     HumanSessionRevocationResult, HumanSessionWrite, InboundMailEventInsert,
     InboundMailEventRecord, LegalHoldObjectEvidence, MailDeliveryQueryStore,
     MailDeliveryRecipientState, MailDeliveryRecipientWrite, MailDeliveryReconciliationTarget,
@@ -57,10 +58,11 @@ use copilotmail_application::{
     MailboxQueryStore, MailboxSummary, OrganizationQueryStore, OrganizationSummary,
     OutboundMailEventInsert, OutboundMailEventKind, OutboundMailEventRecord, PendingEvent,
     RetentionPolicyActivationRecord, RetentionPolicyDetail, RetentionPolicyQueryStore,
-    RetentionPolicyRecord, RoleAssignmentGrantRecord, RoleAssignmentListQuery,
-    RoleAssignmentRevocationResult, RoleAssignmentSummary, RoleGovernanceQueryStore, RoleSummary,
-    ScimCredential, ScimDirectoryQueryStore, StoreError, WebhookDeadLetterQueryStore,
-    WebhookDeadLetterSummary, WebhookSubscriptionQueryStore, WebhookSubscriptionSummary,
+    RetentionPolicyRecord, RevokeActiveHumanSessions, RoleAssignmentGrantRecord,
+    RoleAssignmentListQuery, RoleAssignmentRevocationResult, RoleAssignmentSummary,
+    RoleGovernanceQueryStore, RoleSummary, ScimCredential, ScimDirectoryQueryStore, StoreError,
+    WebhookDeadLetterQueryStore, WebhookDeadLetterSummary, WebhookSubscriptionQueryStore,
+    WebhookSubscriptionSummary,
 };
 use copilotmail_audit::{
     AuditArtifactError, AuditCheckpointCandidate, AuditExportRecord, SignedAuditCheckpoint,
@@ -2557,6 +2559,7 @@ fn permission_from_str(value: &str) -> Option<Permission> {
         "authorization.manage" => Permission::AuthorizationManage,
         "mail.admin" => Permission::MailAdmin,
         "security.admin" => Permission::SecurityAdmin,
+        "session.revoke_others" => Permission::SessionRevokeOthers,
         "audit.read" => Permission::AuditRead,
         "audit.export" => Permission::AuditExport,
         "legal_hold.manage" => Permission::LegalHoldManage,
@@ -3176,6 +3179,7 @@ fn approval_action_from_str(value: &str) -> Option<ApprovalAction> {
         "mail.bulk_delete" => Some(ApprovalAction::BulkDelete),
         "agent.production_mail" => Some(ApprovalAction::ProductionAgentMail),
         "agent.first_contact" => Some(ApprovalAction::AgentFirstContact),
+        "session.revoke_others" => Some(ApprovalAction::SessionRevokeOthers),
         unknown => {
             tracing::error!(action = unknown, "unknown approval action denied");
             None

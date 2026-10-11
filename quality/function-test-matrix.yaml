@@ -1944,7 +1944,8 @@
           "replay"
         ],
         "failure": [
-          "ctrl"
+          "ctrl",
+          "inactive"
         ],
         "authorization": [
           "pg"
@@ -1976,6 +1977,11 @@
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "scim_provisioning_adopts_owner_is_idempotent_and_deprovisions_login",
           "execution": "passed"
+        },
+        "inactive": {
+          "path": "crates/copilotmail-application/src/scim.rs",
+          "symbol": "inactive_create_revokes_browser_sessions_before_commit",
+          "execution": "passed"
         }
       },
       "environment": "Disposable PostgreSQL 17 integration suite executed green",
@@ -2006,7 +2012,8 @@
           "bearer"
         ],
         "failure": [
-          "revoked"
+          "revoked",
+          "suspended"
         ],
         "authorization": [
           "scim"
@@ -2022,7 +2029,12 @@
         "revoked": {
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "request_authentication_fences_human_session_revocation",
-          "execution": "passed"
+          "execution": "not_run"
+        },
+        "suspended": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "request_authentication_rejects_suspended_principal_at_commit",
+          "execution": "not_run"
         },
         "agent": {
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
@@ -2045,9 +2057,88 @@
           "execution": "passed"
         }
       },
-      "environment": "Disposable PostgreSQL 17 integration suite executed green",
+      "environment": "Human session revocation and principal-suspension fence tests were rewritten and not executed; other fencing refs keep their earlier disposable PostgreSQL result",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "post-fence-remediation-2026-08-22",
+      "candidate_revision": "b16-session-governance-2026-10-12",
+      "owner": "primary-implementer",
+      "review_status": "in_progress"
+    },
+    {
+      "capability_id": "human.session_governance",
+      "module": "crates/copilotmail-application/src/human_session_governance.rs",
+      "entrypoints": [
+        "revoke_own_browser_sessions",
+        "revoke_principal_browser_sessions",
+        "revoke_active_human_sessions",
+        "append_human_sessions_revoked_audit"
+      ],
+      "risk": "critical",
+      "mutates": true,
+      "concurrent": true,
+      "invariants": [
+        "A batch revocation commits every session revocation, audit, and outbox row together or rolls back",
+        "Authorized admin outcomes do not disclose target existence or session counts"
+      ],
+      "cases": {
+        "normal": [
+          "logout"
+        ],
+        "boundary": [
+          "retain"
+        ],
+        "failure": [
+          "rollback"
+        ],
+        "authorization": [
+          "permission"
+        ],
+        "transaction": [
+          "rollback"
+        ],
+        "concurrency": [
+          "fence"
+        ]
+      },
+      "test_refs": {
+        "logout": {
+          "path": "crates/copilotmail-application/src/human_session_governance.rs",
+          "symbol": "own_logout_all_defaults_to_revoking_the_current_session",
+          "execution": "passed"
+        },
+        "retain": {
+          "path": "crates/copilotmail-application/src/human_session_governance.rs",
+          "symbol": "own_logout_all_can_retain_the_current_session",
+          "execution": "passed"
+        },
+        "rollback": {
+          "path": "crates/copilotmail-application/src/human_session_governance.rs",
+          "symbol": "bulk_revocation_rolls_back_when_a_later_audit_write_fails",
+          "execution": "passed"
+        },
+        "permission": {
+          "path": "crates/copilotmail-application/src/human_session_governance.rs",
+          "symbol": "governance_rejects_callers_without_the_dedicated_permission",
+          "execution": "passed"
+        },
+        "shape": {
+          "path": "crates/copilotmail-application/src/human_session_governance.rs",
+          "symbol": "governance_outcomes_share_one_result_and_consume_approval_once",
+          "execution": "passed"
+        },
+        "current": {
+          "path": "crates/copilotmail-application/src/human_session_governance.rs",
+          "symbol": "governance_revoke_keeps_the_callers_current_session",
+          "execution": "passed"
+        },
+        "fence": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "request_authentication_fences_human_session_revocation",
+          "execution": "not_run"
+        }
+      },
+      "environment": "Rust unit fixtures passed; rewritten PostgreSQL fence test not executed",
+      "evidence_ref": "docs/HUMAN_OIDC_SESSION.zh-CN.md",
+      "candidate_revision": "b16-session-governance-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -5789,7 +5880,9 @@
         "begin_human_login",
         "complete_human_login",
         "get_human_session",
-        "logout_human_session"
+        "logout_human_session",
+        "logout_all_human_sessions",
+        "revoke_principal_browser_sessions"
       ],
       "risk": "high",
       "mutates": true,

@@ -119,6 +119,41 @@ pub struct HumanSessionRevocationResult {
     pub newly_revoked: bool,
 }
 
+/// Revokes every still-valid browser session for one principal.
+///
+/// Expired sessions are already unusable and are left untouched. `excluded_session_id`
+/// keeps one session, used when an operator must not revoke the request that is
+/// still committing this change.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RevokeActiveHumanSessions {
+    pub organization_id: OrganizationId,
+    pub principal_id: PrincipalId,
+    pub cause: HumanSessionRevocationCause,
+    pub revoked_at: chrono::DateTime<chrono::Utc>,
+    pub excluded_session_id: Option<HumanSessionId>,
+}
+
+/// Consumes one exact approval so it cannot revoke sessions created later.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HumanSessionGovernanceExecutionWrite {
+    pub approval_request_id: ApprovalRequestId,
+    pub organization_id: OrganizationId,
+    pub target_principal_id: PrincipalId,
+    pub requested_by: PrincipalId,
+    pub excluded_session_id: Option<HumanSessionId>,
+    pub executed_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Result of the single-use governance execution insert.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HumanSessionGovernanceExecution {
+    Inserted,
+    AlreadyExecuted {
+        target_principal_id: PrincipalId,
+        requested_by: PrincipalId,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActiveApprovalPolicy {
     pub policy_id: PolicyId,

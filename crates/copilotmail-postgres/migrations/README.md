@@ -217,6 +217,12 @@ private schema.
   the database after mutable actor/approval locks. Backdated application input
   cannot revive an expired approval or export grant; returned timestamps are
   used by audit/outbox records. Historical immutable evidence is not rewritten.
+- `0061_human_session_governance.sql` adds `session.revoke_others` to the
+  permission and approval-action checks, grants it to existing Organization
+  Owner roles, registers `identity.human_sessions.revoked`, and creates the
+  append-only `human_session_governance_executions` table. It does not rewrite
+  session or approval history. This migration has not been applied in this
+  code-only change.
 
 Offline SQL and PL/pgSQL grammar checks use the pinned PostgreSQL 17 parser in
 `scripts/requirements-quality.txt`: run

@@ -1,6 +1,7 @@
+use crate::human_session_governance::{ActiveHumanSessionRevocation, revoke_active_human_sessions};
 use crate::{
-    ControlPlaneStore, ExistingScimGroup, ExistingScimUser, PendingEvent, ScimCredential,
-    ScimDirectoryQueryStore, StoreError,
+    ControlPlaneStore, ControlPlaneTransaction, ExistingScimGroup, ExistingScimUser,
+    HumanSessionRevocationCause, PendingEvent, ScimCredential, ScimDirectoryQueryStore, StoreError,
 };
 use chrono::{DateTime, Utc};
 use copilotmail_domain::{
@@ -22,6 +23,36 @@ fn scim_request_context(credential: &ScimCredential) -> AuthorizationContext {
             token_id: credential.token_id,
         }),
     }
+}
+
+/// Revokes control-plane browser sessions when a SCIM user is inactive.
+///
+/// Active provisioning does not call this. Session audits stay on the caller's
+/// transaction; there is no extra principal-level summary for SCIM.
+async fn revoke_deactivated_browser_sessions(
+    transaction: &mut dyn ControlPlaneTransaction,
+    credential: &ScimCredential,
+    principal_id: PrincipalId,
+    trace_id: &str,
+    now: DateTime<Utc>,
+) -> Result<(), StoreError> {
+    revoke_active_human_sessions(
+        transaction,
+        &ActiveHumanSessionRevocation {
+            organization_id: credential.organization_id,
+            principal_id,
+            cause: HumanSessionRevocationCause::PrincipalDeactivated,
+            actor: credential.actor_principal_id,
+            trace_id: trace_id.to_owned(),
+            now,
+            excluded_session_id: None,
+            authentication: Some(AuthenticationBinding::ScimToken {
+                token_id: credential.token_id,
+            }),
+        },
+    )
+    .await?;
+    Ok(())
 }
 
 /// Immutable input used to issue a tenant-scoped SCIM bearer token.
@@ -285,7 +316,22 @@ where
             {
                 return Err(StoreError::Conflict.into());
             }
-            // audit-coverage: no-op-idempotent-replay
+            if existing.active {
+                // audit-coverage: no-op-idempotent-replay
+                transaction.commit().await?;
+                return Ok(ProvisionScimUserResult {
+                    user: existing,
+                    created: false,
+                });
+            }
+            revoke_deactivated_browser_sessions(
+                &mut *transaction,
+                &command.credential,
+                existing.principal_id,
+                &command.trace_id,
+                command.now,
+            )
+            .await?;
             transaction.commit().await?;
             return Ok(ProvisionScimUserResult {
                 user: existing,
@@ -317,10 +363,20 @@ where
                 &user,
                 "identity.scim_user.adopted",
                 "identity.scim_user.adopted.v1",
-                command.trace_id,
+                command.trace_id.clone(),
                 command.now,
             )?;
             transaction.adopt_scim_user(&user).await?;
+            if !user.active {
+                revoke_deactivated_browser_sessions(
+                    &mut *transaction,
+                    &command.credential,
+                    user.principal_id,
+                    &command.trace_id,
+                    command.now,
+                )
+                .await?;
+            }
             transaction.append_audit_event(&audit).await?;
             transaction.enqueue_event(&event).await?;
             transaction.commit().await?;
@@ -361,12 +417,22 @@ where
             &user,
             "identity.scim_user.provisioned",
             "identity.scim_user.provisioned.v1",
-            command.trace_id,
+            command.trace_id.clone(),
             command.now,
         )?;
         transaction.insert_principal(&principal).await?;
         transaction.insert_human_profile(&profile).await?;
         transaction.insert_scim_user(&user).await?;
+        if !command.active {
+            revoke_deactivated_browser_sessions(
+                &mut *transaction,
+                &command.credential,
+                user.principal_id,
+                &command.trace_id,
+                command.now,
+            )
+            .await?;
+        }
         transaction.append_audit_event(&audit).await?;
         transaction.enqueue_event(&event).await?;
         transaction.commit().await?;
@@ -421,9 +487,19 @@ where
             &next,
             "identity.scim_user.updated",
             "identity.scim_user.updated.v1",
-            command.trace_id,
+            command.trace_id.clone(),
             command.now,
         )?;
+        if !next.active {
+            revoke_deactivated_browser_sessions(
+                &mut *transaction,
+                &command.credential,
+                next.principal_id,
+                &command.trace_id,
+                command.now,
+            )
+            .await?;
+        }
         transaction.append_audit_event(&audit).await?;
         transaction.enqueue_event(&event).await?;
         transaction.commit().await?;
@@ -906,6 +982,21 @@ mod tests {
             self.writes.lock().unwrap().push("scim_user");
             Ok(())
         }
+        async fn replace_scim_user(
+            &mut self,
+            _: &ExistingScimUser,
+            _: i64,
+        ) -> Result<bool, StoreError> {
+            self.writes.lock().unwrap().push("replace");
+            Ok(true)
+        }
+        async fn revoke_active_human_browser_sessions(
+            &mut self,
+            _: &crate::RevokeActiveHumanSessions,
+        ) -> Result<Vec<crate::HumanSessionRevocationResult>, StoreError> {
+            self.writes.lock().unwrap().push("session_revocation");
+            Ok(Vec::new())
+        }
         async fn append_audit_event(&mut self, _: &AuditEvent) -> Result<(), StoreError> {
             self.writes.lock().unwrap().push("audit");
             Ok(())
@@ -995,6 +1086,129 @@ mod tests {
         assert_eq!(
             store.writes.lock().unwrap().as_slice(),
             ["external_lookup", "commit"]
+        );
+    }
+
+    #[tokio::test]
+    async fn inactive_create_revokes_browser_sessions_before_commit() {
+        let store = MemoryStore::default();
+        let organization_id = OrganizationId::new();
+        let mut command = create_command(organization_id);
+        command.active = false;
+        let result = ScimUserService::new(store.clone())
+            .create(command)
+            .await
+            .unwrap();
+        assert!(result.created);
+        assert!(!result.user.active);
+        assert_eq!(
+            store.writes.lock().unwrap().as_slice(),
+            [
+                "external_lookup",
+                "human_lookup",
+                "principal",
+                "profile",
+                "scim_user",
+                "session_revocation",
+                "audit",
+                "outbox",
+                "commit"
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn inactive_exact_replay_revokes_sessions_before_commit() {
+        let organization_id = OrganizationId::new();
+        let mut command = create_command(organization_id);
+        command.active = false;
+        let existing = ExistingScimUser {
+            organization_id,
+            principal_id: PrincipalId::new(),
+            external_id: command.external_id.clone(),
+            user_name: command.user_name.clone(),
+            display_name: command.display_name.clone(),
+            active: false,
+            version: 1,
+            created_at: command.now,
+            updated_at: command.now,
+        };
+        let store = MemoryStore {
+            existing: Some(existing.clone()),
+            ..MemoryStore::default()
+        };
+        let result = ScimUserService::new(store.clone())
+            .create(command)
+            .await
+            .unwrap();
+        assert!(!result.created);
+        assert_eq!(result.user, existing);
+        assert_eq!(
+            store.writes.lock().unwrap().as_slice(),
+            ["external_lookup", "session_revocation", "commit"]
+        );
+    }
+
+    #[tokio::test]
+    async fn deactivating_replace_revokes_sessions_and_active_replace_does_not() {
+        let organization_id = OrganizationId::new();
+        let principal_id = PrincipalId::new();
+        let now = Utc::now();
+        let existing = ExistingScimUser {
+            organization_id,
+            principal_id,
+            external_id: "employee-42".into(),
+            user_name: "ada@example.test".into(),
+            display_name: "Ada Lovelace".into(),
+            active: true,
+            version: 1,
+            created_at: now,
+            updated_at: now,
+        };
+        let store = MemoryStore {
+            existing: Some(existing.clone()),
+            ..MemoryStore::default()
+        };
+        let service = ScimUserService::new(store.clone());
+        let renamed = service
+            .replace(ReplaceScimUserCommand {
+                credential: credential(organization_id),
+                principal_id,
+                external_id: existing.external_id.clone(),
+                user_name: existing.user_name.clone(),
+                display_name: "Ada Byron".into(),
+                active: true,
+                expected_version: Some(1),
+                trace_id: "scim-test".into(),
+                now,
+            })
+            .await
+            .unwrap();
+        assert!(renamed.active);
+        assert_eq!(
+            store.writes.lock().unwrap().as_slice(),
+            ["replace", "audit", "outbox", "commit"]
+        );
+
+        store.writes.lock().unwrap().clear();
+        let suspended = service
+            .replace(ReplaceScimUserCommand {
+                credential: credential(organization_id),
+                principal_id,
+                external_id: existing.external_id,
+                user_name: existing.user_name,
+                display_name: "Ada Byron".into(),
+                active: false,
+                expected_version: Some(1),
+                trace_id: "scim-test".into(),
+                now,
+            })
+            .await
+            .unwrap();
+        assert!(!suspended.active);
+        assert_eq!(
+            store.writes.lock().unwrap().as_slice(),
+            ["replace", "session_revocation", "audit", "outbox", "commit"]
         );
     }
 

@@ -145,12 +145,21 @@ Secrets Manager 或编排器提供，轮换需使所有 BFF 实例原子切换�
 
 ## 当前边界
 
-- 尚未实现 IdP Back-Channel Logout、安全事件接收和“撤销该 Principal
-  所有设备会话”；因此 Session TTL 应保持短，SCIM 停用必须满足公司 SLA。
+- 本控制面的全设备注销已经接入，仍不实现 IdP Back-Channel Logout 或安全事件
+  接收。本人 `POST /api/v2/auth/{client}/logout-all` 同时撤销 Admin 与 Mail
+  客户端的未过期会话，原因是 `logout`；请求省略 `retain_current_session` 或
+  将其设为 false 时连当前会话一起撤销并清除当前 Cookie，显式 true 才保留当前
+  会话。Organization Owner 以 `session.revoke_others` 和精确双人审批撤销指定
+  Principal 的两类客户端会话，原因是 `security_response`，且不撤销操作者当前
+  会话。SCIM 将 Principal 置为停用时，在同一事务撤销其全部本控制面浏览器会话，
+  原因是 `principal_deactivated`。这三项都不调用 IdP，也不新增 Step-up/AAL。
+- `begin_authorized` 在绑定和提交前都复查 Human Principal 仍为 active。停用后，
+  已打开的请求在提交前失败并回滚；会话行使用 `FOR SHARE`，不锁 Principal 行，
+  因此停用不必等待该会话锁。设备列表仍未实现。
 - 尚未把已验证的 `acr`、`amr`、`auth_time` 写入 Session 并对高危操作执行
   Step-up；企业 Pilot 前不能宣称达到公司指定 AAL。
-- 匿名失败登录的独立安全账本、设备列表和全设备注销仍待后续增量；不得把
-  原始 OAuth 参数写入普通审计详情作为替代。
+- 匿名失败登录的独立安全账本和设备列表仍待后续增量；不得把原始 OAuth 参数
+  写入普通审计详情作为替代。
 - 请求级 `begin_authorized` 审计现在写入已验证 Human 浏览器会话的不可变
   Session ID，不写入 Cookie、OIDC Access Token 或 JTI。Agent 凭据、SCIM
   Token、旧 Bearer 和受信本地 `begin()` 维护路径不会被记成浏览器会话；生产者

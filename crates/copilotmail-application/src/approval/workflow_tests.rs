@@ -403,6 +403,10 @@ fn action_permissions_are_explicit_and_never_inferred_from_approval_alone() {
         (ApprovalAction::AgentFirstContact, Permission::AgentOperate),
         (ApprovalAction::LegalHold, Permission::LegalHoldManage),
         (ApprovalAction::BreakGlass, Permission::BreakGlass),
+        (
+            ApprovalAction::SessionRevokeOthers,
+            Permission::SessionRevokeOthers,
+        ),
     ] {
         assert_eq!(approval_action_permission(action), permission);
     }

@@ -18,7 +18,11 @@ SELECT to_regclass('public.organizations') IS NOT NULL
           AND permission_check.convalidated
           AND pg_get_constraintdef(permission_check.oid)
                   LIKE '%agent.mail.read%'
-   )               AND to_regclass('public.mailboxes') IS NOT NULL
+          AND pg_get_constraintdef(permission_check.oid)
+                  LIKE '%session.revoke_others%'
+   )
+   AND to_regclass('public.human_session_governance_executions') IS NOT NULL
+   AND to_regclass('public.mailboxes') IS NOT NULL
    AND to_regclass('public.mail_domains') IS NOT NULL
    AND to_regclass('public.mail_domain_dns_observations') IS NOT NULL
    AND to_regclass('public.mail_domain_routes') IS NOT NULL
