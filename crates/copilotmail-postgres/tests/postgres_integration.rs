@@ -1393,6 +1393,306 @@ async fn outbox_rollback_skip_locked_release_and_expired_lease_are_recoverable()
         .expect("clean Outbox fixtures");
 }
 
+async fn stage_disconnect_outbox<'e, E>(executor: E, id: Uuid, occurred_at: chrono::DateTime<Utc>)
+where
+    E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+{
+    sqlx::query(
+        r#"
+        INSERT INTO outbox_events(
+            id, event_type, aggregate_type, aggregate_id,
+            schema_version, payload, occurred_at, next_attempt_at
+        )
+        VALUES ($1, 'integration.outbox.v1', 'integration_test', $2, 1, $3, $4, $5)
+        "#,
+    )
+    .bind(id)
+    .bind(id.to_string())
+    .bind(json!({"organization_id": OrganizationId::new().to_string()}))
+    .bind(occurred_at)
+    .bind(Utc::now() - chrono::Duration::minutes(1))
+    .execute(executor)
+    .await
+    .expect("stage outbox disconnect fixture");
+}
+
+async fn claim_disconnect_outbox<'e, E>(executor: E, id: Uuid, worker_id: Uuid) -> i32
+where
+    E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+{
+    sqlx::query_scalar(
+        r#"
+        UPDATE outbox_events
+           SET locked_at = now(),
+               locked_by = $2,
+               attempts = attempts + 1
+         WHERE id = $1
+           AND published_at IS NULL
+           AND next_attempt_at <= now()
+           AND mail_data_plane_id IS NULL
+           AND (locked_at IS NULL OR locked_at < now() - interval '5 minutes')
+        RETURNING attempts
+        "#,
+    )
+    .bind(id)
+    .bind(worker_id)
+    .fetch_one(executor)
+    .await
+    .expect("stage outbox lease inside the caller transaction")
+}
+
+/// `pg_terminate_backend` from another session of the same role. The victim
+/// must be idle or waiting inside its own transaction so the server aborts
+/// that transaction. This is the disconnect injection; it is not a clean
+/// client `ROLLBACK`.
+async fn terminate_backend(pool: &sqlx::PgPool, pid: i32) {
+    let terminated: bool = expect_no_lock_hang(
+        sqlx::query_scalar("SELECT pg_terminate_backend($1::integer)")
+            .bind(pid)
+            .fetch_one(pool),
+    )
+    .await
+    .expect("signal the holding backend");
+    assert!(
+        terminated,
+        "pg_terminate_backend must accept the holding backend"
+    );
+}
+
+async fn wait_for_outbox_absence(pool: &sqlx::PgPool, id: Uuid) {
+    let started = std::time::Instant::now();
+    loop {
+        let count: i64 = sqlx::query_scalar("SELECT count(*) FROM outbox_events WHERE id = $1")
+            .bind(id)
+            .fetch_one(pool)
+            .await
+            .expect("count disconnected outbox insert");
+        if count == 0 {
+            return;
+        }
+        assert!(
+            started.elapsed() < LOCK_WAIT,
+            "terminated backend did not roll back the uncommitted outbox insert"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+}
+
+async fn wait_for_cleared_lease(pool: &sqlx::PgPool, id: Uuid) {
+    let started = std::time::Instant::now();
+    loop {
+        let (attempts, locked_by): (i32, Option<Uuid>) =
+            sqlx::query_as("SELECT attempts, locked_by FROM outbox_events WHERE id = $1")
+                .bind(id)
+                .fetch_one(pool)
+                .await
+                .expect("read lease after disconnect");
+        if attempts == 0 && locked_by.is_none() {
+            return;
+        }
+        assert!(
+            started.elapsed() < LOCK_WAIT,
+            "terminated backend did not roll back the uncommitted lease"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires a disposable PostgreSQL database"]
+async fn outbox_backend_disconnect_rolls_back_uncommitted_work_and_reclaims_by_lease_rule() {
+    use sqlx::Connection;
+
+    let store = migrated_store().await;
+    let database_url = support::database_url();
+    let now = Utc::now();
+    let inflight_id = Uuid::now_v7();
+    let committed_id = Uuid::now_v7();
+    let uncommitted_id = Uuid::now_v7();
+    stage_disconnect_outbox(store.pool(), inflight_id, now - chrono::Duration::hours(1)).await;
+
+    let mut shield = sqlx::PgConnection::connect(&database_url)
+        .await
+        .expect("connect outbox shield");
+    let mut shield_tx = shield.begin().await.expect("begin outbox shield");
+    sqlx::query("SET LOCAL lock_timeout = '15s'")
+        .execute(&mut *shield_tx)
+        .await
+        .expect("bound shield lock wait");
+    let _shielded: Vec<Uuid> = expect_no_lock_hang(
+        sqlx::query_scalar(
+            r#"
+            SELECT id
+              FROM outbox_events
+             WHERE published_at IS NULL
+               AND next_attempt_at <= now()
+               AND mail_data_plane_id IS NULL
+               AND (locked_at IS NULL OR locked_at < now() - interval '5 minutes')
+               AND id <> $1
+               FOR UPDATE
+            "#,
+        )
+        .bind(inflight_id)
+        .fetch_all(&mut *shield_tx),
+    )
+    .await
+    .expect("hold every other claimable global outbox row");
+
+    let mut worker = sqlx::PgConnection::connect(&database_url)
+        .await
+        .expect("connect uncommitted worker");
+    let worker_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut worker)
+        .await
+        .expect("read uncommitted worker backend");
+    let mut uncommitted = worker.begin().await.expect("begin uncommitted insert");
+    stage_disconnect_outbox(
+        &mut *uncommitted,
+        uncommitted_id,
+        now - chrono::Duration::minutes(10),
+    )
+    .await;
+    terminate_backend(store.pool(), worker_pid).await;
+    wait_for_outbox_absence(store.pool(), uncommitted_id).await;
+    drop(uncommitted);
+    assert!(
+        sqlx::query("SELECT 1").execute(&mut worker).await.is_err(),
+        "the terminated insert session must be dead"
+    );
+
+    let holder_worker = Uuid::now_v7();
+    let mut holder = sqlx::PgConnection::connect(&database_url)
+        .await
+        .expect("connect lease holder");
+    let holder_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut holder)
+        .await
+        .expect("read lease holder backend");
+    let mut held = holder.begin().await.expect("begin uncommitted lease");
+    assert_eq!(
+        claim_disconnect_outbox(&mut *held, inflight_id, holder_worker).await,
+        1,
+        "the open transaction stages one lease attempt"
+    );
+    let visible: Option<Uuid> = expect_no_lock_hang(
+        sqlx::query_scalar("SELECT id FROM outbox_events WHERE id = $1 FOR UPDATE SKIP LOCKED")
+            .bind(inflight_id)
+            .fetch_optional(store.pool()),
+    )
+    .await
+    .expect("probe the in-flight row");
+    assert!(
+        visible.is_none(),
+        "SKIP LOCKED must skip the backend that holds the uncommitted lease"
+    );
+    let blocked = expect_no_lock_hang(store.claim_outbox_batch(Uuid::now_v7(), None, 1))
+        .await
+        .expect("claim while the lease transaction is open");
+    assert!(
+        blocked.is_empty(),
+        "other claimable rows are shielded and the in-flight row stays locked"
+    );
+    terminate_backend(store.pool(), holder_pid).await;
+    wait_for_cleared_lease(store.pool(), inflight_id).await;
+    drop(held);
+
+    let rolled_back_worker = Uuid::now_v7();
+    let reclaimed = expect_no_lock_hang(store.claim_outbox_batch(rolled_back_worker, None, 1))
+        .await
+        .expect("reclaim the lease rolled back by disconnect");
+    assert_eq!(reclaimed.len(), 1);
+    assert_eq!(reclaimed[0].id, inflight_id);
+    assert_eq!(
+        reclaimed[0].attempts, 1,
+        "a rolled-back attempt must not survive the disconnect"
+    );
+
+    stage_disconnect_outbox(store.pool(), committed_id, now - chrono::Duration::hours(2)).await;
+    let committed_worker = Uuid::now_v7();
+    let mut committed_session = sqlx::PgConnection::connect(&database_url)
+        .await
+        .expect("connect committed lease session");
+    let committed_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut committed_session)
+        .await
+        .expect("read committed lease backend");
+    let mut committed_tx = committed_session
+        .begin()
+        .await
+        .expect("begin committed lease");
+    assert_eq!(
+        claim_disconnect_outbox(&mut *committed_tx, committed_id, committed_worker).await,
+        1
+    );
+    committed_tx
+        .commit()
+        .await
+        .expect("commit the lease before the session dies");
+    terminate_backend(store.pool(), committed_pid).await;
+    assert!(
+        sqlx::query("SELECT 1")
+            .execute(&mut committed_session)
+            .await
+            .is_err(),
+        "the terminated committed-lease session must be dead"
+    );
+    let (attempts, locked_by): (i32, Option<Uuid>) =
+        sqlx::query_as("SELECT attempts, locked_by FROM outbox_events WHERE id = $1")
+            .bind(committed_id)
+            .fetch_one(store.pool())
+            .await
+            .expect("read committed lease after disconnect");
+    assert_eq!(attempts, 1);
+    assert_eq!(locked_by, Some(committed_worker));
+    let still_held = expect_no_lock_hang(store.claim_outbox_batch(Uuid::now_v7(), None, 1))
+        .await
+        .expect("claim after a committed lease session was terminated");
+    assert!(
+        still_held.is_empty(),
+        "disconnect does not clear a committed lease inside the 5 minute window"
+    );
+
+    sqlx::query(
+        r#"
+        UPDATE outbox_events
+           SET locked_at = now() - interval '6 minutes'
+         WHERE id = $1
+           AND locked_by = $2
+        "#,
+    )
+    .bind(committed_id)
+    .bind(committed_worker)
+    .execute(store.pool())
+    .await
+    .expect("age the committed lease past the existing 5 minute rule");
+    let replacement_worker = Uuid::now_v7();
+    let expired = expect_no_lock_hang(store.claim_outbox_batch(replacement_worker, None, 1))
+        .await
+        .expect("reclaim the expired lease after disconnect");
+    assert_eq!(expired.len(), 1);
+    assert_eq!(expired[0].id, committed_id);
+    assert_eq!(expired[0].attempts, 2);
+    assert!(
+        !store
+            .mark_outbox_published(committed_id, committed_worker)
+            .await
+            .expect("reject the disconnected worker after expiry")
+    );
+    assert!(
+        store
+            .mark_outbox_published(committed_id, replacement_worker)
+            .await
+            .expect("complete the reclaimed delivery")
+    );
+
+    sqlx::query("DELETE FROM outbox_events WHERE id = ANY($1)")
+        .bind([inflight_id, committed_id, uncommitted_id])
+        .execute(store.pool())
+        .await
+        .expect("clean disconnect fixtures");
+    drop(shield_tx);
+}
+
 #[tokio::test]
 #[ignore = "requires a disposable PostgreSQL database"]
 async fn compliance_case_pages_are_bounded_filter_and_cursor_scoped() {

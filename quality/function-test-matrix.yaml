@@ -1585,10 +1585,12 @@
           "lease"
         ],
         "transaction": [
-          "outbox"
+          "outbox",
+          "disconnect"
         ],
         "concurrency": [
-          "outbox"
+          "outbox",
+          "disconnect"
         ]
       },
       "test_refs": {
@@ -1606,11 +1608,16 @@
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "outbox_rollback_skip_locked_release_and_expired_lease_are_recoverable",
           "execution": "passed"
+        },
+        "disconnect": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "outbox_backend_disconnect_rolls_back_uncommitted_work_and_reclaims_by_lease_rule",
+          "execution": "passed"
         }
       },
-      "environment": "Disposable PostgreSQL 17 integration suite executed green",
+      "environment": "Earlier outbox and lease refs keep their prior passed result. On 2026-10-12 a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, passed outbox_backend_disconnect_rolls_back_uncommitted_work_and_reclaims_by_lease_rule twice on the same database (0.86s, then 0.81s). The test terminates the holding backend with pg_terminate_backend. It does not kill an operating-system worker process.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "post-fence-remediation-2026-08-22",
+      "candidate_revision": "local-pg17-batch7-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
