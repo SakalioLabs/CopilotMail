@@ -19,7 +19,7 @@ impl MailDomainName {
         let value = value.strip_suffix('.').unwrap_or(value);
         if value.is_empty()
             || value.len() > 253
-            || value.chars().any(char::is_control)
+            || value.chars().any(crate::is_unicode_confusion_mark)
             || value.parse::<IpAddr>().is_ok()
         {
             return Err(DomainError::InvalidMailDomainName);
@@ -410,6 +410,36 @@ mod tests {
             "mail_.example",
         ] {
             assert!(MailDomainName::parse(value).is_err(), "{value}");
+        }
+    }
+
+    #[test]
+    fn rejects_injection_and_confusion_marks_without_echo() {
+        let overlong = "a".repeat(254);
+        for value in [
+            "ex\r\nample.com",
+            "../example.com",
+            "example.com/../jmap",
+            "\u{202e}example.com",
+            &overlong,
+            "';drop.example",
+            "drop table.example",
+        ] {
+            let error = MailDomainName::parse(value).unwrap_err();
+            assert_eq!(error, DomainError::InvalidMailDomainName);
+            let rendered = format!("{error} {error:?}");
+            assert_eq!(
+                rendered,
+                "invalid managed mail domain name InvalidMailDomainName"
+            );
+            assert!(!rendered.contains(value), "{value:?}");
+            assert!(!rendered.contains("DROP"));
+            assert!(!rendered.contains('\u{202e}'));
+        }
+        for value in ["drop.example", "email.example"] {
+            let parsed = MailDomainName::parse(value).unwrap();
+            assert_eq!(parsed.as_str(), value);
+            assert!(!parsed.as_str().contains('\u{202e}'));
         }
     }
 

@@ -8,6 +8,7 @@ use chrono::{DateTime, Duration, Utc};
 use copilotmail_domain::{
     AuditActor, AuditContext, AuditEvent, AuditOutcome, AuditResource, HumanLoginTransactionId,
     HumanSessionId, HumanSessionRevocationId, OrganizationId, PrincipalId,
+    is_unicode_confusion_mark,
 };
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -442,7 +443,7 @@ fn valid_return_to(value: &str) -> bool {
         && value.starts_with('/')
         && !value.starts_with("//")
         && !value.contains('\\')
-        && !value.chars().any(char::is_control)
+        && !value.chars().any(is_unicode_confusion_mark)
 }
 
 const fn map_store_error(error: StoreError) -> HumanSessionError {
@@ -997,5 +998,47 @@ mod tests {
             .await;
         assert_eq!(session, Err(HumanSessionError::InvalidRequest));
         assert!(store.state.lock().unwrap().session.is_none());
+    }
+
+    #[test]
+    fn return_to_rejects_confusion_marks_and_keeps_same_origin_text() {
+        assert!(valid_return_to(&format!("/{}", "a".repeat(1023))));
+        assert!(!valid_return_to(&format!("/{}", "a".repeat(1024))));
+        assert!(!valid_return_to("/\u{202e}audit"));
+        assert!(!valid_return_to("/audit\r\nLocation: https://evil.test"));
+        assert!(!valid_return_to("https://attacker.example/callback"));
+        assert!(!valid_return_to("//evil.test"));
+        assert!(!valid_return_to("/..\\admin"));
+        assert!(valid_return_to("/' ; DROP TABLE sessions;--"));
+        assert!(valid_return_to("/\u{0430}dmin"));
+    }
+
+    #[tokio::test]
+    async fn login_rejects_confused_return_to_without_echo() {
+        let store = MemoryStore::with_active_human();
+        let service = HumanSessionService::new(store.clone());
+        let now = now();
+        let return_to = "/\u{202e}'; DROP TABLE sessions;--\r\nLocation: https://evil.test";
+        let error = service
+            .begin_login(BeginHumanLoginCommand {
+                client_key: HumanSessionClient::Mail,
+                return_to: return_to.into(),
+                state: "s".repeat(48),
+                browser_nonce: "n".repeat(48),
+                encrypted_pkce_verifier: vec![0x5a; 64],
+                admission_limit: 100,
+                cleanup_limit: 10,
+                now,
+                expires_at: now + Duration::minutes(5),
+            })
+            .await
+            .unwrap_err();
+        assert_eq!(error, HumanSessionError::InvalidRequest);
+        assert_eq!(error.to_string(), "Human login or session input is invalid");
+        let rendered = format!("{error} {error:?}");
+        assert!(!rendered.contains("DROP TABLE"));
+        assert!(!rendered.contains("Location:"));
+        assert!(!rendered.contains('\u{202e}'));
+        assert!(store.state.lock().unwrap().login.is_none());
     }
 }

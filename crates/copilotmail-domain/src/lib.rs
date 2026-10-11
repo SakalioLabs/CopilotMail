@@ -63,6 +63,27 @@ pub use processing::{AgentMessageState, AgentProcessingStatus};
 pub use retention::{RetentionPolicy, RetentionPolicyVersion, RetentionResourceKind};
 pub use webhook::{WebhookEventType, WebhookSubscription};
 
+/// Reports ASCII controls and Unicode format or bidi marks that can hide or
+/// reorder identifier text. Letters, including internationalized ones, are not
+/// confusion marks.
+#[must_use]
+pub fn is_unicode_confusion_mark(character: char) -> bool {
+    character.is_control()
+        || matches!(
+            character,
+            '\u{00ad}'
+                | '\u{034f}'
+                | '\u{061c}'
+                | '\u{180e}'
+                | '\u{200b}'..='\u{200f}'
+                | '\u{202a}'..='\u{202e}'
+                | '\u{2060}'..='\u{2064}'
+                | '\u{2066}'..='\u{2069}'
+                | '\u{feff}'
+                | '\u{fff9}'..='\u{fffb}'
+        )
+}
+
 /// Errors raised when a domain invariant would be violated.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum DomainError {
@@ -147,4 +168,22 @@ pub enum DomainError {
     /// Audit metadata contained secrets, message content, or excessive data.
     #[error("audit details contain forbidden or excessive data")]
     InvalidAuditDetails,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_unicode_confusion_mark;
+
+    #[test]
+    fn confusion_marks_cover_controls_and_bidi_not_letters() {
+        assert!(is_unicode_confusion_mark('\n'));
+        assert!(is_unicode_confusion_mark('\r'));
+        assert!(is_unicode_confusion_mark('\u{202e}'));
+        assert!(is_unicode_confusion_mark('\u{200b}'));
+        assert!(is_unicode_confusion_mark('\u{feff}'));
+        assert!(is_unicode_confusion_mark('\u{00ad}'));
+        assert!(!is_unicode_confusion_mark('a'));
+        assert!(!is_unicode_confusion_mark('ü'));
+        assert!(!is_unicode_confusion_mark('\u{0430}'));
+    }
 }

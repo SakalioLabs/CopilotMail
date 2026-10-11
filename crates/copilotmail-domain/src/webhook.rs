@@ -162,18 +162,22 @@ mod tests {
             "https://agent.example.test/hook?token=secret",
             "https://agent.example.test/hook#fragment",
         ] {
-            assert!(
-                WebhookSubscription::new(
-                    OrganizationId::new(),
-                    PrincipalId::new(),
-                    endpoint.into(),
-                    events(),
-                    "hook-2026-01".into(),
-                    now,
-                )
-                .is_err(),
-                "{endpoint}"
+            let error = WebhookSubscription::new(
+                OrganizationId::new(),
+                PrincipalId::new(),
+                endpoint.into(),
+                events(),
+                "hook-2026-01".into(),
+                now,
+            )
+            .unwrap_err();
+            let rendered = format!("{error} {error:?}");
+            assert_eq!(
+                rendered,
+                "invalid Agent webhook subscription InvalidWebhookSubscription"
             );
+            assert!(!rendered.contains(endpoint), "{endpoint}");
+            assert!(!rendered.contains("secret"));
         }
         assert!(WebhookEventType::parse("identity.principal.created.v1").is_err());
     }

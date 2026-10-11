@@ -6,6 +6,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use copilotmail_domain::{
     AuthorizationContext, DraftId, MailboxAddress, MailboxCapability, MailboxId, Permission,
+    is_unicode_confusion_mark,
 };
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
@@ -300,7 +301,7 @@ pub(crate) fn normalized_input(
     text_body: String,
 ) -> Result<NormalizedDraftInput, DraftError> {
     if subject.len() > 998
-        || subject.chars().any(char::is_control)
+        || subject.chars().any(is_unicode_confusion_mark)
         || text_body.len() > 256 * 1024
         || text_body.contains('\0')
         || to.len() + cc.len() + bcc.len() == 0
@@ -695,6 +696,99 @@ mod tests {
             ),
             Err(DraftError::InvalidRequest)
         ));
+    }
+
+    #[test]
+    fn adversarial_draft_text_fails_closed_without_echo() {
+        let rejected = [
+            normalized_input(
+                vec!["owner@example.test".into()],
+                Vec::new(),
+                Vec::new(),
+                "Status\r\nBcc: leak@example.test".into(),
+                "Ready.".into(),
+            ),
+            normalized_input(
+                vec!["owner@example.test".into()],
+                Vec::new(),
+                Vec::new(),
+                "Status\u{202e}reversed".into(),
+                "Ready.".into(),
+            ),
+            normalized_input(
+                vec!["owner@example.test".into()],
+                Vec::new(),
+                Vec::new(),
+                "a".repeat(999),
+                "Ready.".into(),
+            ),
+            normalized_input(
+                vec!["owner@example.test".into()],
+                Vec::new(),
+                Vec::new(),
+                "Status".into(),
+                "a\0b".into(),
+            ),
+            normalized_input(
+                vec!["owner@example.test".into()],
+                Vec::new(),
+                Vec::new(),
+                "Status".into(),
+                "a".repeat(256 * 1024 + 1),
+            ),
+            normalized_input(
+                vec!["agent\r\nBcc:victim@example.com".into()],
+                Vec::new(),
+                Vec::new(),
+                "Status".into(),
+                "Ready.".into(),
+            ),
+            normalized_input(
+                vec!["'; DROP TABLE drafts;--@example.com".into()],
+                Vec::new(),
+                Vec::new(),
+                "Status".into(),
+                "Ready.".into(),
+            ),
+            normalized_input(
+                vec!["../etc/passwd@example.com".into()],
+                Vec::new(),
+                Vec::new(),
+                "Status".into(),
+                "Ready.".into(),
+            ),
+        ];
+        for result in rejected {
+            let error = result.unwrap_err();
+            assert_eq!(error, DraftError::InvalidRequest);
+            assert_eq!(error.to_string(), "draft input is invalid");
+            let rendered = format!("{error:?}");
+            assert_eq!(rendered, "InvalidRequest");
+            assert!(!rendered.contains("Bcc:"));
+            assert!(!rendered.contains("DROP TABLE"));
+            assert!(!rendered.contains('\u{202e}'));
+        }
+
+        let subject_limit = normalized_input(
+            vec!["owner@example.test".into()],
+            Vec::new(),
+            Vec::new(),
+            "a".repeat(998),
+            "Ready.".into(),
+        )
+        .unwrap();
+        assert_eq!(subject_limit.subject.len(), 998);
+
+        let sql_subject = normalized_input(
+            vec!["owner@example.test".into()],
+            Vec::new(),
+            Vec::new(),
+            "status'; DROP TABLE drafts;--".into(),
+            "Email/set\n'; DROP TABLE drafts;--".into(),
+        )
+        .unwrap();
+        assert_eq!(sql_subject.subject, "status'; DROP TABLE drafts;--");
+        assert!(sql_subject.text_body.contains("DROP TABLE"));
     }
 
     #[test]

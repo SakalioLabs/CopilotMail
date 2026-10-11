@@ -1841,4 +1841,16 @@ rJGR09JbvaRzBOpVgV1HTD1tp191Zob0IAndHLE/1MxlzccwTjZS/rXelq0vgSwT
         drop(calls);
         provider.abort();
     }
+
+    #[test]
+    fn authorization_callback_ignores_unmodeled_identity_provider_parameters() {
+        use axum::extract::Query;
+        // Identity providers append parameters such as `session_state`. The
+        // callback must keep ignoring them; closing the query would break login.
+        let uri: axum::http::Uri =
+            "https://mail.example.test/callback?code=abc&state=def&session_state=extra"
+                .parse()
+                .unwrap();
+        assert!(Query::<super::OidcAuthorizationResponse>::try_from_uri(&uri).is_ok());
+    }
 }

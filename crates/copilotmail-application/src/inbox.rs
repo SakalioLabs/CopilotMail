@@ -9,7 +9,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use copilotmail_domain::{
     AuditActor, AuditEvent, AuditOutcome, AuditResource, AuthorizationContext, MailboxCapability,
-    MailboxId, Permission,
+    MailboxId, Permission, is_unicode_confusion_mark,
 };
 use serde_json::json;
 use std::{collections::HashSet, sync::Arc};
@@ -513,7 +513,7 @@ fn valid_search_text(value: &str) -> bool {
     value == value.trim()
         && (2..=128).contains(&value.chars().count())
         && value.len() <= 512
-        && !value.chars().any(char::is_control)
+        && !value.chars().any(is_unicode_confusion_mark)
 }
 
 const fn map_mail_engine_error(error: MailEngineError) -> InboxError {
@@ -541,6 +541,16 @@ mod tests {
         Principal, PrincipalId, ResolvedMailboxDelegation, Role, RoleAssignment,
     };
     use std::{collections::BTreeSet, sync::Mutex};
+
+    #[test]
+    fn search_text_accepts_sql_words_and_rejects_confusion_marks() {
+        assert!(valid_search_text("DROP TABLE"));
+        assert!(valid_search_text("Email/set"));
+        assert!(valid_search_text(&"q".repeat(128)));
+        assert!(!valid_search_text("ok\u{202e}rev"));
+        assert!(!valid_search_text("ab\r\ncd"));
+        assert!(!valid_search_text(&"q".repeat(129)));
+    }
 
     #[derive(Default)]
     struct Evidence {
@@ -1124,13 +1134,20 @@ mod tests {
             );
         }
 
-        for text in ["x", " padded", "line\nbreak"] {
+        for text in [
+            "x".to_owned(),
+            " padded".to_owned(),
+            "line\nbreak".to_owned(),
+            "ab\r\nBcc: leak@example.test".to_owned(),
+            "ok\u{202e}rev".to_owned(),
+            "q".repeat(129),
+        ] {
             let result = service
                 .search(
                     &context,
                     SearchInboxCommand {
                         mailbox_id,
-                        text: text.into(),
+                        text,
                         position: 0,
                         page_size: 30,
                         trace_id: "trace-invalid".into(),
@@ -1139,6 +1156,9 @@ mod tests {
                 )
                 .await;
             assert_eq!(result, Err(InboxError::InvalidRequest));
+            let rendered = format!("{result:?}");
+            assert!(!rendered.contains("Bcc:"), "{rendered}");
+            assert!(!rendered.contains('\u{202e}'), "{rendered}");
         }
         assert_eq!(reader.searches.lock().unwrap().len(), 1);
     }

@@ -176,15 +176,35 @@ mod tests {
 
     #[test]
     fn rejects_header_and_command_injection() {
-        for value in [
-            "agent\r\nBcc:victim@example.com@example.com",
-            "agent name@example.com",
-            ".agent@example.com",
-            "agent..one@example.com",
-            "agent@-example.com",
-            "agent@example",
-        ] {
-            assert!(MailboxAddress::parse(value).is_err(), "{value:?}");
+        let long_address = format!("{}@example.com", "a".repeat(300));
+        let values = [
+            "agent\r\nBcc:victim@example.com@example.com".to_owned(),
+            "agent name@example.com".to_owned(),
+            ".agent@example.com".to_owned(),
+            "agent..one@example.com".to_owned(),
+            "agent@-example.com".to_owned(),
+            "agent@example".to_owned(),
+            "'; DROP TABLE mailboxes;--@example.com".to_owned(),
+            "../etc/passwd@example.com".to_owned(),
+            "user@ex\u{202e}ample.com".to_owned(),
+            "a\0@example.com".to_owned(),
+            long_address,
+        ];
+        for value in values {
+            let error = MailboxAddress::parse(&value).unwrap_err();
+            assert_eq!(error, DomainError::InvalidMailboxAddress);
+            let rendered = format!("{error} {error:?}");
+            assert_eq!(rendered, "invalid mailbox address InvalidMailboxAddress");
+            assert!(!rendered.contains(&value), "{value:?}");
+            assert!(!rendered.contains("Bcc:"));
+            assert!(!rendered.contains("DROP TABLE"));
+            assert!(!rendered.contains('\u{202e}'));
         }
+        assert_eq!(
+            MailboxAddress::parse("Email/set@example.com")
+                .unwrap()
+                .as_str(),
+            "email/set@example.com"
+        );
     }
 }

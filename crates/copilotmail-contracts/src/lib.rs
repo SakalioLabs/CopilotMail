@@ -2,7 +2,7 @@
 
 #![forbid(unsafe_code)]
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -741,10 +741,53 @@ pub struct WebhookDeadLetterListResponse {
     pub next_after: Option<String>,
 }
 
+fn deserialize_empty_object<'de, D>(deserializer: D) -> Result<(), D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct EmptyObjectVisitor;
+
+    impl<'de> serde::de::Visitor<'de> for EmptyObjectVisitor {
+        type Value = ();
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("an empty JSON object")
+        }
+
+        fn visit_map<A>(self, mut map: A) -> Result<(), A::Error>
+        where
+            A: serde::de::MapAccess<'de>,
+        {
+            if map.next_key::<serde::de::IgnoredAny>()?.is_some() {
+                let _ignored: serde::de::IgnoredAny = map.next_value()?;
+                return Err(serde::de::Error::custom("unknown field"));
+            }
+            Ok(())
+        }
+    }
+
+    // Derived empty structs also accept `[]`. These request bodies are objects.
+    deserializer.deserialize_map(EmptyObjectVisitor)
+}
+
+macro_rules! impl_empty_request_deserialize {
+    ($name:ident) => {
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                deserialize_empty_object(deserializer).map(|()| Self {})
+            }
+        }
+    };
+}
+
 /// Empty by design: replay is bound entirely to the path's immutable evidence.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct WebhookDeadLetterReplayRequest {}
+
+impl_empty_request_deserialize!(WebhookDeadLetterReplayRequest);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WebhookDeadLetterReplayResponse {
@@ -930,9 +973,10 @@ pub struct ApprovalRequestListResponse {
 }
 
 /// Empty body: cancellation is bound to the authenticated original requester.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ApprovalCancellationRequest {}
+
+impl_empty_request_deserialize!(ApprovalCancellationRequest);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoleResponse {
@@ -987,9 +1031,10 @@ pub struct RoleAssignmentListResponse {
 
 /// Empty body: the assignment and revoking actor come from the protected path
 /// and authenticated identity.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RoleAssignmentRevocationRequest {}
+
+impl_empty_request_deserialize!(RoleAssignmentRevocationRequest);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1339,6 +1384,24 @@ pub struct ErrorResponse {
     /// Optional non-secret structured context.
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub details: Value,
+}
+
+/// Failure from [`parse_closed_json`]. The serde error is discarded so logs and
+/// API clients cannot observe the rejected payload.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ClosedJsonError;
+
+impl std::fmt::Display for ClosedJsonError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("request payload is invalid")
+    }
+}
+
+impl std::error::Error for ClosedJsonError {}
+
+/// Deserializes one closed JSON document and drops the parser diagnostic.
+pub fn parse_closed_json<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, ClosedJsonError> {
+    serde_json::from_slice(bytes).map_err(|_| ClosedJsonError)
 }
 
 #[cfg(test)]
@@ -1899,5 +1962,535 @@ mod tests {
             }))
             .is_err()
         );
+    }
+
+    const SENTINEL: &str = "CM-LEAK-\u{202e}'; DROP TABLE audit_events;--\r\nBcc: leak@example.test/../.well-known/jmap Email/set";
+
+    enum ClosedNumber {
+        None,
+        Unsigned(&'static str),
+        Signed(&'static str),
+    }
+
+    fn assert_closed(label: &str, error: super::ClosedJsonError) {
+        assert_eq!(error.to_string(), "request payload is invalid", "{label}");
+        assert_eq!(format!("{error:?}"), "ClosedJsonError", "{label}");
+        let rendered = format!("{error} {error:?}");
+        for needle in ["CM-LEAK", "DROP TABLE", "Bcc:", "Email/set", "\u{202e}"] {
+            assert!(!rendered.contains(needle), "{label}: {rendered}");
+        }
+    }
+
+    fn reject_bytes<T: serde::de::DeserializeOwned>(label: &str, bytes: &[u8]) {
+        match super::parse_closed_json::<T>(bytes) {
+            Err(error) => assert_closed(label, error),
+            Ok(_) => panic!("{label} accepted a payload that must fail"),
+        }
+    }
+
+    fn reject<T: serde::de::DeserializeOwned>(label: &str, value: &serde_json::Value) {
+        let bytes =
+            serde_json::to_vec(value).unwrap_or_else(|error| panic!("{label} serialize: {error}"));
+        reject_bytes::<T>(label, &bytes);
+    }
+
+    fn accept<T>(label: &str, value: &serde_json::Value)
+    where
+        T: serde::de::DeserializeOwned + serde::Serialize,
+    {
+        let bytes =
+            serde_json::to_vec(value).unwrap_or_else(|error| panic!("{label} serialize: {error}"));
+        let parsed = super::parse_closed_json::<T>(&bytes)
+            .unwrap_or_else(|_| panic!("{label} rejected a valid payload"));
+        let again = serde_json::to_value(&parsed)
+            .unwrap_or_else(|error| panic!("{label} reserialize: {error}"));
+        assert_eq!(again, *value, "{label} did not round-trip");
+    }
+
+    fn exercise_closed_request<T>(
+        label: &str,
+        valid: &serde_json::Value,
+        field: Option<&str>,
+        numeric: ClosedNumber,
+    ) where
+        T: serde::de::DeserializeOwned + serde::Serialize,
+    {
+        accept::<T>(label, valid);
+        let mut unknown = valid.clone();
+        unknown
+            .as_object_mut()
+            .unwrap_or_else(|| panic!("{label} fixture is not an object"))
+            .insert(SENTINEL.to_owned(), json!(true));
+        reject::<T>(&format!("{label} unknown"), &unknown);
+        reject_bytes::<T>(&format!("{label} null"), b"null");
+        reject_bytes::<T>(&format!("{label} array"), b"[]");
+        reject_bytes::<T>(&format!("{label} utf8"), b"\xff");
+        let mut trailing = serde_json::to_vec(valid).unwrap();
+        trailing.extend(SENTINEL.as_bytes());
+        reject_bytes::<T>(&format!("{label} trailing"), &trailing);
+
+        match field {
+            Some(name) => {
+                let mut confused = valid.clone();
+                confused[name] = json!({"nested": SENTINEL});
+                reject::<T>(&format!("{label} type"), &confused);
+                let mut removed = valid.clone();
+                removed.as_object_mut().unwrap().remove(name);
+                if let Err(error) =
+                    super::parse_closed_json::<T>(&serde_json::to_vec(&removed).unwrap())
+                {
+                    assert_closed(&format!("{label} removed"), error);
+                }
+                if let Err(error) =
+                    super::parse_closed_json::<T>(&serde_json::to_vec(&json!({})).unwrap())
+                {
+                    assert_closed(&format!("{label} empty"), error);
+                }
+            }
+            None => {
+                reject_bytes::<T>(
+                    &format!("{label} type"),
+                    &serde_json::to_vec(&json!(SENTINEL)).unwrap(),
+                );
+            }
+        }
+
+        match numeric {
+            ClosedNumber::None => {}
+            ClosedNumber::Unsigned(name) => {
+                for (suffix, value) in [
+                    ("overflow", json!(4_294_967_296u64)),
+                    ("negative", json!(-1)),
+                    ("fraction", json!(1.5)),
+                    ("string", json!(SENTINEL)),
+                ] {
+                    let mut body = valid.clone();
+                    body[name] = value;
+                    reject::<T>(&format!("{label} {suffix}"), &body);
+                }
+            }
+            ClosedNumber::Signed(name) => {
+                let mut negative = valid.clone();
+                negative[name] = json!(-1);
+                accept::<T>(&format!("{label} negative"), &negative);
+                for (suffix, value) in [
+                    ("overflow", json!(9_223_372_036_854_775_808u64)),
+                    ("fraction", json!(1.5)),
+                    ("string", json!(SENTINEL)),
+                ] {
+                    let mut body = valid.clone();
+                    body[name] = value;
+                    reject::<T>(&format!("{label} {suffix}"), &body);
+                }
+            }
+        }
+    }
+
+    macro_rules! closed_request_test {
+        ($name:ident, $ty:ty, $valid:expr, $field:expr, $numeric:expr) => {
+            #[test]
+            fn $name() {
+                exercise_closed_request::<$ty>(stringify!($name), &$valid, $field, $numeric);
+            }
+        };
+    }
+
+    closed_request_test!(
+        closed_inbox_search_request,
+        super::InboxSearchRequest,
+        json!({"text": "quarterly", "cursor": null, "page_size": 25}),
+        Some("text"),
+        ClosedNumber::Unsigned("page_size")
+    );
+    closed_request_test!(
+        closed_agent_processing_subscription_change_request,
+        super::AgentProcessingSubscriptionChangeRequest,
+        json!({"expected_status": "active", "status": "paused"}),
+        Some("expected_status"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_agent_message_claim_request,
+        super::AgentMessageClaimRequest,
+        json!({"lease_seconds": 30}),
+        Some("lease_seconds"),
+        ClosedNumber::Unsigned("lease_seconds")
+    );
+    closed_request_test!(
+        closed_agent_message_lease_extension_request,
+        super::AgentMessageLeaseExtensionRequest,
+        json!({"lease_id": "lease-1", "lease_seconds": 30}),
+        Some("lease_id"),
+        ClosedNumber::Unsigned("lease_seconds")
+    );
+    closed_request_test!(
+        closed_agent_message_acknowledgement_request,
+        super::AgentMessageAcknowledgementRequest,
+        json!({"lease_id": "lease-1"}),
+        Some("lease_id"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_agent_message_nack_request,
+        super::AgentMessageNackRequest,
+        json!({"lease_id": "lease-1", "reason_code": "retry"}),
+        Some("lease_id"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_message_state_update_request,
+        super::MessageStateUpdateRequest,
+        json!({"is_read": false, "is_flagged": false}),
+        Some("is_read"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_text_draft_save_request,
+        super::TextDraftSaveRequest,
+        json!({
+            "draft_id": null,
+            "expected_version": null,
+            "reply_to_message_id": null,
+            "to": ["recipient@example.test"],
+            "cc": [],
+            "bcc": [],
+            "subject": "Status",
+            "text_body": "Ready."
+        }),
+        Some("draft_id"),
+        ClosedNumber::Signed("expected_version")
+    );
+    closed_request_test!(
+        closed_human_draft_restore_request,
+        super::HumanDraftRestoreRequest,
+        json!({"expected_version": 1}),
+        Some("expected_version"),
+        ClosedNumber::Signed("expected_version")
+    );
+    closed_request_test!(
+        closed_mail_submission_create_request,
+        super::MailSubmissionCreateRequest,
+        json!({
+            "draft_id": "018f13b9-1111-7bc8-965d-48a28866f073",
+            "expected_draft_version": 2,
+            "first_contact_approval_request_id": null
+        }),
+        Some("draft_id"),
+        ClosedNumber::Signed("expected_draft_version")
+    );
+    closed_request_test!(
+        closed_agent_mail_sandbox_create_request,
+        super::AgentMailSandboxCreateRequest,
+        json!({
+            "draft_id": "018f13b9-1111-7bc8-965d-48a28866f073",
+            "expected_draft_version": 2
+        }),
+        Some("draft_id"),
+        ClosedNumber::Signed("expected_draft_version")
+    );
+    closed_request_test!(
+        closed_mailbox_create_request,
+        super::MailboxCreateRequest,
+        json!({"kind": "human", "primary_address": "owner@example.test"}),
+        Some("kind"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_mail_engine_mailbox_binding_update_request,
+        super::MailEngineMailboxBindingUpdateRequest,
+        json!({"account_ref": "account-1", "expected_version": 1}),
+        Some("account_ref"),
+        ClosedNumber::Signed("expected_version")
+    );
+    closed_request_test!(
+        closed_mail_domain_create_request,
+        super::MailDomainCreateRequest,
+        json!({"name": "example.test", "route_mode": "direct_mx"}),
+        Some("name"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_mail_domain_challenge_rotation_request,
+        super::MailDomainChallengeRotationRequest,
+        json!({"expected_version": 1}),
+        Some("expected_version"),
+        ClosedNumber::Signed("expected_version")
+    );
+    closed_request_test!(
+        closed_mail_domain_dns_verification_request,
+        super::MailDomainDnsVerificationRequest,
+        json!({
+            "domain": "example.test",
+            "ownership_token": "token",
+            "dkim_selector": "copilotmail"
+        }),
+        Some("domain"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_mail_domain_suspend_request,
+        super::MailDomainSuspendRequest,
+        json!({"reason_code": "abuse"}),
+        Some("reason_code"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_mail_domain_route_update_request,
+        super::MailDomainRouteUpdateRequest,
+        json!({
+            "expected_version": 1,
+            "inbound_enabled": false,
+            "outbound_enabled": false,
+            "smart_host_ref": null,
+            "dkim_key_ref": null
+        }),
+        Some("expected_version"),
+        ClosedNumber::Signed("expected_version")
+    );
+    closed_request_test!(
+        closed_webhook_subscription_create_request,
+        super::WebhookSubscriptionCreateRequest,
+        json!({
+            "principal_id": "018f13b9-1111-7bc8-965d-48a28866f073",
+            "endpoint_url": "https://agent.example.test/hook",
+            "event_types": [],
+            "signing_key_reference": "hook-2026-01"
+        }),
+        Some("principal_id"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_webhook_subscription_update_request,
+        super::WebhookSubscriptionUpdateRequest,
+        json!({
+            "expected_version": 1,
+            "endpoint_url": "https://agent.example.test/hook",
+            "event_types": [],
+            "signing_key_reference": "hook-2026-01",
+            "enabled": false
+        }),
+        Some("expected_version"),
+        ClosedNumber::Signed("expected_version")
+    );
+    closed_request_test!(
+        closed_webhook_dead_letter_replay_request,
+        super::WebhookDeadLetterReplayRequest,
+        json!({}),
+        None,
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_mailbox_delegation_create_request,
+        super::MailboxDelegationCreateRequest,
+        json!({
+            "grantee_principal_id": "018f13b9-1111-7bc8-965d-48a28866f073",
+            "capabilities": ["read"],
+            "reason": "coverage",
+            "valid_until": "2026-08-01T00:00:00Z"
+        }),
+        Some("grantee_principal_id"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_approval_request_create_request,
+        super::ApprovalRequestCreateRequest,
+        json!({
+            "policy_key": "mail.send",
+            "action": "mail.send",
+            "resource_kind": "mailbox",
+            "resource_id": "018f13b9-1111-7bc8-965d-48a28866f073",
+            "reason": "coverage",
+            "ticket_reference": null,
+            "expires_at": "2026-08-01T00:00:00Z"
+        }),
+        Some("policy_key"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_approval_decision_request,
+        super::ApprovalDecisionRequest,
+        json!({"decision": "approve", "reason": "coverage"}),
+        Some("decision"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_approval_cancellation_request,
+        super::ApprovalCancellationRequest,
+        json!({}),
+        None,
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_role_assignment_grant_request,
+        super::RoleAssignmentGrantRequest,
+        json!({
+            "principal_id": "018f13b9-1111-7bc8-965d-48a28866f073",
+            "role_id": "018f13b9-2222-7bc8-965d-48a28866f073",
+            "valid_until": "2026-08-01T00:00:00Z",
+            "approval_request_id": "018f13b9-3333-7bc8-965d-48a28866f073"
+        }),
+        Some("principal_id"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_role_assignment_revocation_request,
+        super::RoleAssignmentRevocationRequest,
+        json!({}),
+        None,
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_compliance_case_create_request,
+        super::ComplianceCaseCreateRequest,
+        json!({
+            "external_reference": "CASE-1",
+            "title": "Review",
+            "purpose": "coverage"
+        }),
+        Some("external_reference"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_legal_hold_apply_request,
+        super::LegalHoldApplyRequest,
+        json!({
+            "case_id": "018f13b9-1111-7bc8-965d-48a28866f073",
+            "approval_request_id": "018f13b9-2222-7bc8-965d-48a28866f073",
+            "reason": "coverage"
+        }),
+        Some("case_id"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_legal_hold_release_request,
+        super::LegalHoldReleaseRequest,
+        json!({"approval_request_id": "018f13b9-1111-7bc8-965d-48a28866f073"}),
+        Some("approval_request_id"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_audit_export_grant_create_request,
+        super::AuditExportGrantCreateRequest,
+        json!({"approval_request_id": "018f13b9-1111-7bc8-965d-48a28866f073"}),
+        Some("approval_request_id"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_retention_policy_create_request,
+        super::RetentionPolicyCreateRequest,
+        json!({
+            "policy_key": "mail.default",
+            "display_name": "Mail",
+            "resource_kind": "message",
+            "minimum_retention_days": 30,
+            "archive_after_days": null,
+            "delete_after_days": null,
+            "rule": {}
+        }),
+        Some("policy_key"),
+        ClosedNumber::Unsigned("minimum_retention_days")
+    );
+    closed_request_test!(
+        closed_retention_policy_version_create_request,
+        super::RetentionPolicyVersionCreateRequest,
+        json!({
+            "minimum_retention_days": 30,
+            "archive_after_days": null,
+            "delete_after_days": null,
+            "rule": {}
+        }),
+        Some("minimum_retention_days"),
+        ClosedNumber::Unsigned("minimum_retention_days")
+    );
+    closed_request_test!(
+        closed_retention_policy_activation_request,
+        super::RetentionPolicyActivationRequest,
+        json!({"approval_request_id": "018f13b9-1111-7bc8-965d-48a28866f073"}),
+        Some("approval_request_id"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_agent_mail_policy_activation_request,
+        super::AgentMailPolicyActivationRequest,
+        json!({"approval_request_id": "018f13b9-1111-7bc8-965d-48a28866f073"}),
+        Some("approval_request_id"),
+        ClosedNumber::None
+    );
+    closed_request_test!(
+        closed_agent_mail_policy_version_create_request,
+        super::AgentMailPolicyVersionCreateRequest,
+        json!({
+            "allowed_recipient_domains": ["example.test"],
+            "max_recipients_per_message": 10,
+            "max_messages_per_hour": 25,
+            "max_messages_per_recipient_per_day": 3,
+            "require_first_contact_approval": false,
+            "max_auto_replies_per_thread_per_day": 1
+        }),
+        Some("allowed_recipient_domains"),
+        ClosedNumber::Unsigned("max_recipients_per_message")
+    );
+
+    #[test]
+    fn closed_json_error_omits_values_serde_would_echo() {
+        let mut unknown = json!({
+            "text": "quarterly",
+            "cursor": null,
+            "page_size": 25
+        });
+        unknown
+            .as_object_mut()
+            .unwrap()
+            .insert(SENTINEL.to_owned(), json!(true));
+        let raw = serde_json::from_value::<super::InboxSearchRequest>(unknown.clone())
+            .unwrap_err()
+            .to_string();
+        assert!(raw.contains("CM-LEAK"), "{raw}");
+        assert!(raw.contains("DROP TABLE"), "{raw}");
+        assert!(raw.contains("Bcc:"), "{raw}");
+        assert!(raw.contains("Email/set"), "{raw}");
+        assert!(raw.contains('\u{202e}'), "{raw}");
+        let error = super::parse_closed_json::<super::InboxSearchRequest>(
+            &serde_json::to_vec(&unknown).unwrap(),
+        )
+        .unwrap_err();
+        assert_closed("unknown field", error);
+
+        let confused = json!({
+            "text": "quarterly",
+            "cursor": null,
+            "page_size": SENTINEL
+        });
+        let raw = serde_json::from_value::<super::InboxSearchRequest>(confused.clone())
+            .unwrap_err()
+            .to_string();
+        assert!(raw.contains("CM-LEAK"), "{raw}");
+        assert!(raw.contains("DROP TABLE"), "{raw}");
+        let error = super::parse_closed_json::<super::InboxSearchRequest>(
+            &serde_json::to_vec(&confused).unwrap(),
+        )
+        .unwrap_err();
+        assert_closed("string page_size", error);
+    }
+
+    #[test]
+    fn closed_json_accepts_injection_text_in_free_text_fields() {
+        let draft = json!({
+            "draft_id": null,
+            "expected_version": null,
+            "reply_to_message_id": null,
+            "to": ["recipient@example.test"],
+            "cc": [],
+            "bcc": [],
+            "subject": SENTINEL,
+            "text_body": "Email/set\n'; DROP TABLE drafts;--"
+        });
+        let parsed = super::parse_closed_json::<super::TextDraftSaveRequest>(
+            &serde_json::to_vec(&draft).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(parsed.subject, SENTINEL);
+        assert!(parsed.text_body.contains("DROP TABLE"));
+        assert!(parsed.text_body.contains("Email/set"));
     }
 }

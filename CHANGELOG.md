@@ -35,6 +35,14 @@ implementation evidence remains in
 
 ### Security
 
+- Protected request contracts now fail closed on adversarial JSON without
+  echoing the payload. `parse_closed_json` covers every V2 request DTO for
+  unknown fields, type confusion, bounds, and malformed documents. Axum's
+  plain-text JSON, query, and path rejections are rewritten to the existing
+  error contract; OAuth and SCIM bodies stay on their protocol schemas. Draft
+  subjects, inbox search text, human return paths, and mail domain names also
+  reject Unicode format and bidi marks. This is not a fuzzer, pentest, mail
+  import, or MX rollout.
 - The P1 “request id on every error and worker log” remainder was rechecked
   against the V2 control plane and closed without a new correlation field.
   `ErrorResponse` still carries `request_id` and `trace_id`, and the router

@@ -325,6 +325,7 @@ pub(crate) fn router_with_state(state: AppState, scim_identity_provider: Option<
     }
     let state = Arc::new(state);
     router
+        .layer(middleware::from_fn(redact_extractor_disclosure))
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
         .layer(
             TraceLayer::new_for_http().make_span_with(|request: &Request| {
@@ -355,6 +356,111 @@ pub(crate) fn router_with_state(state: AppState, scim_identity_provider: Option<
         ))
         .layer(SetRequestIdLayer::new(request_id_header, MakeRequestUuid))
         .with_state(state)
+}
+
+enum ExtractorDisclosure {
+    ContentType,
+    Payload,
+}
+
+fn classify_extractor_text(text: &str) -> Option<ExtractorDisclosure> {
+    if text.contains("Expected request with `Content-Type: application/json`")
+        || text
+            .contains("Form requests must have `Content-Type: application/x-www-form-urlencoded`")
+    {
+        return Some(ExtractorDisclosure::ContentType);
+    }
+    if text.contains("Failed to deserialize the JSON body into the target type")
+        || text.contains("Failed to parse the request body as JSON")
+        || text.contains("Failed to deserialize query string")
+        || text.contains("Failed to deserialize form body")
+        || text.contains("Failed to deserialize form")
+        || text.contains("Invalid URL:")
+        || text.contains("Invalid UTF-8 in `")
+    {
+        return Some(ExtractorDisclosure::Payload);
+    }
+    None
+}
+
+pub(crate) async fn redact_extractor_disclosure(request: Request, next: Next) -> Response {
+    let path = request.uri().path().to_owned();
+    let request_id = request
+        .extensions()
+        .get::<RequestId>()
+        .map(request_id_value)
+        .unwrap_or_else(|| "missing".to_owned());
+    let response = next.run(request).await;
+    let status = response.status();
+    if !matches!(
+        status,
+        StatusCode::BAD_REQUEST
+            | StatusCode::UNPROCESSABLE_ENTITY
+            | StatusCode::UNSUPPORTED_MEDIA_TYPE
+    ) {
+        return response;
+    }
+    let content_type = response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("");
+    if !content_type.to_ascii_lowercase().starts_with("text/plain") {
+        return response;
+    }
+    let (parts, body) = response.into_parts();
+    let Ok(bytes) = to_bytes(body, 8 * 1024).await else {
+        return redacted_extractor_response(
+            status,
+            &path,
+            &request_id,
+            ExtractorDisclosure::Payload,
+        );
+    };
+    let text = String::from_utf8_lossy(&bytes);
+    let Some(kind) = classify_extractor_text(&text) else {
+        return Response::from_parts(parts, axum::body::Body::from(bytes));
+    };
+    redacted_extractor_response(status, &path, &request_id, kind)
+}
+
+fn redacted_extractor_response(
+    status: StatusCode,
+    path: &str,
+    request_id: &str,
+    kind: ExtractorDisclosure,
+) -> Response {
+    if path.starts_with("/scim/") {
+        let mut response = (
+            status,
+            Json(serde_json::json!({
+                "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+                "status": status.as_u16().to_string(),
+                "scimType": "invalidValue",
+                "detail": "request payload is invalid",
+            })),
+        )
+            .into_response();
+        response.headers_mut().insert(
+            header::CONTENT_TYPE,
+            header::HeaderValue::from_static("application/scim+json"),
+        );
+        return response;
+    }
+    if path.starts_with("/oauth2/") {
+        return oauth_error(
+            status,
+            "invalid_request",
+            "the token request form is invalid",
+        );
+    }
+    let (code, message) = match kind {
+        ExtractorDisclosure::ContentType => {
+            ("invalid_content_type", "Content-Type is not accepted")
+        }
+        ExtractorDisclosure::Payload => ("invalid_request", "request payload is invalid"),
+    };
+    api_error(status, code, message, false, request_id)
 }
 
 pub(crate) struct RequestHeaderExtractor<'a>(pub(crate) &'a HeaderMap);

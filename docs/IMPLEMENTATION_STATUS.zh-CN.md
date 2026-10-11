@@ -116,6 +116,7 @@ Compose 长状态继续完整换行；D4E 把登录入口、已认证目录准�
 
 ## 本轮已落地
 
+- 2026-10-12 离线补了受保护契约的失败测试，没有放宽门禁，也没有做属性模糊、渗透、旧邮件导入或 MX 灰度。契约里的请求 DTO 和控制面 16 个 V2 HTTP query DTO 原本就有 `deny_unknown_fields`，这次没有再改这些属性。新增 `parse_closed_json`，表驱动覆盖每个 `*Request`：未知字段、类型混淆、`null`/`[]`、非法 UTF-8、尾随字节、无符号上界/`-1`/小数，以及有符号上界和小数。失败的 `Display`/`Debug` 固定为 `request payload is invalid` 和 `ClosedJsonError`，不回显哨兵。serde 派生的零字段结构体会接受 `[]`；`ApprovalCancellationRequest`、`RoleAssignmentRevocationRequest`、`WebhookDeadLetterReplayRequest` 改为只接受 JSON object，并继续拒绝未知字段。`{}` 仍然有效。自由文本里的 SQL/JMAP 字面量在契约层仍被接受。控制面在最内层增加 `redact_extractor_disclosure`，把 axum 对 JSON、query、path 的 `text/plain` 400/422/415 改写成 `ErrorResponse`（`invalid_request` 或 `invalid_content_type`）。`/scim/` 保持 RFC 7644 错误 schema，`/oauth2/` 保持 RFC 6749，缓存头仍是 `no-store`。OAuth 表单、OIDC 回调和 SCIM 写模型继续不使用 `deny_unknown_fields`。草稿主题、收件箱搜索词、Human `return_to` 和邮件域名在原有控制字符拒绝之外，再拒绝 Unicode 格式符和双向控制符；IDN 字母仍接受。`Email/set@example.com` 仍能解析。Axum 在替换响应之前仍会把原始 serde 错误记到 `axum::rejection` 的 trace。响应 DTO 没有整批改成 `deny_unknown_fields`。Rust 1.97.1 实跑 `cargo fmt --all --check` 通过，`CARGO_BUILD_JOBS=4 cargo clippy --workspace --all-targets --locked -- -D warnings` 通过，`CARGO_BUILD_JOBS=4 cargo test --workspace --locked` 为 443 passed、0 failed、43 ignored。ignored 未执行：PostgreSQL 集成 37、控制面 HTTP 2、MinIO Object Lock 4。未改 Web，未跑 npm。
 - 核对 P1「统一错误与请求 ID 全链路」后，阶段表不再把它列为未完成。V2
   `ErrorResponse` 只由 `api_error` / `api_error_with_details`
   （`apps/copilotmail-control/src/web_errors.rs`）和 `not_found`
@@ -746,6 +747,7 @@ Chromium 与 103 张 PNG。环境依赖集成项仍按 ignored/实际执行状�
 
 | 验证项 | 结果 |
 |---|---|
+| 2026-10-12 受保护契约负向测试 | Rust 1.97.1：`cargo fmt --all --check` 通过；`CARGO_BUILD_JOBS=4 cargo clippy --workspace --all-targets --locked -- -D warnings` 通过；`CARGO_BUILD_JOBS=4 cargo test --workspace --locked` 为 443 passed、0 failed、43 ignored。ignored 未执行：PostgreSQL 集成 37、控制面 HTTP 2、MinIO Object Lock 4。`python3 scripts/check_documentation.py`、`check_audit_governance.py`（85 个事件）、`check_function_test_matrix.py`（105 个能力）、`check_architecture.py` 通过；`python3 -m unittest discover -s scripts -p test_audit_governance.py` 为 17 项通过。未改 Web，未跑 npm。未执行属性模糊、渗透、旧邮件导入或 MX 灰度。 |
 | 2026-10-12 请求级浏览器会话审计 | Rust 1.97.1：`cargo fmt --all --check` 通过；`CARGO_BUILD_JOBS=4 cargo clippy --workspace --all-targets --locked -- -D warnings` 通过；`CARGO_BUILD_JOBS=4 cargo test --workspace --locked` 为 394 passed、0 failed、43 ignored。ignored 未执行：PostgreSQL 集成 37、控制面 HTTP 2、MinIO Object Lock 4。审计治理脚本 17 项自测通过，目录仍为 85 个事件。未改 Web，未跑 npm。 |
 | `cargo fmt --all --check` | 通过 |
 | `cargo check` | V1 根包、V2 workspace 与最终控制平面依赖组合分拆检查通过 |

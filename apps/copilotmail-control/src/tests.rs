@@ -4062,3 +4062,417 @@ async fn signing_key_manifest_resolves_relative_secret_files() {
     assert_eq!(loaded.digest.len(), 32);
     tokio::fs::remove_dir_all(directory).await.unwrap();
 }
+
+const CONTRACT_SENTINEL: &str = "CM-LEAK-\u{202e}'; DROP TABLE audit_events;--\r\nBcc: leak@example.test/../.well-known/jmap Email/set";
+
+fn percent_encode(value: &str) -> String {
+    let mut encoded = String::new();
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
+}
+
+fn closed_query<T: serde::de::DeserializeOwned>(query: &str) -> Result<T, &'static str> {
+    let uri: axum::http::Uri = if query.is_empty() {
+        "https://mail.example.test/resource".parse().unwrap()
+    } else {
+        format!("https://mail.example.test/resource?{query}")
+            .parse()
+            .unwrap()
+    };
+    match Query::<T>::try_from_uri(&uri) {
+        Ok(Query(value)) => Ok(value),
+        Err(_) => Err("request payload is invalid"),
+    }
+}
+
+fn assert_query_closed<T: serde::de::DeserializeOwned>(query: &str) {
+    assert_eq!(
+        closed_query::<T>(query).err(),
+        Some("request payload is invalid")
+    );
+}
+
+async fn assert_redacted_error(response: Response, status: StatusCode, code: &str, message: &str) {
+    assert_eq!(response.status(), status);
+    let content_type = response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("");
+    assert!(
+        content_type.starts_with("application/json"),
+        "{content_type}"
+    );
+    let request_header = response
+        .headers()
+        .get("x-request-id")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("")
+        .to_owned();
+    let body = to_bytes(response.into_body(), 16 * 1024).await.unwrap();
+    let text = String::from_utf8(body.to_vec()).unwrap();
+    for needle in [
+        "CM-LEAK",
+        "DROP TABLE",
+        "Bcc:",
+        "Email/set",
+        "Failed to deserialize",
+        "Invalid URL:",
+        "Expected request with",
+    ] {
+        assert!(!text.contains(needle), "{text}");
+    }
+    assert!(!text.contains('\u{202e}'), "{text}");
+    let error: ErrorResponse = serde_json::from_str(&text).unwrap();
+    assert_eq!(error.code, code);
+    assert_eq!(error.message, message);
+    assert!(!error.retryable);
+    assert_eq!(error.request_id, request_header);
+    assert_eq!(error.trace_id, request_header);
+}
+
+#[tokio::test]
+async fn protected_contract_rejections_do_not_echo_the_payload() {
+    let mailbox_id = "018f13b9-1111-7bc8-965d-48a28866f073";
+    let app = router(disconnected_store());
+    let payload = serde_json::json!({
+        "text": "quarterly",
+        "cursor": null,
+        "page_size": CONTRACT_SENTINEL
+    });
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/v2/mailboxes/{mailbox_id}/messages/search"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .header("x-request-id", "contract-b31")
+                .body(Body::from(serde_json::to_vec(&payload).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_redacted_error(
+        response,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request",
+        "request payload is invalid",
+    )
+    .await;
+
+    let response = router(disconnected_store())
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/v2/mailboxes/{mailbox_id}/messages?page_size={}",
+                    percent_encode(CONTRACT_SENTINEL)
+                ))
+                .header("x-request-id", "contract-query")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_redacted_error(
+        response,
+        StatusCode::BAD_REQUEST,
+        "invalid_request",
+        "request payload is invalid",
+    )
+    .await;
+
+    let response = router(disconnected_store())
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/v2/mailboxes/{mailbox_id}/messages?page_size=4294967296"
+                ))
+                .header("x-request-id", "contract-bound")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_redacted_error(
+        response,
+        StatusCode::BAD_REQUEST,
+        "invalid_request",
+        "request payload is invalid",
+    )
+    .await;
+
+    let response = router(disconnected_store())
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/v2/mailboxes/{}",
+                    percent_encode(CONTRACT_SENTINEL)
+                ))
+                .header("x-request-id", "contract-path")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_redacted_error(
+        response,
+        StatusCode::BAD_REQUEST,
+        "invalid_request",
+        "request payload is invalid",
+    )
+    .await;
+
+    let response = router(disconnected_store())
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/v2/mailboxes/{mailbox_id}/messages/search"))
+                .header("x-request-id", "contract-type")
+                .body(Body::from(r#"{"text":"quarterly"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_redacted_error(
+        response,
+        StatusCode::UNSUPPORTED_MEDIA_TYPE,
+        "invalid_content_type",
+        "Content-Type is not accepted",
+    )
+    .await;
+
+    let response = router(disconnected_store())
+        .oneshot(
+            Request::builder()
+                .uri("/missing")
+                .header("x-request-id", "contract-missing")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_redacted_error(
+        response,
+        StatusCode::NOT_FOUND,
+        "route_not_found",
+        "the requested API route does not exist",
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn unrelated_plain_text_and_scim_extractor_errors_keep_their_contracts() {
+    let preserved = Router::new()
+        .route(
+            "/plain",
+            get(|| async { (StatusCode::BAD_REQUEST, "policy denied") }),
+        )
+        .layer(middleware::from_fn(redact_extractor_disclosure));
+    let response = preserved
+        .oneshot(
+            Request::builder()
+                .uri("/plain")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = to_bytes(response.into_body(), 1024).await.unwrap();
+    assert_eq!(body.as_ref(), b"policy denied");
+
+    let disclosed = Router::new()
+        .route(
+            "/scim/v2/Users",
+            get(|| async {
+                (
+                    StatusCode::BAD_REQUEST,
+                    format!("Failed to deserialize query string: {CONTRACT_SENTINEL}"),
+                )
+                    .into_response()
+            }),
+        )
+        .layer(middleware::from_fn(redact_extractor_disclosure));
+    let response = disclosed
+        .oneshot(
+            Request::builder()
+                .uri("/scim/v2/Users")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response.headers()[header::CONTENT_TYPE],
+        "application/scim+json"
+    );
+    let body = to_bytes(response.into_body(), 16 * 1024).await.unwrap();
+    let text = String::from_utf8(body.to_vec()).unwrap();
+    assert!(!text.contains("CM-LEAK"), "{text}");
+    assert!(!text.contains("DROP TABLE"), "{text}");
+    assert!(!text.contains('\u{202e}'), "{text}");
+    let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        value["schemas"][0],
+        "urn:ietf:params:scim:api:messages:2.0:Error"
+    );
+    assert_eq!(value["status"], "400");
+    assert_eq!(value["scimType"], "invalidValue");
+    assert_eq!(value["detail"], "request payload is invalid");
+    assert!(value.get("request_id").is_none());
+}
+
+#[tokio::test]
+async fn oauth_token_form_keeps_protocol_errors_and_ignores_extension_fields() {
+    let missing_grant = router(disconnected_store())
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/oauth2/token")
+                .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body(Body::from(format!(
+                    "client_id={}",
+                    percent_encode(CONTRACT_SENTINEL)
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(missing_grant.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(missing_grant.headers()[header::CACHE_CONTROL], "no-store");
+    assert_eq!(missing_grant.headers()[header::PRAGMA], "no-cache");
+    let body = to_bytes(missing_grant.into_body(), 16 * 1024)
+        .await
+        .unwrap();
+    let text = String::from_utf8(body.to_vec()).unwrap();
+    assert!(!text.contains("CM-LEAK"), "{text}");
+    assert!(!text.contains('\u{202e}'), "{text}");
+    let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(value["error"], "invalid_request");
+    assert_eq!(
+        value["error_description"],
+        "the token request form is invalid"
+    );
+
+    let extension = router(disconnected_store())
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/oauth2/token")
+                .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body(Body::from(format!(
+                    "grant_type=client_credentials&client_id=abc&resource={}",
+                    percent_encode(CONTRACT_SENTINEL)
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(extension.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(extension.headers()[header::CACHE_CONTROL], "no-store");
+    let body = to_bytes(extension.into_body(), 16 * 1024).await.unwrap();
+    let text = String::from_utf8(body.to_vec()).unwrap();
+    assert!(!text.contains("CM-LEAK"), "{text}");
+    let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(value["error"], "temporarily_unavailable");
+    assert_eq!(value["error_description"], "Agent OAuth is not configured");
+}
+
+#[test]
+fn protected_query_contracts_reject_unknown_fields_and_bad_limits() {
+    let encoded = percent_encode(CONTRACT_SENTINEL);
+    assert!(closed_query::<AgentEventCursorQuery>("").is_ok());
+    assert_query_closed::<AgentEventCursorQuery>("injected=1");
+    assert!(closed_query::<AgentEventCursorQuery>("limit=65535").is_ok());
+    assert_query_closed::<AgentEventCursorQuery>("limit=65536");
+    assert_query_closed::<AgentEventCursorQuery>("limit=-1");
+    assert_query_closed::<AgentEventCursorQuery>(&format!("limit={encoded}"));
+
+    assert!(closed_query::<AgentEventStreamQuery>("").is_ok());
+    assert_query_closed::<AgentEventStreamQuery>("injected=1");
+    assert!(closed_query::<AgentEventStreamQuery>(&format!("cursor={encoded}")).is_ok());
+
+    assert!(closed_query::<HumanLoginQuery>("").is_ok());
+    assert_query_closed::<HumanLoginQuery>("injected=1");
+    let login = closed_query::<HumanLoginQuery>(&format!("return_to={encoded}")).unwrap();
+    assert_eq!(login.return_to.as_deref(), Some(CONTRACT_SENTINEL));
+
+    assert!(closed_query::<WebhookSubscriptionListQuery>("").is_ok());
+    assert_query_closed::<WebhookSubscriptionListQuery>("injected=1");
+    assert!(closed_query::<WebhookSubscriptionListQuery>("limit=65535").is_ok());
+    assert_query_closed::<WebhookSubscriptionListQuery>("limit=65536");
+
+    assert!(closed_query::<WebhookDeadLetterListQuery>("").is_ok());
+    assert_query_closed::<WebhookDeadLetterListQuery>("injected=1");
+    assert_query_closed::<WebhookDeadLetterListQuery>(&format!("limit={encoded}"));
+
+    assert!(closed_query::<HumanMailboxDirectoryQuery>("").is_ok());
+    assert_query_closed::<HumanMailboxDirectoryQuery>("injected=1");
+    assert!(closed_query::<HumanMailboxDirectoryQuery>("limit=65535").is_ok());
+    assert_query_closed::<HumanMailboxDirectoryQuery>("limit=65536");
+
+    assert!(closed_query::<HumanDraftListQuery>("").is_ok());
+    assert_query_closed::<HumanDraftListQuery>("injected=1");
+    assert_query_closed::<HumanDraftListQuery>("limit=-1");
+
+    assert!(closed_query::<HumanSentListQuery>("").is_ok());
+    assert_query_closed::<HumanSentListQuery>("injected=1");
+    assert_query_closed::<HumanSentListQuery>(&format!("cursor={encoded}&limit=65536"));
+
+    assert!(closed_query::<RoleAssignmentHttpQuery>("").is_ok());
+    assert_query_closed::<RoleAssignmentHttpQuery>("injected=1");
+    assert_query_closed::<RoleAssignmentHttpQuery>("principal_id=not-a-uuid");
+    assert_query_closed::<RoleAssignmentHttpQuery>("include_inactive=not-bool");
+    assert!(
+        closed_query::<RoleAssignmentHttpQuery>(
+            "principal_id=018f13b9-1111-7bc8-965d-48a28866f073&include_inactive=true&limit=-1"
+        )
+        .is_ok()
+    );
+    assert_query_closed::<RoleAssignmentHttpQuery>("limit=9223372036854775808");
+
+    assert!(closed_query::<ComplianceCaseListQuery>("").is_ok());
+    assert_query_closed::<ComplianceCaseListQuery>("injected=1");
+    assert!(closed_query::<ComplianceCaseListQuery>("limit=-1").is_ok());
+    assert_query_closed::<ComplianceCaseListQuery>("limit=9223372036854775808");
+
+    assert!(closed_query::<LegalHoldListQuery>("").is_ok());
+    assert_query_closed::<LegalHoldListQuery>("injected=1");
+    assert!(closed_query::<LegalHoldListQuery>(&format!("status={encoded}&limit=-1")).is_ok());
+    assert!(closed_query::<LegalHoldListQuery>("limit=-1").is_ok());
+
+    assert!(closed_query::<InboxListQuery>("").is_ok());
+    assert_query_closed::<InboxListQuery>("injected=1");
+    assert!(closed_query::<InboxListQuery>("page_size=0").is_ok());
+    assert!(closed_query::<InboxListQuery>("page_size=4294967295").is_ok());
+    assert_query_closed::<InboxListQuery>("page_size=4294967296");
+    assert_query_closed::<InboxListQuery>("page_size=-1");
+    assert_query_closed::<InboxListQuery>(&format!("page_size={encoded}"));
+
+    assert!(closed_query::<AuditEventSearchQuery>("").is_ok());
+    assert_query_closed::<AuditEventSearchQuery>("injected=1");
+    assert!(closed_query::<AuditEventSearchQuery>("limit=65535").is_ok());
+    assert_query_closed::<AuditEventSearchQuery>("limit=65536");
+
+    assert!(closed_query::<MailDomainListQuery>("").is_ok());
+    assert_query_closed::<MailDomainListQuery>("injected=1");
+    assert_query_closed::<MailDomainListQuery>(&format!("after={encoded}&limit=65536"));
+
+    assert!(closed_query::<AgentProcessingDeadLetterQueryParams>("").is_ok());
+    assert_query_closed::<AgentProcessingDeadLetterQueryParams>("injected=1");
+    assert!(closed_query::<AgentProcessingDeadLetterQueryParams>("limit=65535").is_ok());
+    assert_query_closed::<AgentProcessingDeadLetterQueryParams>("limit=65536");
+
+    assert!(closed_query::<ApprovalRequestListQuery>("").is_ok());
+    assert_query_closed::<ApprovalRequestListQuery>("injected=1");
+    assert!(closed_query::<ApprovalRequestListQuery>("limit=-1").is_ok());
+    assert_query_closed::<ApprovalRequestListQuery>("limit=9223372036854775808");
+    assert!(closed_query::<ApprovalRequestListQuery>(&format!("view={encoded}")).is_ok());
+}
