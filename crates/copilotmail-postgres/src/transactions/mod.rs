@@ -21,6 +21,7 @@ mod ingestion;
 mod mail_domains;
 mod mail_submissions;
 mod mailboxes;
+pub(crate) use mailboxes::mailbox_send_capability_held;
 mod port;
 mod retention;
 mod roles;

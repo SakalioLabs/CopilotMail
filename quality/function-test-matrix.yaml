@@ -694,7 +694,8 @@
           "rollback"
         ],
         "concurrency": [
-          "pg"
+          "pg",
+          "race"
         ]
       },
       "test_refs": {
@@ -757,11 +758,16 @@
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "approval_workflow_enforces_dual_control_scope_and_expiry",
           "execution": "passed"
+        },
+        "race": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "approval_decisions_are_mutually_exclusive_under_concurrency",
+          "execution": "passed"
         }
       },
-      "environment": "Local deterministic tests; real PostgreSQL/mail concurrency deferred",
+      "environment": "Unit refs keep their prior passed result. On 2026-10-12 a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, passed approval_decisions_are_mutually_exclusive_under_concurrency in 3.98s. Two connections overlap while the request row is locked. Exactly one approver commits when one approval is required; the same approver cannot vote twice; the requester cannot self-approve; approve versus cancel and approve versus reject each have one winner; an approval held across expiry does not commit.",
       "evidence_ref": "docs/CODE_QUALITY_REVIEW.zh-CN.md",
-      "candidate_revision": "quality-unsealed-working-tree-2026-09-19",
+      "candidate_revision": "local-pg17-batch8-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -2371,9 +2377,9 @@
           "execution": "passed"
         }
       },
-      "environment": "Disposable PostgreSQL 17 integration suite executed green",
+      "environment": "Earlier disposable PostgreSQL evidence stays passed. On 2026-10-12 a local non-CI PostgreSQL 17.11 database named copilotmail_test_<suffix> reran human_drafts_are_private_authorized_binding_safe_and_finally_rechecked after draft metadata began holding the send grant until commit. That test passed.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "post-fence-remediation-2026-08-22",
+      "candidate_revision": "local-pg17-batch8-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -2487,7 +2493,7 @@
           "execution": "passed"
         }
       },
-      "environment": "Earlier disposable PostgreSQL evidence stays passed. On 2026-10-12 a local non-CI PostgreSQL 17.11 database named copilotmail_test_<suffix> returned SQLSTATE 42501 for SET session_replication_role until the non-superuser role received GRANT SET ON PARAMETER session_replication_role. That single test then passed in 0.59s and the grant was revoked. A dirty-database rerun is not repeatable because several fixtures use fixed unique keys.",
+      "environment": "Earlier disposable PostgreSQL evidence stays passed. On 2026-10-12 a local non-CI PostgreSQL 17.11 database named copilotmail_test_<suffix> returned SQLSTATE 42501 for SET session_replication_role until the non-superuser role received GRANT SET ON PARAMETER session_replication_role. That single test then passed in 0.59s and the grant was revoked. A dirty-database rerun is not repeatable because several fixtures use fixed unique keys. After the send recheck, the same test again returned 42501 without that grant. A temporary GRANT SET ON PARAMETER session_replication_role made it pass in 0.80s, and the grant was revoked.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
       "candidate_revision": "post-fence-remediation-2026-08-22",
       "owner": "primary-implementer",
@@ -2550,7 +2556,7 @@
           "execution": "passed"
         }
       },
-      "environment": "Disposable PostgreSQL 17 integration suite executed green",
+      "environment": "Earlier clean-database evidence stays passed. On 2026-10-12 a dirty-database rerun of mail_draft_provenance_is_versioned_frozen_and_submission_bound stopped at bind with Store(Conflict) on the fixed legacy data-plane account_ref, before the new send recheck. execution stays passed from the earlier clean-database run.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
       "candidate_revision": "post-fence-remediation-2026-08-22",
       "owner": "primary-implementer",
@@ -2712,7 +2718,8 @@
           "grant"
         ],
         "concurrency": [
-          "pg"
+          "pg",
+          "race"
         ]
       },
       "test_refs": {
@@ -2725,11 +2732,16 @@
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "mailbox_delegation_is_tenant_resource_time_and_send_as_bound",
           "execution": "passed"
+        },
+        "race": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "mailbox_grant_revoke_and_send_are_single_effect_under_concurrency",
+          "execution": "passed"
         }
       },
-      "environment": "Disposable PostgreSQL 17 integration suite executed green",
+      "environment": "Earlier delegation ref keeps its prior passed result. On 2026-10-12 a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, passed mailbox_grant_revoke_and_send_are_single_effect_under_concurrency and reran mailbox_delegation_is_tenant_resource_time_and_send_as_bound. One grant and one revoke succeed. A revoke that commits during the engine gap leaves no draft. A submission that is already waiting on the grant cannot create a second intent after revocation.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "post-fence-remediation-2026-08-22",
+      "candidate_revision": "local-pg17-batch8-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },

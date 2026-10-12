@@ -67,6 +67,21 @@ impl PgControlPlaneTransaction {
             });
         }
 
+        // Re-check after the idempotent replay. A revocation that commits
+        // before this lock cannot freeze a new draft; one that arrives after
+        // the lock waits until this intent commits.
+        if !self
+            .tx_mailbox_send_capability_held(
+                write.organization_id,
+                write.requested_by,
+                write.mailbox_id,
+                write.now,
+            )
+            .await?
+        {
+            return Err(StoreError::MissingReference);
+        }
+
         #[derive(sqlx::FromRow)]
         struct FrozenDraftRow {
             mail_data_plane_id: Uuid,

@@ -50,6 +50,20 @@ impl MailDraftMetadataStore for PgControlPlaneStore {
             .iter()
             .map(|recipient| recipient.domain.clone())
             .collect::<Vec<_>>();
+        // The engine write already happened. Hold the grant until this
+        // metadata insert commits so a revocation in that gap cannot persist.
+        let mut transaction = self.pool.begin().await.map_err(map_store_error)?;
+        if !crate::transactions::mailbox_send_capability_held(
+            &mut transaction,
+            write.organization_id,
+            write.created_by,
+            write.mailbox_id,
+            write.now,
+        )
+        .await?
+        {
+            return Err(StoreError::MissingReference);
+        }
         let row = if let Some(expected_version) = write.expected_version {
             sqlx::query_as::<_, MailDraftRow>(
                 r#"
@@ -95,7 +109,7 @@ impl MailDraftMetadataStore for PgControlPlaneStore {
             .bind(expected_version)
             .bind(write.reply_to_message_id)
             .bind(write.reply_to_automatic)
-            .fetch_optional(&self.pool)
+            .fetch_optional(&mut *transaction)
             .await
             .map_err(map_store_error)?
             .ok_or(StoreError::Conflict)?
@@ -135,10 +149,11 @@ impl MailDraftMetadataStore for PgControlPlaneStore {
             .bind(&recipient_refs)
             .bind(&recipient_domains)
             .bind(write.now)
-            .fetch_one(&self.pool)
+            .fetch_one(&mut *transaction)
             .await
             .map_err(map_store_error)?
         };
+        transaction.commit().await.map_err(map_store_error)?;
         mail_draft_from_row(row)
     }
 }

@@ -277,4 +277,83 @@ impl PgControlPlaneTransaction {
         .await
         .map_err(map_store_error)
     }
+
+    pub(crate) async fn tx_mailbox_send_capability_held(
+        &mut self,
+        organization_id: OrganizationId,
+        principal_id: PrincipalId,
+        mailbox_id: MailboxId,
+        now: DateTime<Utc>,
+    ) -> Result<bool, StoreError> {
+        mailbox_send_capability_held(
+            self.transaction()?,
+            organization_id,
+            principal_id,
+            mailbox_id,
+            now,
+        )
+        .await
+    }
+}
+
+/// Locks the membership or active delegation that still grants `mailbox.send`.
+///
+/// The share lock is held until the caller commits, so a revocation `UPDATE`
+/// cannot land between this check and the send it authorizes. `valid_until`
+/// is compared to the database clock. `valid_from` also accepts the caller
+/// timestamp already enforced by the earlier authorization check, so a clock
+/// that trails the application does not reject a grant that has just started.
+pub(crate) async fn mailbox_send_capability_held(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    organization_id: OrganizationId,
+    principal_id: PrincipalId,
+    mailbox_id: MailboxId,
+    now: DateTime<Utc>,
+) -> Result<bool, StoreError> {
+    sqlx::query_scalar(
+        r#"
+        SELECT
+            EXISTS (
+                SELECT 1
+                  FROM mailbox_memberships AS membership
+                  JOIN principals AS principal
+                    ON principal.id = membership.principal_id
+                   AND principal.organization_id = membership.organization_id
+                   AND principal.status = 'active'
+                 WHERE membership.organization_id = $1
+                   AND membership.mailbox_id = $2
+                   AND membership.principal_id = $3
+                   AND membership.role IN ('owner', 'member')
+                   AND membership.valid_from <= GREATEST(clock_timestamp(), $4::timestamptz)
+                   AND (
+                       membership.valid_until IS NULL
+                       OR membership.valid_until > clock_timestamp()
+                   )
+                 FOR SHARE OF membership
+            )
+            OR EXISTS (
+                SELECT 1
+                  FROM delegations AS delegation
+                  JOIN principals AS principal
+                    ON principal.id = delegation.grantee_principal_id
+                   AND principal.organization_id = delegation.organization_id
+                   AND principal.status = 'active'
+                 WHERE delegation.organization_id = $1
+                   AND delegation.mailbox_id = $2
+                   AND delegation.grantee_principal_id = $3
+                   AND 'mailbox.send' = ANY(delegation.scopes)
+                   AND delegation.revoked_at IS NULL
+                   AND delegation.valid_from <= GREATEST(clock_timestamp(), $4::timestamptz)
+                   AND delegation.valid_until > clock_timestamp()
+                 FOR SHARE OF delegation
+            )
+        "#,
+    )
+    .bind(organization_id.as_uuid())
+    .bind(mailbox_id.as_uuid())
+    .bind(principal_id.as_uuid())
+    .bind(now)
+    .fetch_one(&mut **transaction)
+    .await
+    .map_err(map_store_error)
 }

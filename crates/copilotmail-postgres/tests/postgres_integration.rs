@@ -20,8 +20,8 @@ use copilotmail_application::{
     AgentMailSandboxService, AgentMailSubmissionEvidenceService, AgentMessageProcessingState,
     AgentProcessingService, AgentProcessingSubscriptionStatus, AppendRetentionPolicyVersionCommand,
     ApprovalGateService, ApprovalPolicyService, ApprovalProof, ApprovalQueryStore,
-    ApprovalRequestView, ApprovalWorkflowService, ArchivedObjectRecord, AuditArchiveRecord,
-    AuditEventSearchError, AuditEventSearchService, AuditExportArtifact,
+    ApprovalRequestView, ApprovalWorkflowError, ApprovalWorkflowService, ArchivedObjectRecord,
+    AuditArchiveRecord, AuditEventSearchError, AuditEventSearchService, AuditExportArtifact,
     AuditExportAuthorizationService, AuditExportDownloadService, AuditExportQueryStore,
     AuthorizationStore, AuthorizeAuditExportCommand, BeginHumanLoginCommand,
     BindMailEngineMailboxCommand, BindOidcOwnerCommand, BindOidcOwnerService,
@@ -31,7 +31,7 @@ use copilotmail_application::{
     CreateAgentMailPolicyVersionCommand, CreateApprovalPolicyCommand, CreateAuditCheckpointCommand,
     CreateAuditCheckpointService, CreateHumanSessionCommand, CreateMailboxCommand,
     CreateRetentionPolicyCommand, CreateWebhookSubscriptionCommand, DecideApprovalCommand,
-    DeleteScimGroupCommand, DraftService, EnsureAgentProcessingSubscriptionCommand,
+    DeleteScimGroupCommand, DraftError, DraftService, EnsureAgentProcessingSubscriptionCommand,
     ExecuteMailSubmissionCommand, ExternalIdentityResolver, GetAgentInspectorCommand,
     GetAgentMailSubmissionEvidenceCommand, GetApprovalRequestCommand,
     GrantMailboxDelegationCommand, GrantRoleAssignmentCommand, HumanDraftError,
@@ -48,20 +48,20 @@ use copilotmail_application::{
     MailDeliveryReconciliationResult, MailDeliveryReconciliationService, MailDomainGovernanceError,
     MailDomainGovernanceService, MailDomainQueryStore, MailDraftMetadataStore,
     MailDraftRecipientEvidence, MailDraftWrite, MailEngineEventIngestionService,
-    MailEngineMailboxBindingService, MailEventFingerprintScheme, MailSubmissionExecutionResult,
-    MailSubmissionExecutor, MailSubmissionIntentRecord, MailSubmissionService,
-    MailboxAuthorizationStore, MailboxDelegationService, MailboxManagementService,
-    NackAgentMessageCommand, OpenAgentEventStreamCommand, PendingEvent, ProvisionScimGroupCommand,
-    ProvisionScimUserCommand, PullAgentEventsCommand, ReconcileMailDeliveryCommand,
-    RecordAuditArchiveCommand, RecordAuditArchiveService, RecordAuditExportDownloadCommand,
-    RecordMailDomainDnsCommand, RegisterAgentCommand, RegisterAgentService,
-    RegisterMailDomainCommand, ReplaceScimGroupCommand, ReplaceScimUserCommand,
-    ReplayWebhookDeadLetterCommand, RequestApprovalCommand, RequestMailSubmissionCommand,
-    ResolveAuditExportObjectCommand, ResolveHumanSessionCommand, RestoreHumanDraftCommand,
-    RetentionPolicyQueryStore, RetentionPolicyService, RevokeAgentCredentialCommand,
-    RevokeAgentCredentialService, RevokeHumanSessionCommand, RevokeMailboxDelegationCommand,
-    RevokeRoleAssignmentCommand, RevokeScimTokenCommand, RevokeScimTokenService,
-    RoleGovernanceError, RoleGovernanceQueryStore, RoleGovernanceService,
+    MailEngineMailboxBindingService, MailEventFingerprintScheme, MailSubmissionError,
+    MailSubmissionExecutionResult, MailSubmissionExecutor, MailSubmissionIntentRecord,
+    MailSubmissionService, MailboxAuthorizationError, MailboxAuthorizationStore,
+    MailboxDelegationService, MailboxManagementService, NackAgentMessageCommand,
+    OpenAgentEventStreamCommand, PendingEvent, ProvisionScimGroupCommand, ProvisionScimUserCommand,
+    PullAgentEventsCommand, ReconcileMailDeliveryCommand, RecordAuditArchiveCommand,
+    RecordAuditArchiveService, RecordAuditExportDownloadCommand, RecordMailDomainDnsCommand,
+    RegisterAgentCommand, RegisterAgentService, RegisterMailDomainCommand, ReplaceScimGroupCommand,
+    ReplaceScimUserCommand, ReplayWebhookDeadLetterCommand, RequestApprovalCommand,
+    RequestMailSubmissionCommand, ResolveAuditExportObjectCommand, ResolveHumanSessionCommand,
+    RestoreHumanDraftCommand, RetentionPolicyQueryStore, RetentionPolicyService,
+    RevokeAgentCredentialCommand, RevokeAgentCredentialService, RevokeHumanSessionCommand,
+    RevokeMailboxDelegationCommand, RevokeRoleAssignmentCommand, RevokeScimTokenCommand,
+    RevokeScimTokenService, RoleGovernanceError, RoleGovernanceQueryStore, RoleGovernanceService,
     RotateMailDomainChallengeCommand, SaveTextDraftCommand, SavedTextDraft,
     ScimDirectoryQueryStore, ScimGroupService, ScimUserService, SearchAuditEventsCommand,
     StoreError, SuspendMailDomainCommand, UpdateMailDomainRouteCommand,
@@ -72,12 +72,12 @@ use copilotmail_audit::RsaAuditCheckpointSigner;
 use copilotmail_crypto::RsaPrivateKey;
 use copilotmail_domain::{
     AUDIT_EVENT_CATALOG, AgentEnvironment, AgentRiskLevel, ApprovalAction, ApprovalDecision,
-    ApprovalStatus, AuditArchiveId, AuditCheckpointId, AuditRisk, AuthenticationBinding,
-    AuthorizationContext, ComplianceCaseId, ComplianceCaseStatus, DnsVerificationChecks,
-    DnsVerificationEvidence, DraftId, HumanSessionId, LeaseId, MailDataPlaneId,
-    MailDomainRouteMode, MailDomainStatus, MailEngineProjectionStatus, MailboxAddress,
-    MailboxCapability, MailboxKind, OrganizationId, Permission, PrincipalId, RetentionResourceKind,
-    ScimTokenId, SystemRole,
+    ApprovalRequestId, ApprovalStatus, AuditArchiveId, AuditCheckpointId, AuditRisk,
+    AuthenticationBinding, AuthorizationContext, ComplianceCaseId, ComplianceCaseStatus,
+    DnsVerificationChecks, DnsVerificationEvidence, DraftId, HumanSessionId, LeaseId,
+    MailDataPlaneId, MailDomainRouteMode, MailDomainStatus, MailEngineProjectionStatus,
+    MailboxAddress, MailboxCapability, MailboxKind, OrganizationId, Permission, PrincipalId,
+    RetentionResourceKind, ScimTokenId, SystemRole,
 };
 use copilotmail_postgres::{PgControlPlaneStore, WebhookDeliveryOutcome};
 use serde_json::json;
@@ -86,7 +86,7 @@ use std::{
     collections::BTreeSet,
     sync::{
         Arc,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
 };
 use uuid::Uuid;
@@ -524,6 +524,39 @@ async fn expect_no_lock_hang<T>(operation: impl std::future::Future<Output = T>)
     tokio::time::timeout(LOCK_WAIT, operation)
         .await
         .expect("operation blocked on a database lock for more than 15s")
+}
+
+async fn count_lock_waiters(executor: &mut sqlx::Transaction<'_, sqlx::Postgres>) -> i64 {
+    sqlx::query_scalar(
+        r#"
+        SELECT count(*)
+          FROM pg_stat_activity
+         WHERE datname = current_database()
+           AND usename = current_user
+           AND pid <> pg_backend_pid()
+           AND wait_event_type = 'Lock'
+        "#,
+    )
+    .fetch_one(&mut **executor)
+    .await
+    .expect("count sessions waiting on a lock")
+}
+
+async fn wait_for_lock_waiters(
+    executor: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    expected: i64,
+) {
+    let started = std::time::Instant::now();
+    loop {
+        let waiting = count_lock_waiters(executor).await;
+        if waiting >= expected {
+            return;
+        }
+        if started.elapsed() > LOCK_WAIT {
+            panic!("timed out waiting for {expected} lock waiters, saw {waiting}");
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
 }
 
 fn assert_constraint_rejection(result: Result<sqlx::postgres::PgQueryResult, sqlx::Error>) {
@@ -4866,6 +4899,1235 @@ async fn mailbox_delegation_is_tenant_resource_time_and_send_as_bound() {
             .await
             .unwrap()
             .is_none()
+    );
+}
+
+struct GatedDraftAdapter {
+    entered: Arc<AtomicBool>,
+    entered_notify: Arc<tokio::sync::Notify>,
+    release: Arc<tokio::sync::Notify>,
+}
+
+impl MailDataPlanePort for GatedDraftAdapter {
+    fn data_plane_id(&self) -> MailDataPlaneId {
+        legacy_mail_data_plane_id()
+    }
+}
+
+#[async_trait]
+impl MailDraftStore for GatedDraftAdapter {
+    async fn probe_drafts(&self) -> Result<(), MailEngineError> {
+        Ok(())
+    }
+
+    async fn save_text_draft(
+        &self,
+        account_ref: &str,
+        _previous_draft_id: Option<&str>,
+        input: &TextDraftInput,
+    ) -> Result<MailDraft, MailEngineError> {
+        assert!(!account_ref.is_empty());
+        assert!(input.from.ends_with("@example.test"));
+        self.entered.store(true, Ordering::Release);
+        self.entered_notify.notify_one();
+        self.release.notified().await;
+        Ok(MailDraft {
+            id: format!("gated-draft-{}", Uuid::new_v4().simple()),
+            thread_id: format!("gated-thread-{}", Uuid::new_v4().simple()),
+            reply_source_automatic: false,
+            previous_draft_destroyed: false,
+        })
+    }
+}
+
+async fn wait_until_flag(flag: &AtomicBool, notify: &tokio::sync::Notify) {
+    let started = std::time::Instant::now();
+    loop {
+        if flag.load(Ordering::Acquire) {
+            return;
+        }
+        if started.elapsed() > LOCK_WAIT {
+            panic!("timed out waiting for the authorized draft save to reach the engine");
+        }
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(50), notify.notified()).await;
+    }
+}
+
+fn send_delegation_command(
+    organization_id: OrganizationId,
+    mailbox_id: copilotmail_domain::MailboxId,
+    grantee_principal_id: PrincipalId,
+    now: chrono::DateTime<Utc>,
+    reason: &str,
+) -> GrantMailboxDelegationCommand {
+    GrantMailboxDelegationCommand {
+        organization_id,
+        mailbox_id,
+        grantee_principal_id,
+        capabilities: [MailboxCapability::Read, MailboxCapability::Send]
+            .into_iter()
+            .collect(),
+        reason: reason.into(),
+        valid_from: now - chrono::Duration::minutes(1),
+        valid_until: now + chrono::Duration::hours(1),
+        trace_id: Uuid::now_v7().to_string(),
+        now,
+    }
+}
+
+async fn delegation_ledger(
+    store: &PgControlPlaneStore,
+    organization_id: OrganizationId,
+    mailbox_id: copilotmail_domain::MailboxId,
+    grantee_principal_id: PrincipalId,
+) -> (i64, i64, i64, i64, i64, i64) {
+    sqlx::query_as(
+        r#"
+        SELECT
+          (SELECT count(*) FROM delegations
+            WHERE organization_id = $1
+              AND mailbox_id = $2
+              AND grantee_principal_id = $3),
+          (SELECT count(*) FROM delegations
+            WHERE organization_id = $1
+              AND mailbox_id = $2
+              AND grantee_principal_id = $3
+              AND revoked_at IS NULL),
+          (SELECT count(*) FROM audit_events
+            WHERE organization_id = $1
+              AND action = 'authorization.mailbox_delegation.granted'
+              AND resource_id IN (
+                  SELECT id::text FROM delegations
+                   WHERE organization_id = $1
+                     AND mailbox_id = $2
+                     AND grantee_principal_id = $3
+              )),
+          (SELECT count(*) FROM audit_events
+            WHERE organization_id = $1
+              AND action = 'authorization.mailbox_delegation.revoked'
+              AND resource_id IN (
+                  SELECT id::text FROM delegations
+                   WHERE organization_id = $1
+                     AND mailbox_id = $2
+                     AND grantee_principal_id = $3
+              )),
+          (SELECT count(*) FROM outbox_events
+            WHERE event_type = 'authorization.mailbox_delegation.granted.v1'
+              AND aggregate_id IN (
+                  SELECT id::text FROM delegations
+                   WHERE organization_id = $1
+                     AND mailbox_id = $2
+                     AND grantee_principal_id = $3
+              )),
+          (SELECT count(*) FROM outbox_events
+            WHERE event_type = 'authorization.mailbox_delegation.revoked.v1'
+              AND aggregate_id IN (
+                  SELECT id::text FROM delegations
+                   WHERE organization_id = $1
+                     AND mailbox_id = $2
+                     AND grantee_principal_id = $3
+              ))
+        "#,
+    )
+    .bind(organization_id.as_uuid())
+    .bind(mailbox_id.as_uuid())
+    .bind(grantee_principal_id.as_uuid())
+    .fetch_one(store.pool())
+    .await
+    .expect("count delegation race effects")
+}
+
+fn decide_command(
+    context: AuthorizationContext,
+    request_id: ApprovalRequestId,
+    decision: ApprovalDecision,
+    reason: &str,
+    now: chrono::DateTime<Utc>,
+) -> DecideApprovalCommand {
+    DecideApprovalCommand {
+        context,
+        request_id,
+        decision,
+        reason: reason.into(),
+        trace_id: Uuid::now_v7().to_string(),
+        now,
+    }
+}
+
+async fn request_concurrent_approval(
+    store: &PgControlPlaneStore,
+    context: &AuthorizationContext,
+    policy_key: &str,
+    resource_id: &str,
+    now: chrono::DateTime<Utc>,
+    expires_at: chrono::DateTime<Utc>,
+) -> ApprovalRequestId {
+    ApprovalWorkflowService::new(store.clone())
+        .request(RequestApprovalCommand {
+            context: context.clone(),
+            policy_key: policy_key.into(),
+            action: ApprovalAction::SendAs,
+            resource_kind: "mailbox".into(),
+            resource_id: resource_id.into(),
+            reason: "Concurrent approval negative case".into(),
+            ticket_reference: None,
+            expires_at,
+            trace_id: Uuid::now_v7().to_string(),
+            now,
+        })
+        .await
+        .expect("request concurrent approval")
+}
+
+fn checked_out_connections(pool: &sqlx::PgPool) -> u32 {
+    pool.size()
+        .saturating_sub(u32::try_from(pool.num_idle()).unwrap_or(u32::MAX))
+}
+
+/// Locks `request_id` until both callers have a database connection and one is
+/// blocked on that row, then commits the lock.
+///
+/// `decide` and `cancel` take the tenant advisory lock before
+/// `approval_requests`. The session that loses that lock does not show up as a
+/// second `wait_event_type = 'Lock'` row while the winner waits on the request.
+/// Connection checkout is the signal that both calls have entered the database.
+/// The request-row lock is what keeps either call from committing early.
+async fn release_approval_lock_after_two_waiters<T, U>(
+    store: &PgControlPlaneStore,
+    request_id: ApprovalRequestId,
+    left: impl std::future::Future<Output = T> + Send + 'static,
+    right: impl std::future::Future<Output = U> + Send + 'static,
+) -> (T, U)
+where
+    T: Send + 'static,
+    U: Send + 'static,
+{
+    let pool = store.pool().clone();
+    let mut holder = pool.begin().await.expect("begin approval race lock");
+    sqlx::query("SELECT id FROM approval_requests WHERE id = $1 FOR UPDATE")
+        .bind(request_id.as_uuid())
+        .execute(&mut *holder)
+        .await
+        .expect("lock approval request");
+    assert_eq!(
+        count_lock_waiters(&mut holder).await,
+        0,
+        "an unrelated lock waiter would make this race ambiguous"
+    );
+    let baseline = checked_out_connections(&pool);
+    assert_eq!(
+        baseline, 1,
+        "only the approval row lock may be checked out before the race"
+    );
+    let control = async move {
+        let started = std::time::Instant::now();
+        loop {
+            let waiting = count_lock_waiters(&mut holder).await;
+            let checked_out = checked_out_connections(&pool);
+            if waiting >= 1 && checked_out >= baseline + 2 {
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                let waiting = count_lock_waiters(&mut holder).await;
+                let checked_out = checked_out_connections(&pool);
+                if waiting >= 1 && checked_out >= baseline + 2 {
+                    break;
+                }
+            }
+            if started.elapsed() > LOCK_WAIT {
+                panic!(
+                    "approval race did not overlap under the request lock: waiters={waiting} checked_out={checked_out} baseline={baseline}"
+                );
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        holder
+            .commit()
+            .await
+            .expect("release approval request lock");
+    };
+    let left_handle = tokio::spawn(expect_no_lock_hang(left));
+    let right_handle = tokio::spawn(expect_no_lock_hang(right));
+    control.await;
+    (
+        left_handle.await.expect("left approval race task"),
+        right_handle.await.expect("right approval race task"),
+    )
+}
+
+struct ApprovalEffects {
+    status: String,
+    cancelled: bool,
+    steps: Vec<(Uuid, String)>,
+    decided_audits: i64,
+    cancelled_audits: i64,
+    decided_outbox: i64,
+    cancelled_outbox: i64,
+}
+
+async fn approval_effects(
+    store: &PgControlPlaneStore,
+    organization_id: OrganizationId,
+    request_id: ApprovalRequestId,
+) -> ApprovalEffects {
+    let (status, cancelled): (String, bool) = sqlx::query_as(
+        "SELECT status, cancelled_at IS NOT NULL FROM approval_requests WHERE id = $1 AND organization_id = $2",
+    )
+    .bind(request_id.as_uuid())
+    .bind(organization_id.as_uuid())
+    .fetch_one(store.pool())
+    .await
+    .expect("read approval race status");
+    let steps = sqlx::query_as(
+        "SELECT approver_principal_id, decision FROM approval_steps WHERE approval_request_id = $1 AND organization_id = $2 ORDER BY approver_principal_id",
+    )
+    .bind(request_id.as_uuid())
+    .bind(organization_id.as_uuid())
+    .fetch_all(store.pool())
+    .await
+    .expect("read approval race steps");
+    let (decided_audits, cancelled_audits, decided_outbox, cancelled_outbox): (i64, i64, i64, i64) =
+        sqlx::query_as(
+            r#"
+            SELECT
+              (SELECT count(*) FROM audit_events
+                WHERE organization_id = $1
+                  AND resource_id = $2
+                  AND action = 'authorization.approval.decided'),
+              (SELECT count(*) FROM audit_events
+                WHERE organization_id = $1
+                  AND resource_id = $2
+                  AND action = 'authorization.approval.cancelled'),
+              (SELECT count(*) FROM outbox_events
+                WHERE aggregate_id = $2
+                  AND event_type = 'authorization.approval.decided.v1'),
+              (SELECT count(*) FROM outbox_events
+                WHERE aggregate_id = $2
+                  AND event_type = 'authorization.approval.cancelled.v1')
+            "#,
+        )
+        .bind(organization_id.as_uuid())
+        .bind(request_id.to_string())
+        .fetch_one(store.pool())
+        .await
+        .expect("count approval race evidence");
+    ApprovalEffects {
+        status,
+        cancelled,
+        steps,
+        decided_audits,
+        cancelled_audits,
+        decided_outbox,
+        cancelled_outbox,
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires a disposable PostgreSQL database"]
+async fn mailbox_grant_revoke_and_send_are_single_effect_under_concurrency() {
+    let store = migrated_store().await;
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "mailbox-race-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .expect("bootstrap mailbox race tenant");
+    let now = Utc::now();
+    let owner_id = insert_approval_test_owner(
+        &store,
+        bootstrap.organization_id,
+        bootstrap.root_principal_id,
+        now,
+    )
+    .await;
+    let grantee_id = insert_approval_test_owner(
+        &store,
+        bootstrap.organization_id,
+        bootstrap.root_principal_id,
+        now,
+    )
+    .await;
+    let owner_context = store
+        .resolve_authorization(owner_id, now)
+        .await
+        .expect("resolve mailbox race owner")
+        .expect("mailbox race owner is active");
+    let grantee_context = store
+        .resolve_authorization(grantee_id, now)
+        .await
+        .expect("resolve mailbox race grantee")
+        .expect("mailbox race grantee is active");
+    let mailbox = MailboxManagementService::new(store.clone())
+        .create_authorized(
+            &owner_context,
+            CreateMailboxCommand {
+                organization_id: bootstrap.organization_id,
+                kind: MailboxKind::Shared,
+                primary_address: format!("race-{}@example.test", Uuid::new_v4().simple()),
+                trace_id: Uuid::now_v7().to_string(),
+                now,
+            },
+        )
+        .await
+        .expect("create shared mailbox for the delegation race");
+    MailEngineMailboxBindingService::try_new(
+        store.clone(),
+        legacy_mail_data_plane_id(),
+        "stalwart",
+    )
+    .expect("construct delegation race binding service")
+    .bind_authorized(
+        &owner_context,
+        BindMailEngineMailboxCommand {
+            organization_id: bootstrap.organization_id,
+            mailbox_id: mailbox.mailbox_id,
+            account_ref: random_numeric_engine_ref(),
+            expected_version: 0,
+            trace_id: Uuid::now_v7().to_string(),
+            now,
+        },
+    )
+    .await
+    .expect("bind delegation race mailbox");
+
+    let service = MailboxDelegationService::new(store.clone());
+    let (left_grant, right_grant) = expect_no_lock_hang(async {
+        tokio::join!(
+            service.grant_authorized(
+                &owner_context,
+                send_delegation_command(
+                    bootstrap.organization_id,
+                    mailbox.mailbox_id,
+                    grantee_id,
+                    now,
+                    "First concurrent mailbox grant",
+                ),
+            ),
+            service.grant_authorized(
+                &owner_context,
+                send_delegation_command(
+                    bootstrap.organization_id,
+                    mailbox.mailbox_id,
+                    grantee_id,
+                    now,
+                    "Second concurrent mailbox grant",
+                ),
+            ),
+        )
+    })
+    .await;
+    let granted = match (left_grant, right_grant) {
+        (Ok(grant), Err(MailboxAuthorizationError::Store(StoreError::Conflict)))
+        | (Err(MailboxAuthorizationError::Store(StoreError::Conflict)), Ok(grant)) => grant,
+        (left, right) => panic!("one concurrent grant must conflict: {left:?} {right:?}"),
+    };
+    assert_eq!(
+        delegation_ledger(
+            &store,
+            bootstrap.organization_id,
+            mailbox.mailbox_id,
+            grantee_id
+        )
+        .await,
+        (1, 1, 1, 0, 1, 0)
+    );
+
+    let (left_revoke, right_revoke) = expect_no_lock_hang(async {
+        tokio::join!(
+            service.revoke_authorized(
+                &owner_context,
+                RevokeMailboxDelegationCommand {
+                    organization_id: bootstrap.organization_id,
+                    delegation_id: granted.delegation_id,
+                    trace_id: Uuid::now_v7().to_string(),
+                    now,
+                },
+            ),
+            service.revoke_authorized(
+                &owner_context,
+                RevokeMailboxDelegationCommand {
+                    organization_id: bootstrap.organization_id,
+                    delegation_id: granted.delegation_id,
+                    trace_id: Uuid::now_v7().to_string(),
+                    now,
+                },
+            ),
+        )
+    })
+    .await;
+    assert!(
+        matches!(
+            (left_revoke, right_revoke),
+            (
+                Ok(()),
+                Err(MailboxAuthorizationError::Store(
+                    StoreError::MissingReference
+                ))
+            ) | (
+                Err(MailboxAuthorizationError::Store(
+                    StoreError::MissingReference
+                )),
+                Ok(())
+            )
+        ),
+        "exactly one concurrent revoke commits"
+    );
+    assert_eq!(
+        delegation_ledger(
+            &store,
+            bootstrap.organization_id,
+            mailbox.mailbox_id,
+            grantee_id
+        )
+        .await,
+        (1, 0, 1, 1, 1, 1)
+    );
+
+    let draft_grant = service
+        .grant_authorized(
+            &owner_context,
+            send_delegation_command(
+                bootstrap.organization_id,
+                mailbox.mailbox_id,
+                grantee_id,
+                now,
+                "Grant revoked during an in-flight draft save",
+            ),
+        )
+        .await
+        .expect("re-grant send access for the draft race");
+    let entered = Arc::new(AtomicBool::new(false));
+    let entered_notify = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let gated_drafts = DraftService::new(
+        store.clone(),
+        Arc::new(GatedDraftAdapter {
+            entered: Arc::clone(&entered),
+            entered_notify: Arc::clone(&entered_notify),
+            release: Arc::clone(&release),
+        }),
+    );
+    let save_during_revoke = gated_drafts.save(
+        &grantee_context,
+        SaveTextDraftCommand {
+            mailbox_id: mailbox.mailbox_id,
+            draft_id: None,
+            expected_version: None,
+            reply_to_message_id: None,
+            to: vec![format!("race-to-{}@example.test", Uuid::new_v4().simple())],
+            cc: Vec::new(),
+            bcc: Vec::new(),
+            subject: "Delegation revoked during save".into(),
+            text_body: "This draft must not persist after revocation.".into(),
+            now,
+        },
+    );
+    let revoke_during_save = async {
+        wait_until_flag(&entered, &entered_notify).await;
+        service
+            .revoke_authorized(
+                &owner_context,
+                RevokeMailboxDelegationCommand {
+                    organization_id: bootstrap.organization_id,
+                    delegation_id: draft_grant.delegation_id,
+                    trace_id: Uuid::now_v7().to_string(),
+                    now,
+                },
+            )
+            .await
+            .expect("revoke while the draft save is inside the engine adapter");
+        release.notify_one();
+    };
+    let (save_result, ()) =
+        expect_no_lock_hang(async { tokio::join!(save_during_revoke, revoke_during_save) }).await;
+    assert!(
+        matches!(save_result, Err(DraftError::NotFound)),
+        "a revocation that commits during the engine write must fail the metadata insert, got {save_result:?}"
+    );
+    let drafts_after_revoked_save: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM mail_drafts WHERE organization_id = $1 AND mailbox_id = $2 AND created_by = $3",
+    )
+    .bind(bootstrap.organization_id.as_uuid())
+    .bind(mailbox.mailbox_id.as_uuid())
+    .bind(grantee_id.as_uuid())
+    .fetch_one(store.pool())
+    .await
+    .expect("count drafts after the revoked save");
+    assert_eq!(drafts_after_revoked_save, 0);
+    assert_eq!(
+        delegation_ledger(
+            &store,
+            bootstrap.organization_id,
+            mailbox.mailbox_id,
+            grantee_id
+        )
+        .await
+        .1,
+        0
+    );
+
+    let submission_grant = service
+        .grant_authorized(
+            &owner_context,
+            send_delegation_command(
+                bootstrap.organization_id,
+                mailbox.mailbox_id,
+                grantee_id,
+                now,
+                "Grant held across an in-flight submission",
+            ),
+        )
+        .await
+        .expect("re-grant send access for the submission race");
+    let saved = DraftService::new(
+        store.clone(),
+        Arc::new(IntegrationHumanDraftAdapter::default()),
+    )
+    .save(
+        &grantee_context,
+        SaveTextDraftCommand {
+            mailbox_id: mailbox.mailbox_id,
+            draft_id: None,
+            expected_version: None,
+            reply_to_message_id: None,
+            to: vec![format!(
+                "submit-to-{}@example.test",
+                Uuid::new_v4().simple()
+            )],
+            cc: Vec::new(),
+            bcc: Vec::new(),
+            subject: "Submit while holding the grant".into(),
+            text_body: "The submission commits only while the grant lock is held.".into(),
+            now,
+        },
+    )
+    .await
+    .expect("save the draft that the submission race freezes");
+    let mut holder = store
+        .pool()
+        .begin()
+        .await
+        .expect("begin the draft row lock");
+    sqlx::query("SELECT id FROM mail_drafts WHERE id = $1 FOR UPDATE")
+        .bind(saved.draft_id.as_uuid())
+        .execute(&mut *holder)
+        .await
+        .expect("lock the draft ahead of the submission");
+    assert_eq!(count_lock_waiters(&mut holder).await, 0);
+    let revoke_notify = Arc::new(tokio::sync::Notify::new());
+    let revoke_gate = Arc::clone(&revoke_notify);
+    let submissions = MailSubmissionService::new(store.clone());
+    let submit = submissions.request(
+        &grantee_context,
+        RequestMailSubmissionCommand {
+            mailbox_id: mailbox.mailbox_id,
+            draft_id: saved.draft_id,
+            expected_draft_version: saved.version,
+            idempotency_key: format!("delegation-submit-{}", Uuid::new_v4().simple()),
+            first_contact_approval_request_id: None,
+            trace_id: Uuid::now_v7().to_string(),
+            now,
+        },
+    );
+    let revoke_store = store.clone();
+    let revoke_owner = owner_context.clone();
+    let revoke_organization = bootstrap.organization_id;
+    let revoke_delegation = submission_grant.delegation_id;
+    let revoke_submission = async move {
+        revoke_gate.notified().await;
+        MailboxDelegationService::new(revoke_store)
+            .revoke_authorized(
+                &revoke_owner,
+                RevokeMailboxDelegationCommand {
+                    organization_id: revoke_organization,
+                    delegation_id: revoke_delegation,
+                    trace_id: Uuid::now_v7().to_string(),
+                    now,
+                },
+            )
+            .await
+    };
+    let control = async move {
+        wait_for_lock_waiters(&mut holder, 1).await;
+        revoke_notify.notify_one();
+        wait_for_lock_waiters(&mut holder, 2).await;
+        holder.commit().await.expect("release the draft row lock");
+    };
+    let (submit_result, revoke_result, ()) =
+        expect_no_lock_hang(async { tokio::join!(submit, revoke_submission, control) }).await;
+    assert!(
+        submit_result.is_ok(),
+        "the submission that already holds the grant must commit before revocation: {submit_result:?}"
+    );
+    assert!(
+        revoke_result.is_ok(),
+        "revocation waits for that submission and then commits: {revoke_result:?}"
+    );
+    let intents: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM mail_submission_intents WHERE organization_id = $1 AND draft_id = $2",
+    )
+    .bind(bootstrap.organization_id.as_uuid())
+    .bind(saved.draft_id.as_uuid())
+    .fetch_one(store.pool())
+    .await
+    .expect("count submission intents");
+    assert_eq!(intents, 1);
+    let denied = MailSubmissionService::new(store.clone())
+        .request(
+            &grantee_context,
+            RequestMailSubmissionCommand {
+                mailbox_id: mailbox.mailbox_id,
+                draft_id: saved.draft_id,
+                expected_draft_version: saved.version,
+                idempotency_key: format!("delegation-submit-{}", Uuid::new_v4().simple()),
+                first_contact_approval_request_id: None,
+                trace_id: Uuid::now_v7().to_string(),
+                now,
+            },
+        )
+        .await;
+    assert!(
+        matches!(denied, Err(MailSubmissionError::NotFound)),
+        "a new submission after revocation must not take effect: {denied:?}"
+    );
+    let intents_after_denial: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM mail_submission_intents WHERE organization_id = $1 AND draft_id = $2",
+    )
+    .bind(bootstrap.organization_id.as_uuid())
+    .bind(saved.draft_id.as_uuid())
+    .fetch_one(store.pool())
+    .await
+    .expect("count submission intents after the denied retry");
+    assert_eq!(intents_after_denial, 1);
+    assert_eq!(
+        delegation_ledger(
+            &store,
+            bootstrap.organization_id,
+            mailbox.mailbox_id,
+            grantee_id
+        )
+        .await
+        .1,
+        0
+    );
+    let visible = store
+        .resolve_mailbox_access(grantee_id, mailbox.mailbox_id, now)
+        .await
+        .expect("resolve mailbox after the submission race")
+        .expect("mailbox remains visible inside the tenant");
+    assert!(
+        visible
+            .authorize(
+                bootstrap.organization_id,
+                mailbox.mailbox_id,
+                MailboxCapability::Send,
+                None,
+            )
+            .is_none()
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+#[ignore = "requires a disposable PostgreSQL database"]
+async fn approval_decisions_are_mutually_exclusive_under_concurrency() {
+    let store = migrated_store().await;
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "approval-race-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .expect("bootstrap approval race tenant");
+    let now = Utc::now();
+    let requester = BindOidcOwnerService::new(store.clone())
+        .execute(BindOidcOwnerCommand {
+            organization_id: bootstrap.organization_id,
+            issuer: format!("https://login-{}.example.test", Uuid::new_v4().simple()),
+            subject: format!("owner-{}", Uuid::new_v4().simple()),
+            display_name: "Approval Race Requester".into(),
+            trace_id: Uuid::now_v7().to_string(),
+            now,
+        })
+        .await
+        .expect("bind approval race requester");
+    let requester_context = store
+        .resolve_authorization(requester.principal_id, now)
+        .await
+        .expect("resolve approval race requester")
+        .expect("approval race requester is active");
+    let first_id = insert_approval_test_owner(
+        &store,
+        bootstrap.organization_id,
+        requester.principal_id,
+        now,
+    )
+    .await;
+    let second_id = insert_approval_test_owner(
+        &store,
+        bootstrap.organization_id,
+        requester.principal_id,
+        now,
+    )
+    .await;
+    let first_context = store
+        .resolve_authorization(first_id, now)
+        .await
+        .expect("resolve first concurrent approver")
+        .expect("first concurrent approver is active");
+    let second_context = store
+        .resolve_authorization(second_id, now)
+        .await
+        .expect("resolve second concurrent approver")
+        .expect("second concurrent approver is active");
+    for (policy_key, required_approvals, display_name) in [
+        ("mail.send.single", 1_u8, "Single concurrent approval"),
+        ("mail.send.dual", 2_u8, "Dual concurrent approval"),
+    ] {
+        ApprovalPolicyService::new(store.clone())
+            .create(CreateApprovalPolicyCommand {
+                organization_id: bootstrap.organization_id,
+                policy_key: policy_key.into(),
+                display_name: display_name.into(),
+                action: ApprovalAction::SendAs,
+                required_approvals,
+                rule: json!({"recipient_scope": "external"}),
+                trace_id: Uuid::now_v7().to_string(),
+                now,
+            })
+            .await
+            .expect("create concurrent approval policy");
+    }
+    let live_until = now + chrono::Duration::hours(1);
+
+    let two_approvers = request_concurrent_approval(
+        &store,
+        &requester_context,
+        "mail.send.single",
+        "two-approvers",
+        now,
+        live_until,
+    )
+    .await;
+    let left_store = store.clone();
+    let right_store = store.clone();
+    let left_context = first_context.clone();
+    let right_context = second_context.clone();
+    let (left, right) = release_approval_lock_after_two_waiters(
+        &store,
+        two_approvers,
+        async move {
+            ApprovalWorkflowService::new(left_store)
+                .decide(decide_command(
+                    left_context,
+                    two_approvers,
+                    ApprovalDecision::Approved,
+                    "first concurrent approver",
+                    now,
+                ))
+                .await
+        },
+        async move {
+            ApprovalWorkflowService::new(right_store)
+                .decide(decide_command(
+                    right_context,
+                    two_approvers,
+                    ApprovalDecision::Approved,
+                    "second concurrent approver",
+                    now,
+                ))
+                .await
+        },
+    )
+    .await;
+    let mut approvals = 0;
+    let mut conflicts = 0;
+    for result in [left, right] {
+        match result {
+            Ok(decision) => {
+                approvals += 1;
+                assert_eq!(decision.status, ApprovalStatus::Approved);
+                assert_eq!(decision.approval_count, 1);
+            }
+            Err(ApprovalWorkflowError::Store(StoreError::Conflict)) => conflicts += 1,
+            Err(error) => panic!("unexpected two-approver result: {error}"),
+        }
+    }
+    assert_eq!((approvals, conflicts), (1, 1));
+    let effects = approval_effects(&store, bootstrap.organization_id, two_approvers).await;
+    assert_eq!(effects.status, "approved");
+    assert!(!effects.cancelled);
+    assert_eq!(effects.steps.len(), 1);
+    assert!(effects.steps[0].0 == first_id.as_uuid() || effects.steps[0].0 == second_id.as_uuid());
+    assert_eq!(effects.steps[0].1, "approved");
+    assert_eq!(
+        (
+            effects.decided_audits,
+            effects.cancelled_audits,
+            effects.decided_outbox,
+            effects.cancelled_outbox
+        ),
+        (1, 0, 1, 0)
+    );
+
+    let duplicate = request_concurrent_approval(
+        &store,
+        &requester_context,
+        "mail.send.dual",
+        "duplicate-approver",
+        now,
+        live_until,
+    )
+    .await;
+    let left_store = store.clone();
+    let right_store = store.clone();
+    let left_context = first_context.clone();
+    let right_context = first_context.clone();
+    let (left, right) = release_approval_lock_after_two_waiters(
+        &store,
+        duplicate,
+        async move {
+            ApprovalWorkflowService::new(left_store)
+                .decide(decide_command(
+                    left_context,
+                    duplicate,
+                    ApprovalDecision::Approved,
+                    "same approver first attempt",
+                    now,
+                ))
+                .await
+        },
+        async move {
+            ApprovalWorkflowService::new(right_store)
+                .decide(decide_command(
+                    right_context,
+                    duplicate,
+                    ApprovalDecision::Approved,
+                    "same approver second attempt",
+                    now,
+                ))
+                .await
+        },
+    )
+    .await;
+    let mut pending = 0;
+    let mut conflicts = 0;
+    for result in [left, right] {
+        match result {
+            Ok(decision) => {
+                pending += 1;
+                assert_eq!(decision.status, ApprovalStatus::Pending);
+                assert_eq!(decision.approval_count, 1);
+            }
+            Err(ApprovalWorkflowError::Store(StoreError::Conflict)) => conflicts += 1,
+            Err(error) => panic!("unexpected duplicate-approver result: {error}"),
+        }
+    }
+    assert_eq!((pending, conflicts), (1, 1));
+    let effects = approval_effects(&store, bootstrap.organization_id, duplicate).await;
+    assert_eq!(effects.status, "pending");
+    assert!(!effects.cancelled);
+    assert_eq!(
+        effects.steps,
+        vec![(first_id.as_uuid(), "approved".to_string())]
+    );
+    assert_eq!(
+        (
+            effects.decided_audits,
+            effects.cancelled_audits,
+            effects.decided_outbox,
+            effects.cancelled_outbox
+        ),
+        (1, 0, 1, 0)
+    );
+
+    let self_approval = request_concurrent_approval(
+        &store,
+        &requester_context,
+        "mail.send.single",
+        "self-approval",
+        now,
+        live_until,
+    )
+    .await;
+    let requester_store = store.clone();
+    let approver_store = store.clone();
+    let requester_for_decide = requester_context.clone();
+    let approver_for_decide = second_context.clone();
+    let (self_result, approver_result) = release_approval_lock_after_two_waiters(
+        &store,
+        self_approval,
+        async move {
+            ApprovalWorkflowService::new(requester_store)
+                .decide(decide_command(
+                    requester_for_decide,
+                    self_approval,
+                    ApprovalDecision::Approved,
+                    "requester attempts a concurrent self approval",
+                    now,
+                ))
+                .await
+        },
+        async move {
+            ApprovalWorkflowService::new(approver_store)
+                .decide(decide_command(
+                    approver_for_decide,
+                    self_approval,
+                    ApprovalDecision::Approved,
+                    "independent approver beats the self approval",
+                    now,
+                ))
+                .await
+        },
+    )
+    .await;
+    assert!(
+        matches!(
+            self_result,
+            Err(ApprovalWorkflowError::Store(StoreError::Conflict))
+        ),
+        "the requester must not approve their own request: {self_result:?}"
+    );
+    let approver_result = approver_result.expect("independent approver commits");
+    assert_eq!(approver_result.status, ApprovalStatus::Approved);
+    assert_eq!(approver_result.approval_count, 1);
+    let effects = approval_effects(&store, bootstrap.organization_id, self_approval).await;
+    assert_eq!(effects.status, "approved");
+    assert_eq!(
+        effects.steps,
+        vec![(second_id.as_uuid(), "approved".to_string())]
+    );
+    assert_eq!(
+        (
+            effects.decided_audits,
+            effects.cancelled_audits,
+            effects.decided_outbox,
+            effects.cancelled_outbox
+        ),
+        (1, 0, 1, 0)
+    );
+
+    let contested = request_concurrent_approval(
+        &store,
+        &requester_context,
+        "mail.send.single",
+        "approve-versus-cancel",
+        now,
+        live_until,
+    )
+    .await;
+    let decide_store = store.clone();
+    let cancel_store = store.clone();
+    let decide_context = first_context.clone();
+    let cancel_context = requester_context.clone();
+    let (decide_result, cancel_result) = release_approval_lock_after_two_waiters(
+        &store,
+        contested,
+        async move {
+            ApprovalWorkflowService::new(decide_store)
+                .decide(decide_command(
+                    decide_context,
+                    contested,
+                    ApprovalDecision::Approved,
+                    "approve while the requester withdraws",
+                    now,
+                ))
+                .await
+        },
+        async move {
+            ApprovalWorkflowService::new(cancel_store)
+                .cancel(CancelApprovalRequestCommand {
+                    context: cancel_context,
+                    request_id: contested,
+                    trace_id: Uuid::now_v7().to_string(),
+                    now,
+                })
+                .await
+        },
+    )
+    .await;
+    let effects = approval_effects(&store, bootstrap.organization_id, contested).await;
+    match (decide_result, cancel_result) {
+        (Ok(decision), Err(ApprovalWorkflowError::Store(StoreError::Conflict))) => {
+            assert_eq!(decision.status, ApprovalStatus::Approved);
+            assert_eq!(effects.status, "approved");
+            assert!(!effects.cancelled);
+            assert_eq!(effects.steps.len(), 1);
+            assert_eq!(effects.steps[0].1, "approved");
+            assert_eq!(
+                (
+                    effects.decided_audits,
+                    effects.cancelled_audits,
+                    effects.decided_outbox,
+                    effects.cancelled_outbox
+                ),
+                (1, 0, 1, 0)
+            );
+        }
+        (Err(ApprovalWorkflowError::Store(StoreError::Conflict)), Ok(decision)) => {
+            assert_eq!(decision.status, ApprovalStatus::Cancelled);
+            assert_eq!(effects.status, "cancelled");
+            assert!(effects.cancelled);
+            assert!(effects.steps.is_empty());
+            assert_eq!(
+                (
+                    effects.decided_audits,
+                    effects.cancelled_audits,
+                    effects.decided_outbox,
+                    effects.cancelled_outbox
+                ),
+                (0, 1, 0, 1)
+            );
+        }
+        (decide_result, cancel_result) => {
+            panic!("approve and withdraw must have one winner: {decide_result:?} {cancel_result:?}")
+        }
+    }
+
+    let rejection = request_concurrent_approval(
+        &store,
+        &requester_context,
+        "mail.send.single",
+        "approve-versus-reject",
+        now,
+        live_until,
+    )
+    .await;
+    let approve_store = store.clone();
+    let reject_store = store.clone();
+    let approve_context = first_context.clone();
+    let reject_context = second_context.clone();
+    let (approve_result, reject_result) = release_approval_lock_after_two_waiters(
+        &store,
+        rejection,
+        async move {
+            ApprovalWorkflowService::new(approve_store)
+                .decide(decide_command(
+                    approve_context,
+                    rejection,
+                    ApprovalDecision::Approved,
+                    "approve while another approver rejects",
+                    now,
+                ))
+                .await
+        },
+        async move {
+            ApprovalWorkflowService::new(reject_store)
+                .decide(decide_command(
+                    reject_context,
+                    rejection,
+                    ApprovalDecision::Rejected,
+                    "reject while another approver approves",
+                    now,
+                ))
+                .await
+        },
+    )
+    .await;
+    let effects = approval_effects(&store, bootstrap.organization_id, rejection).await;
+    assert!(!effects.cancelled);
+    assert_eq!(effects.steps.len(), 1);
+    assert_eq!(
+        (
+            effects.decided_audits,
+            effects.cancelled_audits,
+            effects.decided_outbox,
+            effects.cancelled_outbox
+        ),
+        (1, 0, 1, 0)
+    );
+    match (approve_result, reject_result) {
+        (Ok(decision), Err(ApprovalWorkflowError::Store(StoreError::Conflict))) => {
+            assert_eq!(decision.status, ApprovalStatus::Approved);
+            assert_eq!(effects.status, "approved");
+            assert_eq!(
+                effects.steps[0],
+                (first_id.as_uuid(), "approved".to_string())
+            );
+        }
+        (Err(ApprovalWorkflowError::Store(StoreError::Conflict)), Ok(decision)) => {
+            assert_eq!(decision.status, ApprovalStatus::Rejected);
+            assert_eq!(effects.status, "rejected");
+            assert_eq!(
+                effects.steps[0],
+                (second_id.as_uuid(), "rejected".to_string())
+            );
+        }
+        (approve_result, reject_result) => {
+            panic!("approve and reject must have one winner: {approve_result:?} {reject_result:?}")
+        }
+    }
+
+    let expiry_start = Utc::now();
+    let expires_at = expiry_start + chrono::Duration::seconds(3);
+    let expiring = request_concurrent_approval(
+        &store,
+        &requester_context,
+        "mail.send.single",
+        "expire-under-lock",
+        expiry_start,
+        expires_at,
+    )
+    .await;
+    let mut holder = store.pool().begin().await.expect("begin expiry race lock");
+    let stored_expires: chrono::DateTime<Utc> =
+        sqlx::query_scalar("SELECT expires_at FROM approval_requests WHERE id = $1 FOR UPDATE")
+            .bind(expiring.as_uuid())
+            .fetch_one(&mut *holder)
+            .await
+            .expect("lock the expiring approval");
+    assert_eq!(count_lock_waiters(&mut holder).await, 0);
+    let expiry_store = store.clone();
+    let expiry_context = first_context.clone();
+    let decide = async move {
+        ApprovalWorkflowService::new(expiry_store)
+            .decide(decide_command(
+                expiry_context,
+                expiring,
+                ApprovalDecision::Approved,
+                "approve only after the database clock passes expiry",
+                expiry_start,
+            ))
+            .await
+    };
+    let control = async move {
+        wait_for_lock_waiters(&mut holder, 1).await;
+        sleep_until_database_deadline(&mut holder, stored_expires).await;
+        holder
+            .commit()
+            .await
+            .expect("release the approval after it has expired");
+    };
+    let (decide_result, ()) = expect_no_lock_hang(async { tokio::join!(decide, control) }).await;
+    assert!(
+        matches!(
+            decide_result,
+            Err(ApprovalWorkflowError::Store(StoreError::Conflict))
+        ),
+        "an approval blocked across expiry must not commit: {decide_result:?}"
+    );
+    assert!(
+        matches!(
+            ApprovalWorkflowService::new(store.clone())
+                .cancel(CancelApprovalRequestCommand {
+                    context: requester_context,
+                    request_id: expiring,
+                    trace_id: Uuid::now_v7().to_string(),
+                    now: expiry_start,
+                })
+                .await,
+            Err(ApprovalWorkflowError::Store(StoreError::Conflict))
+        ),
+        "withdrawal after expiry must not commit either"
+    );
+    let effects = approval_effects(&store, bootstrap.organization_id, expiring).await;
+    assert!(effects.steps.is_empty());
+    assert_eq!(
+        (
+            effects.decided_audits,
+            effects.cancelled_audits,
+            effects.decided_outbox,
+            effects.cancelled_outbox
+        ),
+        (0, 0, 0, 0)
     );
 }
 
