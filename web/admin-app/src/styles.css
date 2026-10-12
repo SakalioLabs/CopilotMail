@@ -19,34 +19,31 @@ code, .mono { font-family: var(--cm-font-mono); overflow-wrap: anywhere; }
 .auth-card::before { position: absolute; top: 0; right: 0; left: 0; height: 3px; background: var(--cm-agent); content: ""; }
 .auth-card > .button { width: 100%; margin: 14px 0 24px; }
 .auth-card code { display: block; margin-top: 8px; }
-.brand-mark { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 10px; color: var(--cm-surface); background: var(--cm-ink); box-shadow: 0 1px 0 var(--cm-line-strong); }
 .eyebrow { margin: 0 0 7px; color: var(--cm-agent); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.115em; text-transform: uppercase; }
 
-.app-shell { min-height: 100vh; display: grid; grid-template-columns: 236px minmax(0, 1fr); background: var(--cm-canvas); }
-.sidebar { position: sticky; top: 0; height: 100vh; min-height: 0; padding: 20px 12px 16px; display: flex; flex-direction: column; overflow-y: auto; border-right: 1px solid var(--cm-line); color: var(--cm-ink); background: var(--cm-surface); }
-.brand { padding: 4px 8px 26px; display: flex; gap: 11px; align-items: center; }
-.brand .brand-mark { width: 34px; height: 34px; border-radius: 9px; }
-.brand strong,
-.brand span,
+/* Shared Gmail-style shell: a persistent top bar above the navigation rail
+   and the workspace column.  The top bar owns the text wordmark, the
+   navigation filter omnibox, and the session region. */
+.app-shell { --admin-topbar-block: 64px; min-height: 100vh; display: grid; grid-template-columns: 248px minmax(0, 1fr); grid-template-rows: var(--admin-topbar-block) minmax(0, 1fr); background: var(--cm-canvas); }
+.admin-topbar { position: sticky; top: 0; z-index: var(--cm-z-floating); grid-column: 1 / -1; min-width: 0; border-bottom: 1px solid var(--cm-line); }
+.admin-topbar__start,
+.admin-topbar__session { display: flex; min-width: 0; flex: 0 0 auto; align-items: center; gap: var(--cm-space-2); }
+.admin-topbar__search { min-width: 140px; margin-inline: var(--cm-space-3) var(--cm-space-2); }
+.admin-topbar__search-icon { flex: 0 0 auto; margin-left: 10px; color: var(--cm-muted); }
+.admin-topbar__session { margin-left: auto; }
+.auth-card__wordmark { margin-bottom: 18px; }
+.sidebar { position: sticky; top: var(--admin-topbar-block, 64px); height: calc(100dvh - var(--admin-topbar-block, 64px)); min-height: 0; padding: var(--cm-space-2) var(--cm-space-2) var(--cm-space-4); display: flex; flex-direction: column; overflow-y: auto; }
 .role-approval-resource small,
 .role-approval-resource code { display: block; }
-.brand strong { font-size: 0.98rem; letter-spacing: -0.02em; }
-.brand span { margin-top: 2px; color: var(--cm-muted); font-size: 0.72rem; }
-.mobile-navigation-context { display: none; }
-.admin-navigation { display: grid; gap: 18px; }
-.admin-navigation__group-label { margin: 0 10px 4px; color: var(--cm-muted); font-size: 0.64rem; font-weight: 820; letter-spacing: 0.1em; line-height: 1.3; text-transform: uppercase; }
-.admin-navigation__items { display: grid; gap: 3px; }
-.admin-navigation button { position: relative; width: 100%; min-height: 40px; padding: 0 10px; border: 0; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: var(--cm-muted-strong); background: transparent; font-size: 0.82rem; font-weight: 700; text-align: left; cursor: pointer; transition: color var(--cm-duration-fast) ease, background var(--cm-duration-fast) ease; }
-.admin-navigation button > svg { flex: 0 0 auto; }
-.admin-navigation button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.admin-navigation button:hover { color: var(--cm-ink); background: var(--cm-surface-subtle); }
-.admin-navigation button.is-active { color: var(--cm-agent); background: var(--cm-agent-soft); }
-.admin-navigation button.is-active::before { position: absolute; left: -12px; width: 3px; height: 22px; border-radius: 0 var(--cm-radius-pill) var(--cm-radius-pill) 0; background: var(--cm-agent); content: ""; }
-.adaptive-nav-drawer__body { padding: 20px; }
+.mobile-navigation-context { display: none; min-width: 0; align-items: center; gap: var(--cm-space-2); }
+.mobile-navigation-context__page { min-width: 0; display: grid; gap: 3px; }
+.mobile-navigation-context__page strong { overflow: hidden; color: var(--cm-ink); font-size: 0.9rem; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.admin-navigation { display: grid; gap: var(--cm-space-4); }
+.admin-navigation__group-label { margin: 0 var(--cm-space-3) var(--cm-space-1); color: var(--cm-muted); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; line-height: 1.3; text-transform: uppercase; }
+.admin-navigation__items { display: grid; gap: 2px; }
+.admin-navigation__empty { margin: 2px var(--cm-space-3); color: var(--cm-muted); font-size: 0.78rem; }
 .adaptive-nav-drawer__current { margin: 0 0 20px; padding: 0 0 15px; border-bottom: 1px solid var(--cm-line); display: grid; gap: 4px; }
 .adaptive-nav-drawer__current span, .mobile-navigation-context__page span { color: var(--cm-muted); font-size: 0.69rem; font-weight: 760; letter-spacing: 0.055em; text-transform: uppercase; }
-.adaptive-nav-drawer__current strong { color: var(--cm-ink); font-size: 0.94rem; line-height: 1.35; }
-.admin-navigation--drawer button.is-active::before { left: -20px; }
 .adaptive-nav-drawer__session { margin-top: var(--cm-space-5); padding-top: var(--cm-space-4); border-top: 1px solid var(--cm-line); }
 .adaptive-nav-drawer__session .sidebar__footer { margin: 0; padding: 0; border: 0; display: grid; gap: var(--cm-space-3); }
 .sidebar__footer { margin-top: auto; padding: 15px 8px 0; border-top: 1px solid var(--cm-line); display: grid; gap: 9px; color: var(--cm-muted); font-size: 0.74rem; }
@@ -63,7 +60,7 @@ code, .mono { font-family: var(--cm-font-mono); overflow-wrap: anywhere; }
 .locale-switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: inherit; font-size: 0.74rem; }
 .locale-switch select { max-width: 130px; min-height: 32px; padding: 5px 8px; border: 1px solid var(--cm-control-border); border-radius: 7px; color: var(--cm-ink); background: var(--cm-surface); }
 
-.workspace { width: min(100%, 1440px); margin-inline: auto; padding: 36px clamp(22px, 4vw, 56px) 56px; }
+.workspace { min-width: 0; width: min(100%, 1440px); margin-inline: auto; padding: 28px clamp(22px, 4vw, 56px) 56px; }
 .workspace > .panel,
 .view-stack > .panel,
 .detail-panel { padding: 20px; }
@@ -98,7 +95,7 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
 .table-subline { margin-top: 3px; display: block; color: var(--cm-muted); font-size: 0.69rem; }
 .pagination { padding: 10px 12px; display: flex; justify-content: flex-end; gap: 7px; }
 .pagination .button { min-height: 34px; }
-.detail-panel { position: sticky; top: 20px; }
+.detail-panel { position: sticky; top: calc(var(--admin-topbar-block, 64px) + var(--cm-space-4)); }
 .detail-panel__heading { margin-bottom: 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .detail-panel h2 { margin: 0; font-size: 1.1rem; line-height: 1.25; }
 .detail-panel dl { margin: 0; display: grid; gap: 4px; }
@@ -417,29 +414,23 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
    surrounding shell changes at 1023/1024; keeping this geometry singular
    avoids two subtly different keyboard surfaces. */
 @media (max-width: 1279px) {
-  .admin-navigation--rail,
+  .app-shell { grid-template-columns: minmax(0, 1fr); }
+  .sidebar,
   .sidebar > .sidebar__footer { display: none; }
+  .mobile-navigation-context { display: flex; }
   .adaptive-nav-backdrop { padding: 0; place-items: stretch start; }
   .dialog.adaptive-nav-drawer { width: min(360px, calc(100vw - 32px)); min-height: 100dvh; max-height: 100dvh; align-self: stretch; border: 0; border-right: 1px solid var(--cm-line); border-radius: 0; }
   .adaptive-nav-drawer .dialog__header { padding: var(--cm-space-4) var(--cm-space-5); }
   .adaptive-nav-drawer__body { padding: var(--cm-space-5); }
-  .admin-navigation--drawer { gap: var(--cm-space-4); }
-  .admin-navigation--drawer .admin-navigation__group-label { margin-left: var(--cm-space-3); }
   .admin-navigation--drawer button { min-height: var(--cm-touch-target); }
-  .admin-navigation--drawer button.is-active::before { left: calc(var(--cm-space-5) * -1); }
 }
 
-/* A compact rail does not hide navigation behind hover-only affordances.
-   The named panel control opens the same modal drawer used on mobile, which
-   keeps every destination, language control, and sign-out action reachable. */
+/* A compact shell does not hide navigation behind hover-only affordances.
+   The named top-bar control opens the same modal drawer used on mobile,
+   which keeps every destination, language control, and sign-out action
+   reachable. */
 @media (min-width: 1024px) and (max-width: 1279px) {
-  .app-shell { grid-template-columns: 72px minmax(0, 1fr); }
-  .sidebar { padding: var(--cm-space-3) var(--cm-space-2); overflow: visible; align-items: center; }
-  .sidebar__identity { width: 100%; }
-  .brand { justify-content: center; padding: var(--cm-space-1) 0 var(--cm-space-4); }
-  .brand .brand-mark { width: 40px; height: 40px; border-radius: var(--cm-radius-control); }
-  .brand > div:last-child { display: none; }
-  .mobile-navigation-context { padding-top: var(--cm-space-3); border-top: 1px solid var(--cm-line); display: flex; justify-content: center; }
+  .mobile-navigation-context { flex: 0 0 auto; }
   .mobile-navigation-context__page { display: none; }
   .mobile-navigation-context__toggle { width: var(--cm-touch-target); min-width: var(--cm-touch-target); height: var(--cm-touch-target); min-height: var(--cm-touch-target); padding: 0; }
   .mobile-navigation-context__toggle-label { display: none; }
@@ -463,13 +454,12 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
 }
 
 @media (max-width: 1023px) {
-  .app-shell { display: block; }
-  .sidebar { position: static; width: 100%; height: auto; padding: 12px 12px 10px; overflow: visible; border-right: 0; border-bottom: 1px solid var(--cm-line); }
-  .brand { padding: 3px 3px 12px; }
-  .mobile-navigation-context { min-width: 0; padding: 10px 3px 0; border-top: 1px solid var(--cm-line); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .mobile-navigation-context__page { min-width: 0; display: grid; gap: 3px; }
-  .mobile-navigation-context__page strong { overflow: hidden; color: var(--cm-ink); font-size: 0.9rem; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
-  .mobile-navigation-context__toggle { min-height: var(--cm-touch-target); flex: 0 0 auto; }
+  .app-shell { grid-template-rows: auto minmax(0, 1fr); }
+  .admin-topbar { flex-wrap: wrap; row-gap: var(--cm-space-2); padding-block: var(--cm-space-2); }
+  .admin-topbar__start .app-wordmark { display: none; }
+  .mobile-navigation-context__toggle { order: -1; flex: 0 0 auto; min-height: var(--cm-touch-target); }
+  .admin-topbar__session { display: none; }
+  .admin-topbar__search { order: 3; flex: 1 1 100%; margin: 0; }
 }
 
 @media (max-width: 720px) {

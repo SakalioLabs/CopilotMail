@@ -1432,16 +1432,14 @@ export const test = base.extend<AdminFixtures>({
     let releaseApprovalDetail: (() => void) | undefined;
 
     await page.addInitScript(() => {
-      // App locale is selected from navigator.language during initial render.
-      // This keeps selector text and visual baselines independent of the host.
-      Object.defineProperty(window.navigator, "language", {
-        configurable: true,
-        value: "en-US",
-      });
-      Object.defineProperty(window.navigator, "languages", {
-        configurable: true,
-        value: ["en-US", "en"],
-      });
+      // zh-CN is the declared product default, so specs explicitly persist an
+      // English choice before first render. This keeps selector text and
+      // visual baselines independent of the host browser language; an
+      // existing choice (for example one made through the visible language
+      // switcher mid-test) is never overwritten.
+      if (window.localStorage.getItem("copilotmail.admin.locale.v1") === null) {
+        window.localStorage.setItem("copilotmail.admin.locale.v1", "en");
+      }
     });
     await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
     await page.context().addCookies([

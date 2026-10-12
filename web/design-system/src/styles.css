@@ -153,46 +153,9 @@
   .control:hover { border-color: var(--cm-muted); }
   .control:focus-visible { border-color: var(--cm-agent); }
   textarea.control { resize: vertical; }
-
-  .field { display: grid; gap: var(--cm-space-2); color: var(--cm-ink); }
-  .field__label { color: var(--cm-muted-strong); font-size: var(--cm-text-meta); font-weight: 750; }
-  .field__hint { color: var(--cm-muted); font-size: var(--cm-text-meta); line-height: var(--cm-leading-normal); }
 }
 
 @layer components {
-  .panel {
-    border: 1px solid var(--cm-line);
-    border-radius: var(--cm-radius-panel);
-    background: var(--cm-surface);
-    box-shadow: var(--cm-shadow-1);
-  }
-  .panel__header { margin-bottom: var(--cm-space-4); }
-  .panel__title {
-    margin: 0;
-    color: var(--cm-ink);
-    font-size: var(--cm-text-reading);
-    letter-spacing: -0.02em;
-    line-height: var(--cm-leading-tight);
-  }
-  .badge {
-    display: inline-flex;
-    width: fit-content;
-    min-height: 24px;
-    align-items: center;
-    padding: 3px var(--cm-space-2);
-    border-radius: var(--cm-radius-pill);
-    color: var(--cm-muted-strong);
-    background: var(--cm-surface-subtle);
-    font-size: var(--cm-text-micro);
-    font-weight: 720;
-    line-height: var(--cm-leading-tight);
-    white-space: nowrap;
-  }
-  .badge--positive { color: var(--cm-positive); background: var(--cm-positive-soft); }
-  .badge--warning { color: var(--cm-warning); background: var(--cm-warning-soft); }
-  .badge--critical { color: var(--cm-critical); background: var(--cm-critical-soft); }
-  .badge--info { color: var(--cm-info); background: var(--cm-info-soft); }
-
   .icon-button {
     display: inline-grid;
     width: 36px;
@@ -292,6 +255,13 @@
     font-weight: 700;
   }
   .app-nav-item:disabled { cursor: not-allowed; opacity: 0.45; }
+  .app-nav-item > svg { flex: 0 0 auto; }
+  .app-nav-item__label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .app-nav-item__badge {
     margin-left: auto;
     padding: 1px var(--cm-space-2);
@@ -306,6 +276,26 @@
   .app-nav-item[aria-current] .app-nav-item__badge {
     color: var(--cm-info);
     background: transparent;
+  }
+
+  .topbar-sign-out {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    gap: 7px;
+    padding: 0 14px;
+    border: 1px solid transparent;
+    border-radius: var(--cm-radius-pill);
+    color: var(--cm-muted-strong);
+    background: transparent;
+    font-size: var(--cm-text-body);
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .topbar-sign-out:hover {
+    color: var(--cm-ink);
+    background: var(--cm-surface-subtle);
   }
 
   .identity-badge,
@@ -536,76 +526,6 @@
     line-height: 1.5;
     overflow-wrap: anywhere;
   }
-
-  .unknown-write-lock {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 12px;
-    padding: 13px 14px;
-    border: 1px solid var(--cm-warning);
-    border-radius: var(--cm-radius-panel);
-    color: var(--cm-warning);
-    background: var(--cm-warning-soft);
-  }
-  .unknown-write-lock__mark {
-    display: grid;
-    width: 28px;
-    height: 28px;
-    flex: 0 0 auto;
-    place-items: center;
-    border: 1px solid currentColor;
-    border-radius: var(--cm-radius-control);
-  }
-  .unknown-write-lock__copy { min-width: 0; }
-  .unknown-write-lock__copy strong,
-  .unknown-write-lock__copy p { display: block; margin: 0; color: inherit; }
-  .unknown-write-lock__copy strong { font-size: 0.82rem; }
-  .unknown-write-lock__copy p { margin-top: 3px; font-size: 0.78rem; line-height: 1.45; }
-  .unknown-write-lock__evidence { margin-top: 6px; font-size: 0.74rem; }
-  .unknown-write-lock__action { justify-self: end; }
-
-  .empty-state {
-    display: flex;
-    min-height: 280px;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 24px;
-    color: var(--cm-muted);
-    text-align: center;
-  }
-  .empty-state__mark {
-    display: grid;
-    width: 48px;
-    height: 48px;
-    place-items: center;
-    border: 1px solid var(--cm-line);
-    border-radius: var(--cm-radius-panel);
-    color: var(--cm-ink);
-    background: var(--cm-surface-subtle);
-  }
-  .empty-state__illustration { width: min(180px, 100%); height: auto; margin-bottom: 8px; object-fit: contain; }
-  .empty-state h3 { margin: 14px 0 5px; color: var(--cm-ink); }
-  .empty-state p { max-width: 460px; margin: 4px 0 20px; line-height: 1.6; }
-
-  .loading {
-    display: flex;
-    min-height: 180px;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    color: var(--cm-muted);
-  }
-  .spinner {
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--cm-line-strong);
-    border-top-color: var(--cm-agent);
-    border-radius: 50%;
-    animation: cm-spin 700ms linear infinite;
-  }
-  @keyframes cm-spin { to { transform: rotate(360deg); } }
 
   .dialog-backdrop {
     position: fixed;
@@ -846,6 +766,8 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+  /* The spinner component ships in admin.css; the shared sheet keeps the
+     reduced-motion guarantee beside the global animation contract. */
   .spinner { animation: none !important; }
 }
 
@@ -878,10 +800,6 @@
 
 @media (max-width: 560px) {
   .evidence-inspector__summary { min-height: var(--cm-touch-target); }
-  .unknown-write-lock { grid-template-columns: auto minmax(0, 1fr); }
-  .unknown-write-lock__action { grid-column: 1 / -1; justify-self: stretch; }
-  .unknown-write-lock__action > .button,
-  .unknown-write-lock__action > button { width: 100%; }
   .dialog-backdrop { place-items: end stretch; padding: 0; }
   .dialog {
     width: 100%;

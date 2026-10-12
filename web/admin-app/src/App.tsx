@@ -4,7 +4,7 @@ import {
   ConfirmDialog,
   Dialog,
   Icon,
-  MailIcon,
+  IconButton,
   Panel,
   SignOutIcon,
   Spinner,
@@ -183,21 +183,36 @@ function shortId(value: string): string {
 
 export function AdminNavigation({
   view,
+  filter,
   navigate,
   t,
   variant = "rail",
 }: {
   view: View;
+  filter?: string;
   navigate: (view: View) => void;
   t: ReturnType<typeof translator>;
   variant?: "rail" | "drawer";
 }) {
+  const normalizedFilter = filter?.trim().toLowerCase() ?? "";
+  const filteredGroups = navigationGroups
+    .map((group) => ({
+      ...group,
+      items: normalizedFilter
+        ? group.items.filter(({ view: item }) =>
+            t(navigationLabels[item]).toLowerCase().includes(normalizedFilter))
+        : group.items,
+    }))
+    .filter((group) => group.items.length > 0);
   return (
     <nav
       aria-label={variant === "drawer" ? t("adminNavigation") : t("adminCenter")}
       className={`admin-navigation admin-navigation--${variant}`}
     >
-      {navigationGroups.map((group) => {
+      {filteredGroups.length === 0 ? (
+        <p className="admin-navigation__empty">{t("navSearchEmpty")}</p>
+      ) : null}
+      {filteredGroups.map((group) => {
         const groupLabel = t(navigationGroupLabels[group.id]);
         const groupLabelId = `admin-navigation-${variant}-${group.id}`;
         return (
@@ -218,12 +233,12 @@ export function AdminNavigation({
                     key={item}
                     aria-current={view === item ? "page" : undefined}
                     aria-label={label}
-                    className={view === item ? "is-active" : ""}
+                    className={`app-nav-item${view === item ? " is-active" : ""}`}
                     type="button"
                     onClick={() => navigate(item)}
                   >
                     <AdminNavIcon name={icon} />
-                    <span>{label}</span>
+                    <span className="app-nav-item__label">{label}</span>
                   </button>
                 );
               })}
@@ -243,11 +258,13 @@ export function AdminNavigation({
  */
 export function AdaptiveNavigation({
   view,
+  filter,
   navigate,
   sessionControls,
   t,
 }: {
   view: View;
+  filter?: string;
   navigate: (view: View) => void;
   sessionControls?: ReactNode;
   t: ReturnType<typeof translator>;
@@ -306,6 +323,7 @@ export function AdaptiveNavigation({
               <strong>{currentLabel}</strong>
             </p>
             <AdminNavigation
+              filter={filter}
               navigate={navigateFromDrawer}
               t={t}
               variant="drawer"
@@ -369,6 +387,7 @@ function AuthenticatedWorkspace({
   t: ReturnType<typeof translator>;
 }) {
   const [view, setView] = useState<View>("overview");
+  const [navQuery, setNavQuery] = useState("");
   const [caseFilter, setCaseFilter] = useState<string>();
   const [caseFocusId, setCaseFocusId] = useState<string>();
   const [toast, setToast] = useState<string>();
@@ -457,10 +476,10 @@ function AuthenticatedWorkspace({
   return (
     <>
     <div className="app-shell" data-dialog-background>
-      <aside className="sidebar">
-        <div className="sidebar__identity">
-          <div className="brand"><div className="brand-mark" aria-hidden="true"><MailIcon size={21} /></div><div><strong>{t("product")}</strong><span>{t("adminCenter")}</span></div></div>
+      <header className="app-topbar admin-topbar">
+        <div className="admin-topbar__start">
           <AdaptiveNavigation
+            filter={navQuery}
             navigate={navigate}
             sessionControls={(
               <AdminSessionControls
@@ -474,15 +493,49 @@ function AuthenticatedWorkspace({
             t={t}
             view={view}
           />
+          <span className="app-wordmark">
+            {t("product")}
+            <small>{t("adminCenter")}</small>
+          </span>
         </div>
-        <AdminNavigation navigate={navigate} t={t} view={view} />
-        <AdminSessionControls
-          locale={locale}
-          organizationId={organizationId}
-          onLocaleChange={onLocaleChange}
-          onSignOut={onSignOut}
-          t={t}
-        />
+        <div className="admin-topbar__search search-omnibox" role="search">
+          <Icon aria-hidden className="admin-topbar__search-icon" name="search" size={20} />
+          <input
+            aria-label={t("navSearchAria")}
+            maxLength={64}
+            placeholder={t("navSearchPlaceholder")}
+            value={navQuery}
+            onChange={(event) => setNavQuery(event.target.value)}
+          />
+          {navQuery ? (
+            <IconButton
+              className="admin-topbar__search-clear"
+              icon="close"
+              label={t("clearFilter")}
+              onClick={() => setNavQuery("")}
+            />
+          ) : null}
+        </div>
+        <div
+          aria-label={t("sessionRegion")}
+          className="admin-topbar__session"
+          role="group"
+        >
+          <LocaleSwitch locale={locale} setLocale={onLocaleChange} t={t} />
+          <button className="topbar-sign-out" type="button" onClick={onSignOut}>
+            <Icon aria-hidden name="sign-out" size={17} />
+            {t("signOut")}
+          </button>
+        </div>
+      </header>
+      <aside className="sidebar">
+        <AdminNavigation filter={navQuery} navigate={navigate} t={t} view={view} />
+        <div className="sidebar__footer">
+          <div className="sidebar__tenant">
+            <span>{t("tenant")}</span>
+            <code title={organizationId}>{shortId(organizationId)}</code>
+          </div>
+        </div>
       </aside>
       <main
         aria-label={t(navigationLabels[view])}
@@ -528,10 +581,10 @@ export default function App() {
     try {
       storedLocale = window.localStorage.getItem(ADMIN_LOCALE_STORAGE_KEY);
     } catch {
-      // Storage can be denied by browser policy; navigator language remains a
-      // deterministic, non-blocking fallback.
+      // Storage can be denied by browser policy; the declared zh-CN default
+      // remains a deterministic, non-blocking fallback.
     }
-    return resolveInitialLocale(storedLocale, navigator.language);
+    return resolveInitialLocale(storedLocale);
   });
   const [auth, setAuth] = useState<AuthState>({ kind: "checking" });
   const [sessionRefreshing, setSessionRefreshing] = useState(false);
@@ -612,11 +665,11 @@ export default function App() {
   }, [auth, revalidateSession]);
 
   if (problems.length) {
-    return <main className="centered"><Panel className="auth-card"><div className="brand-mark" aria-hidden="true"><MailIcon size={22} /></div><h1>{t("configurationRequired")}</h1><p>{t("configurationHint")}</p><div className="notice"><strong>{t("missingFields")}</strong><code>{problems.join(", ")}</code></div><LocaleSwitch locale={locale} setLocale={setLocale} t={t} /></Panel></main>;
+    return <main className="centered"><Panel className="auth-card"><span className="app-wordmark auth-card__wordmark">{t("product")}</span><h1>{t("configurationRequired")}</h1><p>{t("configurationHint")}</p><div className="notice"><strong>{t("missingFields")}</strong><code>{problems.join(", ")}</code></div><LocaleSwitch locale={locale} setLocale={setLocale} t={t} /></Panel></main>;
   }
   if (auth.kind === "checking") return <main className="centered"><Spinner label={t("loading")} /></main>;
   if (auth.kind !== "authenticated") {
-    return <main className="centered"><Panel className="auth-card"><div className="brand-mark" aria-hidden="true"><MailIcon size={22} /></div><p className="eyebrow">{t("product")}</p><h1>{t("secureSignIn")}</h1><p>{t("secureSignInHint")}</p>{auth.kind === "error" ? <AdminErrorNotice error={new Error(auth.message)} t={t} /> : null}<Button onClick={() => { try { startLogin(config); } catch (error) { setAuth({ kind: "error", message: error instanceof Error ? error.message : "login_failed" }); } }}>{t("signIn")}</Button><LocaleSwitch locale={locale} setLocale={setLocale} t={t} /></Panel></main>;
+    return <main className="centered"><Panel className="auth-card"><span className="app-wordmark auth-card__wordmark">{t("product")}</span><h1>{t("secureSignIn")}</h1><p>{t("secureSignInHint")}</p>{auth.kind === "error" ? <AdminErrorNotice error={new Error(auth.message)} t={t} /> : null}<Button onClick={() => { try { startLogin(config); } catch (error) { setAuth({ kind: "error", message: error instanceof Error ? error.message : "login_failed" }); } }}>{t("signIn")}</Button><LocaleSwitch locale={locale} setLocale={setLocale} t={t} /></Panel></main>;
   }
 
   return (
@@ -650,5 +703,5 @@ function LocaleSwitch({
   setLocale: (locale: Locale) => void;
   t: ReturnType<typeof translator>;
 }) {
-  return <label className="locale-switch"><span>{t("language")}</span><select value={locale} onChange={(event) => setLocale(event.target.value as Locale)}><option value="zh-CN">简体中文</option><option value="en">English</option></select></label>;
+  return <label className="locale-switch"><span>{t("language")}</span><select value={locale} onChange={(event) => setLocale(event.target.value as Locale)}><option value="zh-CN">{t("languageNameZhCN")}</option><option value="en">{t("languageNameEn")}</option></select></label>;
 }

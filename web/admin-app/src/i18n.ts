@@ -2,16 +2,17 @@ import type { Locale } from "./types";
 
 export const ADMIN_LOCALE_STORAGE_KEY = "copilotmail.admin.locale.v1";
 
+export const DEFAULT_LOCALE: Locale = "zh-CN";
+
 /**
- * Only the two shipped catalogs are accepted. A malformed or stale browser
- * preference must never select an undeclared language or bypass visible copy.
+ * Only the two shipped catalogs are accepted. zh-CN is the declared product
+ * default: with no stored explicit choice the workspace renders Chinese
+ * regardless of the browser language, and a malformed or stale stored value
+ * can never select an undeclared language or bypass visible copy.
  */
-export function resolveInitialLocale(
-  storedLocale: string | null,
-  navigatorLanguage: string,
-): Locale {
+export function resolveInitialLocale(storedLocale: string | null): Locale {
   if (storedLocale === "zh-CN" || storedLocale === "en") return storedLocale;
-  return navigatorLanguage.toLowerCase().startsWith("zh") ? "zh-CN" : "en";
+  return DEFAULT_LOCALE;
 }
 
 const zh = {
@@ -26,6 +27,12 @@ const zh = {
   navigationChanged: "已切换到",
   openNavigation: "打开导航",
   closeNavigation: "关闭导航",
+  navSearchAria: "筛选导航项",
+  navSearchPlaceholder: "搜索导航",
+  navSearchEmpty: "没有匹配的导航项",
+  languageNameZhCN: "简体中文",
+  languageNameEn: "English",
+  sessionRegion: "语言与账户",
   overview: "概览",
   cases: "合规案件",
   holds: "Legal Hold",
@@ -635,6 +642,12 @@ const en: Record<MessageKey, string> = {
   navigationChanged: "Navigated to",
   openNavigation: "Open navigation",
   closeNavigation: "Close navigation",
+  navSearchAria: "Filter navigation",
+  navSearchPlaceholder: "Search navigation",
+  navSearchEmpty: "No matching destinations",
+  languageNameZhCN: "简体中文",
+  languageNameEn: "English",
+  sessionRegion: "Language and account",
   overview: "Overview",
   cases: "Compliance cases",
   holds: "Legal holds",
@@ -1229,6 +1242,8 @@ const en: Record<MessageKey, string> = {
   agentMailSubmissionStatusRejected: "Rejected",
   agentMailSubmissionStatusManualReview: "Manual review required",
 };
+
+export const CATALOGS = { "zh-CN": zh, en } as const;
 
 export function translator(locale: Locale) {
   const messages = locale === "en" ? en : zh;

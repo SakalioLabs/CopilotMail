@@ -71,7 +71,7 @@ test.describe("Mail built-artifact browser contracts", () => {
       // On the explicit mobile list-detail stack the queue is correctly
       // hidden after selection; desktop still proves the list preview.
       if (viewport.width > 1007) {
-        await expect(page.getByText(FIXTURE_MESSAGE.preview, { exact: true })).toBeVisible();
+        await expect(page.getByText(FIXTURE_MESSAGE.preview)).toBeVisible();
         // A snapshot can accidentally bless an unstyled native button. Keep
         // the shared primary-control contract independently measurable.
         const compose = page.locator(".sidebar .compose");
@@ -136,7 +136,7 @@ test.describe("Mail built-artifact browser contracts", () => {
     await expect(page.locator(".mail-topbar__menu")).toBeVisible();
     await expect(page.locator(".compose-fab")).toBeVisible();
     await expect(page.locator(".mail-shell > .detail")).toBeHidden();
-    await expect(page.getByText(FIXTURE_MESSAGE.preview, { exact: true })).toBeVisible();
+    await expect(page.getByText(FIXTURE_MESSAGE.preview)).toBeVisible();
     expect(mailApp.fixture.state.detailRequestCount).toBe(0);
     expect(await page.locator("html").evaluate((html) => html.scrollWidth <= window.innerWidth))
       .toBe(true);

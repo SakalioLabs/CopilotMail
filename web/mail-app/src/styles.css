@@ -208,27 +208,6 @@ body,
   padding-block: 6px;
 }
 
-.topbar-sign-out {
-  display: inline-flex;
-  min-height: 40px;
-  align-items: center;
-  gap: 7px;
-  padding: 0 14px;
-  border: 1px solid transparent;
-  border-radius: var(--cm-radius-pill);
-  color: var(--cm-muted-strong);
-  background: transparent;
-  font-size: var(--cm-text-body);
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.topbar-sign-out:hover {
-  color: var(--cm-ink);
-  background: var(--cm-surface-subtle);
-}
-
 /* Navigation rail ----------------------------------------------------- */
 
 .sidebar {
@@ -376,6 +355,8 @@ body,
   background: var(--cm-info-soft);
   box-shadow: var(--cm-shadow-2);
 }
+
+.compose:focus-visible { box-shadow: var(--cm-focus-ring); }
 
 .detail-back { display: none; }
 
@@ -608,7 +589,7 @@ body,
   grid-column: 2;
   grid-row: 2;
   flex-direction: column;
-  margin: 0 var(--cm-space-2) var(--cm-space-3) 0;
+  margin: 0 var(--cm-space-1) var(--cm-space-3) 0;
   overflow: hidden;
   border: 1px solid var(--cm-line);
   border-radius: var(--cm-radius-panel);

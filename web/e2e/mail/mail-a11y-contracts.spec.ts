@@ -192,12 +192,29 @@ test.describe("mail queue reachability", () => {
 
     const search = page.getByRole("textbox", { name: "Search email", exact: true });
     await search.focus();
-    await page.keyboard.press("Tab");
+    // The submit control precedes the input inside the search form, so it is
+    // reachable on the plain backward Tab order.
+    await page.keyboard.press("Shift+Tab");
     await expect(page.getByRole("button", { name: "Search", exact: true }))
       .toBeFocused();
     await page.keyboard.press("Tab");
+    await expect(search).toBeFocused();
+    // The queue stays on the plain forward Tab order after the top-bar and
+    // rail controls, before any j/k selection is attempted. Rows expose a
+    // message control and a sibling flag control, so traversal remains
+    // sequential but is not exactly one Tab per row.
+    const tabUntilFocused = async (
+      target: ReturnType<Page["getByRole"]>,
+      attempts: number,
+    ) => {
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        if (await target.evaluate((element) => document.activeElement === element)) return;
+        await page.keyboard.press("Tab");
+      }
+    };
+    await tabUntilFocused(first, 20);
     await expect(first).toBeFocused();
-    await page.keyboard.press("Tab");
+    await tabUntilFocused(second, 4);
     await expect(second).toBeFocused();
 
     // j/k move the same real focus along with the selection marker.

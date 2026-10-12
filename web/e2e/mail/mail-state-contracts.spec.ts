@@ -441,6 +441,11 @@ test.describe("Mail complete inbox keyboard path", () => {
     await expect(page.getByRole("heading", { name: LONG_SUBJECT, level: 2 })).toBeVisible();
     await expect.poll(() => mailApp.fixture.state.detailRequestCount).toBe(1);
     await expect.poll(() => mailApp.fixture.state.messageStateRequestCount).toBe(1);
+    // The header renders from the queue summary while the detail request is
+    // still in flight; the Reply action only appears once the loaded detail
+    // exposes reply_to_message_id, which is also what the `r` shortcut gates
+    // on. Wait for it so the keypress cannot race the response.
+    await expect(page.getByRole("button", { name: "Reply", exact: true })).toBeVisible();
 
     await page.keyboard.press("r");
     const reply = page.getByRole("dialog", { name: "Reply", exact: true });
@@ -451,7 +456,12 @@ test.describe("Mail complete inbox keyboard path", () => {
     await reply.getByRole("button", { name: "Close composer", exact: true }).click();
 
     await page.keyboard.press("s");
-    await expect(page.getByRole("button", { name: "Remove star", exact: true })).toBeVisible();
+    // The queue row's own flag control proves the shortcut starred the
+    // selected message; the reading pane exposes a same-named action.
+    await expect(page.locator(".messages").getByRole("button", {
+      name: "Remove star",
+      exact: true,
+    })).toBeVisible();
 
     await page.keyboard.press("Escape");
     await expect(first).toHaveAttribute("aria-current", "true");
