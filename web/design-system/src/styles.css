@@ -15,16 +15,16 @@
 
     /* Calm, evidence-led surfaces.  Jade is an action/focus signal, never a
        stand-in for either an Agent identity or a positive delivery outcome. */
-    --cm-canvas: #f8f8f6;
+    --cm-canvas: #f6f8fc;
     --cm-surface: #ffffff;
-    --cm-surface-subtle: #f2f4f3;
+    --cm-surface-subtle: #f0f4f9;
     --cm-surface-raised: #ffffff;
-    --cm-ink: #17202a;
-    --cm-muted: #667085;
-    --cm-muted-strong: #475467;
-    --cm-line: #e1e6e3;
-    --cm-line-strong: #cfd8d3;
-    --cm-control-border: #7a8795;
+    --cm-ink: #1f1f1f;
+    --cm-muted: #5f6368;
+    --cm-muted-strong: #444746;
+    --cm-line: #dde3ea;
+    --cm-line-strong: #c7ccd3;
+    --cm-control-border: #747775;
     --cm-agent: #0f766e;
     --cm-agent-soft: #e7f4f1;
     --cm-positive: #18794e;
@@ -34,10 +34,11 @@
     --cm-critical: #b42318;
     --cm-critical-soft: #ffebe8;
     --cm-info: #245fc7;
+    --cm-info-strong: #1a4aa0;
     --cm-info-soft: #eaf1ff;
-    --cm-overlay: rgb(23 32 42 / 54%);
-    --cm-shadow-1: 0 1px 2px rgb(23 32 42 / 4%), 0 8px 22px rgb(23 32 42 / 5%);
-    --cm-shadow-2: 0 18px 54px rgb(23 32 42 / 14%);
+    --cm-overlay: rgb(31 31 31 / 54%);
+    --cm-shadow-1: 0 1px 2px rgb(60 64 67 / 10%), 0 1px 3px 1px rgb(60 64 67 / 6%);
+    --cm-shadow-2: 0 4px 8px 3px rgb(60 64 67 / 15%), 0 1px 3px rgb(60 64 67 / 30%);
 
     /* 4px micro-unit, with an 8px layout rhythm.  Feature CSS must consume
        these names instead of creating another private spacing scale. */
@@ -65,7 +66,7 @@
     --cm-weight-semibold: 650;
 
     --cm-radius-control: 8px;
-    --cm-radius-panel: 12px;
+    --cm-radius-panel: 16px;
     --cm-radius-dialog: 14px;
     --cm-radius-pill: 999px;
     --cm-touch-target: 44px;
@@ -120,16 +121,16 @@
     justify-content: center;
     gap: var(--cm-space-2);
     padding: 0 var(--cm-space-3);
-    border: 1px solid var(--cm-ink);
-    border-radius: var(--cm-radius-control);
+    border: 1px solid var(--cm-info);
+    border-radius: var(--cm-radius-pill);
     color: var(--cm-surface);
-    background: var(--cm-ink);
+    background: var(--cm-info);
     font-weight: 700;
     line-height: 1;
     cursor: pointer;
     transition: color var(--cm-motion-interactive), background var(--cm-motion-interactive), border-color var(--cm-motion-interactive), transform var(--cm-motion-interactive);
   }
-  .button:hover:not(:disabled) { border-color: var(--cm-muted-strong); background: var(--cm-muted-strong); }
+  .button:hover:not(:disabled) { border-color: var(--cm-info-strong); background: var(--cm-info-strong); }
   .button:active:not(:disabled) { transform: translateY(1px); }
   .button:disabled { cursor: not-allowed; opacity: 0.48; }
   .button--secondary { border-color: var(--cm-control-border); color: var(--cm-ink); background: var(--cm-surface); }
@@ -199,7 +200,7 @@
     place-items: center;
     padding: 0;
     border: 1px solid transparent;
-    border-radius: var(--cm-radius-control);
+    border-radius: 50%;
     color: var(--cm-muted-strong);
     background: transparent;
     cursor: pointer;
@@ -207,6 +208,105 @@
   }
   .icon-button:hover:not(:disabled) { color: var(--cm-ink); background: var(--cm-surface-subtle); }
   .icon-button:disabled { cursor: not-allowed; opacity: 0.48; }
+
+  /* Shared application shell: top bar, omnibox search, nav items, wordmark. */
+  .app-wordmark {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--cm-space-2);
+    color: var(--cm-ink);
+    font-size: 1.375rem;
+    font-weight: 450;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .app-wordmark small {
+    color: var(--cm-muted);
+    font-size: var(--cm-text-meta);
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+
+  .app-topbar {
+    display: flex;
+    min-height: 64px;
+    align-items: center;
+    gap: var(--cm-space-3);
+    padding: 0 var(--cm-space-4);
+    background: var(--cm-canvas);
+  }
+
+  .search-omnibox {
+    display: flex;
+    flex: 0 1 720px;
+    min-height: 46px;
+    align-items: center;
+    gap: 2px;
+    padding: 0 6px 0 4px;
+    border-radius: var(--cm-radius-pill);
+    background: var(--cm-surface-subtle);
+  }
+  .search-omnibox:focus-within {
+    background: var(--cm-surface);
+    box-shadow: var(--cm-shadow-1);
+  }
+  .search-omnibox input {
+    min-width: 0;
+    flex: 1;
+    border: 0;
+    outline: 0;
+    padding: 0 4px;
+    color: var(--cm-ink);
+    background: transparent;
+    font-size: var(--cm-text-reading);
+  }
+  .search-omnibox input::placeholder { color: var(--cm-muted); opacity: 1; }
+  .search-omnibox .icon-button { flex: 0 0 auto; color: var(--cm-muted-strong); }
+
+  .app-nav-item {
+    display: flex;
+    min-height: 40px;
+    width: 100%;
+    align-items: center;
+    gap: var(--cm-space-3);
+    padding: 0 var(--cm-space-4);
+    border: 1px solid transparent;
+    border-radius: var(--cm-radius-pill);
+    color: var(--cm-muted-strong);
+    background: transparent;
+    font-size: var(--cm-text-body);
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--cm-motion-interactive), color var(--cm-motion-interactive);
+  }
+  .app-nav-item:hover:not(:disabled) {
+    color: var(--cm-ink);
+    background: var(--cm-surface-subtle);
+  }
+  .app-nav-item.active,
+  .app-nav-item[aria-current] {
+    color: var(--cm-info);
+    background: var(--cm-info-soft);
+    font-weight: 700;
+  }
+  .app-nav-item:disabled { cursor: not-allowed; opacity: 0.45; }
+  .app-nav-item__badge {
+    margin-left: auto;
+    padding: 1px var(--cm-space-2);
+    border-radius: var(--cm-radius-pill);
+    color: var(--cm-muted-strong);
+    background: var(--cm-surface-subtle);
+    font-size: var(--cm-text-micro);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .app-nav-item.active .app-nav-item__badge,
+  .app-nav-item[aria-current] .app-nav-item__badge {
+    color: var(--cm-info);
+    background: transparent;
+  }
 
   .identity-badge,
   .entity-badge {

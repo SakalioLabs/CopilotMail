@@ -2,14 +2,15 @@
 /// <reference types="vite/client" />
 
 import { createRef } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import detailStyles from "./detail.css?raw";
 import searchStyles from "./search.css?raw";
 import mailStyles from "./styles.css?raw";
 import { MessageDetail } from "./components/MessageDetail";
 import { MessageList } from "./components/MessageList";
-import { MobileToolbar } from "./components/MailNavigation";
+import { MailTopbar } from "./components/MailTopbar";
+import { MobileNavigation } from "./components/MailNavigation";
 import { createTranslator } from "./i18n";
 import type { InboxPage, MailboxDirectoryItem, MessageSummary } from "./types";
 
@@ -65,35 +66,34 @@ describe("mobile touch target contract", () => {
     expect(mailStyles).toContain("--mail-touch-target-size: var(--cm-touch-target);");
 
     const mobileMailStyles = mediaBlock(mailStyles, "(max-width: 1007px)");
-    expect(selectorRule(mobileMailStyles, ".mobile-actions")).toContain("flex: 0 0 auto;");
-    expect(selectorRule(mobileMailStyles, ".mobile-mailbox-scope__summary")).toContain(
+    expect(selectorRule(mobileMailStyles, ".mail-topbar__menu")).toContain(
+      "display: inline-grid;",
+    );
+    expect(selectorRule(mobileMailStyles, ".compose-fab")).toContain("display: grid;");
+    // Drawer scope chrome keeps its 44px floor as base styles because the
+    // drawer only ever opens below the mobile breakpoint.
+    expect(selectorRule(mailStyles, ".mobile-mailbox-scope__summary")).toContain(
       "min-height: var(--mail-touch-target-size);",
     );
-    expect(selectorRule(mobileMailStyles, ".mobile-toolbar button")).toContain(
-      "min-width: var(--mail-touch-target-size);",
-    );
-    expect(selectorRule(mobileMailStyles, ".mobile-toolbar button")).toContain(
+    expect(selectorRule(mobileMailStyles, ".mail-nav-drawer button")).toContain(
       "min-height: var(--mail-touch-target-size);",
     );
-    expect(selectorRule(mobileMailStyles, ".mobile-mailbox-picker select")).toContain(
+    expect(selectorRule(mailStyles, ".mobile-mailbox-picker select")).toContain(
       "min-width: var(--mail-touch-target-size);",
     );
-    expect(selectorRule(mobileMailStyles, ".mobile-mailbox-picker select")).toContain(
+    expect(selectorRule(mailStyles, ".mobile-mailbox-picker select")).toContain(
       "min-height: var(--mail-touch-target-size);",
     );
     expect(selectorRule(
-      mobileMailStyles,
+      mailStyles,
       ".mobile-mailbox-scope__session-controls .language-picker select",
     )).toContain(
       "min-width: var(--mail-touch-target-size);",
     );
     expect(selectorRule(
-      mobileMailStyles,
+      mailStyles,
       ".mobile-mailbox-scope__session-controls .language-picker select",
     )).toContain(
-      "min-height: var(--mail-touch-target-size);",
-    );
-    expect(selectorRule(mobileMailStyles, ".mobile-view-tabs button")).toContain(
       "min-height: var(--mail-touch-target-size);",
     );
     expect(selectorRule(mobileMailStyles, ".detail-back")).toContain(
@@ -103,7 +103,9 @@ describe("mobile touch target contract", () => {
       "min-height: var(--mail-touch-target-size);",
     );
     for (const selector of [
-      ".inbox-header > .icon-button",
+      ".mail-topbar .icon-button",
+      ".inbox-header .inbox-refresh",
+      ".message__flag",
       ".composer .dialog__header .icon-button",
       ".command-palette__close",
     ]) {
@@ -123,13 +125,22 @@ describe("mobile touch target contract", () => {
       ".composer footer button",
       ".command-palette__search input",
       ".command-palette__command",
-      ".messages > .message",
+      ".messages > .message-row > .message",
       ".messages > .draft-item",
     ]) {
       expect(selectorRule(mobileMailStyles, selector)).toContain(
         "min-height: var(--mail-touch-target-size);",
       );
     }
+    expect(selectorRule(mobileMailStyles, ".mail-topbar .topbar-sign-out")).toContain(
+      "min-width: var(--mail-touch-target-size);",
+    );
+    expect(selectorRule(mobileMailStyles, ".mail-topbar .topbar-sign-out")).toContain(
+      "min-height: var(--mail-touch-target-size);",
+    );
+    expect(selectorRule(mobileMailStyles, ".mail-topbar .language-picker select")).toContain(
+      "min-height: var(--mail-touch-target-size);",
+    );
     expect(selectorRule(mobileMailStyles, ".composer input")).toContain(
       "min-height: var(--mail-touch-target-size);",
     );
@@ -164,17 +175,19 @@ describe("mobile touch target contract", () => {
   });
 
   it("keeps each styled mobile action on its semantic native control", () => {
-    const { container: toolbar } = render(
-      <MobileToolbar
+    render(
+      <MobileNavigation
         activeMailbox={mailbox}
         activeView="inbox"
         canCompose
+        drawerOpen
         locale="en"
         mailboxHasMore
         mailboxLoadMoreBusy={false}
         mailboxes={[mailbox]}
         sessionLocked={false}
         onCompose={vi.fn()}
+        onDrawerClose={vi.fn()}
         onLocaleChange={vi.fn()}
         onMailboxChange={vi.fn()}
         onMailboxLoadMore={vi.fn()}
@@ -185,21 +198,43 @@ describe("mobile touch target contract", () => {
       />,
     );
 
-    expect(toolbar.querySelector<HTMLSelectElement>(".mobile-mailbox-picker select"))
+    const drawer = screen.getByRole("dialog", { name: "Mail navigation" });
+    expect(drawer.querySelector<HTMLSelectElement>(".mobile-mailbox-picker select"))
       .toHaveAccessibleName("Switch mailbox");
-    expect(toolbar.querySelector<HTMLSelectElement>(".language-picker select"))
+    expect(drawer.querySelector<HTMLSelectElement>(".language-picker select"))
       .toHaveAccessibleName("Language");
-    expect(screen.getByRole("button", { name: "Compose" })).toHaveClass("mobile-compose");
-    expect(screen.getByRole("button", { name: "Open command palette" }))
+    expect(document.querySelector<HTMLButtonElement>(".compose-fab"))
+      .toBeInstanceOf(HTMLButtonElement);
+    expect(within(drawer).getByRole("button", { name: "Open command palette" }))
       .toHaveClass("mobile-command-trigger");
-    expect(screen.getByRole("button", { name: "Inbox" }))
+    expect(within(drawer).getByRole("button", { name: "Inbox" }))
       .toBeInstanceOf(HTMLButtonElement);
-    expect(screen.getByRole("button", { name: "Sent" }))
+    expect(within(drawer).getByRole("button", { name: "Sent" }))
       .toBeInstanceOf(HTMLButtonElement);
-    expect(screen.getByRole("button", { name: "Drafts" }))
+    expect(within(drawer).getByRole("button", { name: "Drafts" }))
       .toBeInstanceOf(HTMLButtonElement);
 
-    const { container: list } = render(
+    const { container: topbar } = render(
+      <MailTopbar
+        locale="en"
+        navigationOpen={false}
+        searchBusy={false}
+        searchText=""
+        t={t}
+        onClearSearch={vi.fn()}
+        onLocaleChange={vi.fn()}
+        onOpenMenu={vi.fn()}
+        onSearch={vi.fn()}
+        onSearchTextChange={vi.fn()}
+        onSignOut={vi.fn()}
+      />,
+    );
+    expect(topbar.querySelector<HTMLInputElement>(".mail-search input"))
+      .toHaveAccessibleName("Search email");
+    expect(topbar.querySelector<HTMLButtonElement>(".mail-search__submit"))
+      .toHaveAccessibleName("Search");
+
+    render(
       <MessageList
         locale="en"
         page={page}
@@ -207,18 +242,13 @@ describe("mobile touch target contract", () => {
         searchText=""
         t={t}
         messageButtonRef={() => () => undefined}
-        onClearSearch={vi.fn()}
         onLoadMore={vi.fn()}
         onOpenMessage={vi.fn()}
         onRefresh={vi.fn()}
         onSearch={vi.fn()}
-        onSearchTextChange={vi.fn()}
+        onToggleFlag={vi.fn()}
       />,
     );
-    expect(list.querySelector<HTMLInputElement>(".mail-search input"))
-      .toHaveAccessibleName("Search email");
-    expect(list.querySelector<HTMLButtonElement>(".mail-search__submit"))
-      .toHaveAccessibleName("Search");
 
     const { container: detail } = render(
       <MessageDetail

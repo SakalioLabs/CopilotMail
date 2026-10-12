@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail closed when the Human mail UI bypasses its locale catalog."""
+"""Fail closed when a shipped web UI bypasses its locale catalog."""
 
 from __future__ import annotations
 
@@ -10,11 +10,33 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-MAIL_APP_SOURCE = ROOT / "web" / "mail-app" / "src"
-CATALOG = MAIL_APP_SOURCE / "i18n.ts"
+WEB = ROOT / "web"
 AST_CHECKER = ROOT / "scripts" / "check_web_i18n_ast.mjs"
 HAN_PATTERN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
 TEST_DIRECTORY_NAMES = {"test", "tests", "__tests__"}
+
+# Every shipped production surface is scanned. Applications that own a locale
+# catalog declare it so the gate can also verify the catalog itself is intact.
+SCANNED_SURFACES = (
+    {
+        "name": "mail-app",
+        "source": WEB / "mail-app" / "src",
+        "catalog": WEB / "mail-app" / "src" / "i18n.ts",
+        "catalog_markers": ('"zh-CN"', "const en =", "export type MessageKey"),
+    },
+    {
+        "name": "admin-app",
+        "source": WEB / "admin-app" / "src",
+        "catalog": WEB / "admin-app" / "src" / "i18n.ts",
+        "catalog_markers": ('"zh-CN"', "const en:", "const zh ="),
+    },
+    {
+        "name": "design-system",
+        "source": WEB / "design-system" / "src",
+        "catalog": None,
+        "catalog_markers": (),
+    },
+)
 
 
 class I18nError(ValueError):
@@ -46,29 +68,37 @@ def han_locations(text: str) -> list[int]:
 
 
 def validate() -> None:
-    if not CATALOG.is_file():
-        raise I18nError("mail-app locale catalog is missing")
-    catalog = CATALOG.read_text(encoding="utf-8")
-    for marker in ('"zh-CN"', "const en =", "export type MessageKey"):
-        if marker not in catalog:
-            raise I18nError(f"mail-app locale catalog is missing {marker}")
-
     violations: list[str] = []
-    for source in production_sources(MAIL_APP_SOURCE):
-        for line_number in han_locations(source.read_text(encoding="utf-8")):
-            violations.append(
-                f"{source.relative_to(ROOT).as_posix()}:{line_number}"
-            )
+    for surface in SCANNED_SURFACES:
+        name = surface["name"]
+        source = surface["source"]
+        catalog = surface["catalog"]
+        if not source.is_dir():
+            raise I18nError(f"{name} source directory is missing")
+        if catalog is not None:
+            if not catalog.is_file():
+                raise I18nError(f"{name} locale catalog is missing")
+            catalog_text = catalog.read_text(encoding="utf-8")
+            for marker in surface["catalog_markers"]:
+                if marker not in catalog_text:
+                    raise I18nError(f"{name} locale catalog is missing {marker}")
+        for source_path in production_sources(source):
+            for line_number in han_locations(
+                source_path.read_text(encoding="utf-8")
+            ):
+                violations.append(
+                    f"{source_path.relative_to(ROOT).as_posix()}:{line_number}"
+                )
     if violations:
         raise I18nError(
-            "Chinese production UI literals must live in i18n.ts: "
+            "Chinese production UI literals must live in a locale catalog: "
             + ", ".join(violations)
         )
 
 
 def validate_jsx_ast(run_self_test: bool) -> None:
     if not AST_CHECKER.is_file():
-        raise I18nError("mail-app JSX AST checker is missing")
+        raise I18nError("web JSX AST checker is missing")
     command = ["node", str(AST_CHECKER)]
     if run_self_test:
         command.append("--self-test")
@@ -83,7 +113,7 @@ def validate_jsx_ast(run_self_test: bool) -> None:
             timeout=30,
         )
     except subprocess.TimeoutExpired as error:
-        raise I18nError("mail-app JSX AST checker timed out") from error
+        raise I18nError("web JSX AST checker timed out") from error
     except OSError as error:
         raise I18nError(
             "unable to run the JSX AST checker; run npm ci in web first"
@@ -94,7 +124,7 @@ def validate_jsx_ast(run_self_test: bool) -> None:
 
 
 def self_test() -> None:
-    if han_locations('const label = "\u6536\u4ef6\u7bb1";') != [1]:
+    if han_locations('const label = "收件箱";') != [1]:
         raise I18nError("self-test failed to detect a Chinese UI literal")
     if han_locations('const key = "nav.inbox";'):
         raise I18nError("self-test rejected a locale key")
@@ -102,7 +132,7 @@ def self_test() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Check Human mail UI locale-catalog ownership"
+        description="Check web UI locale-catalog ownership"
     )
     parser.add_argument(
         "--self-test",
@@ -119,8 +149,9 @@ def main() -> None:
         print(f"web i18n gate failed: {error}", file=sys.stderr)
         raise SystemExit(1) from error
     print(
-        "web i18n gate passed: Human mail production text and visible JSX "
-        "literals are catalog-owned for zh-CN and en"
+        "web i18n gate passed: mail-app, admin-app, and design-system "
+        "production text and visible JSX literals are catalog-owned "
+        "for zh-CN and en"
     )
 
 

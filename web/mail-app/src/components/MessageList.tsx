@@ -14,19 +14,17 @@ interface MessageListProps {
   activeSearch?: string;
   error?: string;
   headingRef?: RefObject<HTMLHeadingElement | null>;
-  searchInputRef?: RefObject<HTMLInputElement | null>;
   locale: Locale;
   page?: InboxPage;
   searchBusy: boolean;
   searchText: string;
   selectedMessageId?: string;
   t: Translator;
-  onClearSearch: () => void;
   onLoadMore: () => void;
   onOpenMessage: (message: MessageSummary) => void;
   onRefresh: () => void;
   onSearch: () => void;
-  onSearchTextChange: (value: string) => void;
+  onToggleFlag: (message: MessageSummary) => void;
   messageButtonRef: (messageId: string) => RefCallback<HTMLButtonElement>;
 }
 
@@ -34,19 +32,17 @@ export function MessageList({
   activeSearch,
   error,
   headingRef,
-  searchInputRef,
   locale,
   page,
   searchBusy,
   searchText,
   selectedMessageId,
   t,
-  onClearSearch,
   onLoadMore,
   onOpenMessage,
   onRefresh,
   onSearch,
-  onSearchTextChange,
+  onToggleFlag,
   messageButtonRef,
 }: MessageListProps) {
   const inboxBusy = searchBusy || (!page && !error);
@@ -80,38 +76,6 @@ export function MessageList({
           onClick={onRefresh}
         />
       </header>
-      <form
-        className="mail-search"
-        role="search"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSearch();
-        }}
-      >
-        <input
-          ref={searchInputRef}
-          aria-label={t("inbox.searchAria")}
-          maxLength={128}
-          placeholder={t("inbox.searchPlaceholder")}
-          value={searchText}
-          onChange={(event) => onSearchTextChange(event.target.value)}
-        />
-        {activeSearch && (
-          <IconButton
-            className="mail-search__clear"
-            icon="close"
-            label={t("inbox.clearSearchAria")}
-            onClick={onClearSearch}
-          />
-        )}
-        <IconButton
-          className="mail-search__submit"
-          disabled={searchBusy}
-          icon="search"
-          label={t("inbox.submitSearchAria")}
-          type="submit"
-        />
-      </form>
       {error && (
         <div className="error error--actionable" role="alert">
           <span>{error}</span>
@@ -132,6 +96,7 @@ export function MessageList({
             t={t}
             messageButtonRef={messageButtonRef}
             onOpenMessage={onOpenMessage}
+            onToggleFlag={onToggleFlag}
           />
         ))}
         {page && page.items.length === 0 && (

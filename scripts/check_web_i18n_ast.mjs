@@ -16,7 +16,11 @@ try {
   process.exit(1);
 }
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
-const SOURCE_ROOT = path.join(ROOT, "web", "mail-app", "src");
+const SOURCE_ROOTS = [
+  path.join(ROOT, "web", "mail-app", "src"),
+  path.join(ROOT, "web", "admin-app", "src"),
+  path.join(ROOT, "web", "design-system", "src"),
+];
 const VISIBLE_ATTRIBUTES = new Set([
   "alt",
   "aria-description",
@@ -44,6 +48,7 @@ const NON_COPY_LITERALS = new Set([
   "C",
   "CopilotMail",
   "CSS",
+  "Esc",
   "HTML",
   "HTTP",
   "HTTPS",
@@ -61,6 +66,7 @@ const NON_COPY_LITERALS = new Set([
   "UTC",
   "UUID",
   "XML",
+  "v",
 ]);
 const LETTER_PATTERN = /\p{L}/u;
 const HTML_ENTITY_PATTERN = /&(?:#\d+|#x[\da-f]+|[a-z][\da-z]+);/giu;
@@ -84,7 +90,7 @@ function isNonCopyLiteral(value) {
   return MACHINE_VALUE_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
-function isProductionSource(filePath, sourceRoot = SOURCE_ROOT) {
+function isProductionSource(filePath, sourceRoot) {
   const relative = path.relative(sourceRoot, filePath);
   if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) return false;
   const parts = relative.split(path.sep);
@@ -245,21 +251,28 @@ function parseSource(name, source) {
 }
 
 function validate() {
-  if (!fs.existsSync(SOURCE_ROOT)) throw new I18nAstError("mail-app source directory is missing");
   const violations = [];
-  for (const filePath of productionSources(SOURCE_ROOT)) {
-    const sourceFile = parseSource(filePath, fs.readFileSync(filePath, "utf8"));
-    for (const violation of scanSource(sourceFile)) {
-      violations.push(
-        `${path.relative(ROOT, filePath).split(path.sep).join("/")}`
-        + `:${violation.line}:${violation.column} ${violation.category}`
-        + ` ${JSON.stringify(violation.text)}`,
+  for (const sourceRoot of SOURCE_ROOTS) {
+    if (!fs.existsSync(sourceRoot)) {
+      throw new I18nAstError(
+        `${path.relative(ROOT, sourceRoot)} source directory is missing`,
       );
+    }
+    for (const filePath of productionSources(sourceRoot)) {
+      const sourceFile = parseSource(filePath, fs.readFileSync(filePath, "utf8"));
+      for (const violation of scanSource(sourceFile)) {
+        violations.push(
+          `${path.relative(ROOT, filePath).split(path.sep).join("/")}`
+          + `:${violation.line}:${violation.column} ${violation.category}`
+          + ` ${JSON.stringify(violation.text)}`,
+        );
+      }
     }
   }
   if (violations.length > 0) {
     throw new I18nAstError(
-      "visible production JSX literals must come from i18n.ts:\n" + violations.join("\n"),
+      "visible production JSX literals must come from a locale catalog:\n"
+      + violations.join("\n"),
     );
   }
 }
@@ -308,15 +321,15 @@ function selfTest() {
   }
 
   const excludedPaths = [
-    path.join(SOURCE_ROOT, "App.test.tsx"),
-    path.join(SOURCE_ROOT, "Widget.spec.tsx"),
-    path.join(SOURCE_ROOT, "test", "setup.ts"),
-    path.join(SOURCE_ROOT, "tests", "fixture.tsx"),
-    path.join(SOURCE_ROOT, "__tests__", "fixture.tsx"),
-    path.join(SOURCE_ROOT, "i18n.ts"),
+    path.join(SOURCE_ROOTS[0], "App.test.tsx"),
+    path.join(SOURCE_ROOTS[0], "Widget.spec.tsx"),
+    path.join(SOURCE_ROOTS[0], "test", "setup.ts"),
+    path.join(SOURCE_ROOTS[0], "tests", "fixture.tsx"),
+    path.join(SOURCE_ROOTS[0], "__tests__", "fixture.tsx"),
+    path.join(SOURCE_ROOTS[0], "i18n.ts"),
   ];
-  if (!isProductionSource(path.join(SOURCE_ROOT, "App.tsx"))
-    || excludedPaths.some((filePath) => isProductionSource(filePath))) {
+  if (!isProductionSource(path.join(SOURCE_ROOTS[0], "App.tsx"), SOURCE_ROOTS[0])
+    || excludedPaths.some((filePath) => isProductionSource(filePath, SOURCE_ROOTS[0]))) {
     throw new I18nAstError("AST self-test failed production/test source classification");
   }
 }

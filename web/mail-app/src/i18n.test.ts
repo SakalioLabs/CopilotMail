@@ -34,6 +34,12 @@ describe("mail app translations", () => {
       expect(placeholders(MESSAGES.en[key as keyof typeof MESSAGES.en]))
         .toEqual(placeholders(MESSAGES["zh-CN"][key as keyof typeof MESSAGES["zh-CN"]]));
     }
+
+    for (const [locale, catalog] of Object.entries(MESSAGES)) {
+      for (const [key, value] of Object.entries(catalog)) {
+        expect(value.trim(), `${locale}.${key}`).not.toBe("");
+      }
+    }
   });
 
   it("translates static and parameterized messages in both languages", () => {
@@ -67,42 +73,22 @@ describe("mail app translations", () => {
 });
 
 describe("locale selection", () => {
-  it("prioritizes persisted, document, and navigator locales in that order", () => {
+  it("honours only the persisted selection and defaults to zh-CN", () => {
     const storage: LocaleStorage = {
       getItem: () => "en-US",
       setItem: vi.fn(),
     };
+    expect(detectLocale({ storage })).toBe("en");
+    expect(DEFAULT_LOCALE).toBe("zh-CN");
+    expect(detectLocale({ storage: null })).toBe("zh-CN");
     expect(detectLocale({
-      storage,
-      documentLanguage: "zh-Hans-CN",
-      navigatorLanguages: ["zh-CN"],
-    })).toBe("en");
-
-    expect(detectLocale({
-      storage: null,
-      documentLanguage: "zh_Hans_CN",
-      navigatorLanguages: ["en-GB"],
+      storage: { getItem: () => "fr", setItem: vi.fn() },
     })).toBe("zh-CN");
-
-    expect(detectLocale({
-      storage: null,
-      documentLanguage: "fr",
-      navigatorLanguages: ["fr-FR", "en-GB"],
-    })).toBe("en");
   });
 
-  it("uses a deterministic fallback when no supported locale is available", () => {
-    expect(detectLocale({
-      storage: null,
-      documentLanguage: "fr",
-      navigatorLanguages: ["de-DE"],
-    })).toBe(DEFAULT_LOCALE);
-    expect(detectLocale({
-      storage: null,
-      documentLanguage: null,
-      navigatorLanguages: [],
-      fallback: "en",
-    })).toBe("en");
+  it("uses a deterministic fallback when no supported locale is stored", () => {
+    expect(detectLocale({ storage: null })).toBe(DEFAULT_LOCALE);
+    expect(detectLocale({ storage: null, fallback: "en" })).toBe("en");
   });
 
   it("reads and persists locale without allowing storage failures to escape", () => {

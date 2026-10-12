@@ -23,6 +23,11 @@ const zhCN = {
   "nav.sent": "已发送",
   "nav.drafts": "草稿",
   "nav.signOut": "退出登录",
+  "nav.openMenu": "打开导航菜单",
+  "nav.closeMenu": "关闭导航菜单",
+  "nav.drawerTitle": "邮件导航",
+  "nav.inboxUnread": "收件箱，{count} 封未读",
+  "topbar.sessionRegion": "账户与语言",
   "command.open": "打开命令面板",
   "command.title": "命令面板",
   "command.triggerShortcut": "Ctrl 或 Command K",
@@ -270,6 +275,11 @@ const en = {
   "nav.sent": "Sent",
   "nav.drafts": "Drafts",
   "nav.signOut": "Sign out",
+  "nav.openMenu": "Open navigation menu",
+  "nav.closeMenu": "Close navigation menu",
+  "nav.drawerTitle": "Mail navigation",
+  "nav.inboxUnread": "Inbox, {count} unread",
+  "topbar.sessionRegion": "Account and language",
   "command.open": "Open command palette",
   "command.title": "Command palette",
   "command.triggerShortcut": "Ctrl or Command K",
@@ -527,8 +537,6 @@ export interface LocaleStorage {
 
 export interface LocaleDetectionOptions {
   storage?: LocaleStorage | null;
-  documentLanguage?: string | null;
-  navigatorLanguages?: readonly string[] | null;
   fallback?: Locale;
 }
 
@@ -547,24 +555,6 @@ function defaultStorage(): LocaleStorage | null {
     return globalThis.localStorage ?? null;
   } catch {
     return null;
-  }
-}
-
-function browserDocumentLanguage(): string | null {
-  try {
-    return globalThis.document?.documentElement?.lang || null;
-  } catch {
-    return null;
-  }
-}
-
-function browserNavigatorLanguages(): readonly string[] {
-  try {
-    const languages = Array.from(globalThis.navigator?.languages ?? []);
-    const primary = globalThis.navigator?.language;
-    return primary && !languages.includes(primary) ? [...languages, primary] : languages;
-  } catch {
-    return [];
   }
 }
 
@@ -594,24 +584,14 @@ export function persistLocale(locale: Locale, storage?: LocaleStorage | null): b
   }
 }
 
+/**
+ * zh-CN is the declared product default. Only an explicit stored selection
+ * may override it; the browser language never silently rewrites the locale.
+ */
 export function detectLocale(options: LocaleDetectionOptions = {}): Locale {
-  const persisted = readLocale(options.storage);
-  if (persisted) return persisted;
-
-  const documentLanguage = options.documentLanguage === undefined
-    ? browserDocumentLanguage()
-    : options.documentLanguage;
-  const fromDocument = normalizeLocale(documentLanguage);
-  if (fromDocument) return fromDocument;
-
-  const navigatorLanguages = options.navigatorLanguages === undefined
-    ? browserNavigatorLanguages()
-    : options.navigatorLanguages ?? [];
-  for (const language of navigatorLanguages) {
-    const normalized = normalizeLocale(language);
-    if (normalized) return normalized;
-  }
-  return normalizeLocale(options.fallback) ?? DEFAULT_LOCALE;
+  return readLocale(options.storage)
+    ?? normalizeLocale(options.fallback)
+    ?? DEFAULT_LOCALE;
 }
 
 function interpolationIsSafe(value: unknown): value is TranslationValue {

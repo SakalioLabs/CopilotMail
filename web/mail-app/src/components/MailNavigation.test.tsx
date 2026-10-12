@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTranslator } from "../i18n";
 import type { MailboxDirectoryItem } from "../types";
-import { DesktopNavigation, MobileToolbar } from "./MailNavigation";
+import { DesktopNavigation, MobileNavigation } from "./MailNavigation";
 
 afterEach(cleanup);
 
@@ -80,14 +80,17 @@ describe("mail navigation mailbox identity", () => {
       can_send: false,
     };
 
-    const { container } = render(
-      <MobileToolbar
+    render(
+      <MobileNavigation
         {...commonProps(mailbox)}
         canCompose={false}
+        drawerOpen
+        onDrawerClose={vi.fn()}
       />,
     );
 
-    const scope = container.querySelector<HTMLDetailsElement>(".mobile-mailbox-scope");
+    const drawer = screen.getByRole("dialog", { name: "Mail navigation" });
+    const scope = drawer.querySelector<HTMLDetailsElement>(".mobile-mailbox-scope");
     const summary = scope?.querySelector<HTMLElement>("summary");
     expect(scope).not.toBeNull();
     expect(scope).not.toHaveAttribute("open");
@@ -114,12 +117,13 @@ describe("mail navigation mailbox identity", () => {
     );
     expect(within(scope!).getByRole("combobox", { name: "Language" })).toBeEnabled();
     expect(within(scope!).getByRole("button", { name: "Sign out" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Compose" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Inbox" }).querySelector("[data-icon='inbox']"))
+    expect(within(drawer).getByRole("button", { name: "Compose" })).toBeDisabled();
+    expect(document.querySelector<HTMLButtonElement>(".compose-fab")).toBeDisabled();
+    expect(within(drawer).getByRole("button", { name: "Inbox" }).querySelector("[data-icon='inbox']"))
       .toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sent" }).querySelector("[data-icon='sent']"))
+    expect(within(drawer).getByRole("button", { name: "Sent" }).querySelector("[data-icon='sent']"))
       .toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Drafts" }).querySelector("[data-icon='draft']"))
+    expect(within(drawer).getByRole("button", { name: "Drafts" }).querySelector("[data-icon='draft']"))
       .toBeInTheDocument();
   });
 
@@ -131,15 +135,18 @@ describe("mail navigation mailbox identity", () => {
       can_send: true,
     };
 
-    const { container } = render(
-      <MobileToolbar
+    render(
+      <MobileNavigation
         {...commonProps(mailbox)}
         canCompose
         sessionLocked
+        drawerOpen
+        onDrawerClose={vi.fn()}
       />,
     );
 
-    const scope = container.querySelector<HTMLDetailsElement>(".mobile-mailbox-scope");
+    const drawer = screen.getByRole("dialog", { name: "Mail navigation" });
+    const scope = drawer.querySelector<HTMLDetailsElement>(".mobile-mailbox-scope");
     fireEvent.click(scope?.querySelector("summary")!);
 
     expect(scope).toHaveAttribute("open");

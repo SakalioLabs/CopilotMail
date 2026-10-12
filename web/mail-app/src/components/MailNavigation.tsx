@@ -1,10 +1,13 @@
+import { useEffect } from "react";
 import type { Locale, Translator } from "../i18n";
 import type { MailboxDirectoryItem } from "../types";
 import {
   ContextBar,
+  Dialog,
   Icon,
   IdentityBadge,
   StatusIndicator,
+  type IconName,
 } from "@copilotmail/design-system";
 import { LanguagePicker } from "./LanguagePicker";
 import { MailboxPicker } from "./MailboxPicker";
@@ -22,6 +25,7 @@ interface MailNavigationProps {
   composeBusy?: boolean;
   sessionLocked?: boolean;
   activeView: MailView;
+  unreadInboxCount?: number;
   onLocaleChange: (locale: Locale) => void;
   onMailboxChange: (mailboxId: string) => void;
   onMailboxLoadMore: () => void;
@@ -30,6 +34,74 @@ interface MailNavigationProps {
   onViewChange: (view: MailView) => void;
   onSignOut: () => void;
   t: Translator;
+}
+
+interface ViewNavigationProps {
+  activeView: MailView;
+  canCompose: boolean;
+  locale: Locale;
+  onViewChange: (view: MailView) => void;
+  t: Translator;
+  unreadInboxCount?: number;
+}
+
+const VIEW_ICONS: Record<MailView, IconName> = {
+  inbox: "inbox",
+  sent: "sent",
+  drafts: "draft",
+};
+
+/**
+ * Gmail-style view list shared by the desktop rail and the mobile drawer.
+ * The inbox item announces its unread total through the accessible name and
+ * repeats it as a decorative badge so the row stays a single scannable line.
+ */
+function MailViewNavigation({
+  activeView,
+  canCompose,
+  locale,
+  onViewChange,
+  t,
+  unreadInboxCount = 0,
+}: ViewNavigationProps) {
+  const views: Array<{ view: MailView; label: string; disabled: boolean }> = [
+    { view: "inbox", label: t("nav.inbox"), disabled: false },
+    { view: "sent", label: t("nav.sent"), disabled: !canCompose },
+    { view: "drafts", label: t("nav.drafts"), disabled: !canCompose },
+  ];
+
+  return (
+    <nav aria-label={t("nav.mailboxLabel")}>
+      {views.map(({ view, label, disabled }) => {
+        const active = activeView === view;
+        return (
+          <button
+            key={view}
+            className={["app-nav-item", active ? "active" : ""]
+              .filter(Boolean)
+              .join(" ")}
+            aria-current={active ? "page" : undefined}
+            aria-label={
+              view === "inbox" && unreadInboxCount > 0
+                ? t("nav.inboxUnread", { count: unreadInboxCount })
+                : undefined
+            }
+            disabled={disabled}
+            title={disabled ? t("mailbox.composeUnavailable") : undefined}
+            onClick={() => onViewChange(view)}
+          >
+            <Icon aria-hidden name={VIEW_ICONS[view]} size={18} />
+            <span className="app-nav-item__label">{label}</span>
+            {view === "inbox" && unreadInboxCount > 0 ? (
+              <span aria-hidden="true" className="app-nav-item__badge">
+                {unreadInboxCount.toLocaleString(locale)}
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+    </nav>
+  );
 }
 
 /**
@@ -126,36 +198,31 @@ function MobileMailboxScopeSummary({
   );
 }
 
-export function DesktopNavigation({
+function MailboxScopeControls({
   locale,
   activeMailbox,
   mailboxes,
   mailboxHasMore,
   mailboxLoadMoreBusy,
   mailboxLoadMoreError,
-  canCompose,
-  composeBusy = false,
   sessionLocked = false,
-  activeView,
   onLocaleChange,
   onMailboxChange,
   onMailboxLoadMore,
-  onCompose,
-  onOpenCommandPalette,
-  onViewChange,
   onSignOut,
   t,
 }: MailNavigationProps) {
   return (
-    <aside className="sidebar" data-dialog-background>
-      <div className="brand">
-        <span className="mark" aria-hidden="true"><Icon name="mail" size={19} /></span>
-        <strong>{t("app.name")}</strong>
-      </div>
-      <MailboxIdentity activeMailbox={activeMailbox} t={t} />
+    <>
+      <MailboxIdentity
+        activeMailbox={activeMailbox}
+        className="mobile-mailbox-identity"
+        t={t}
+      />
       <MailboxPicker
         activeMailboxId={activeMailbox.mailbox_id}
         disabled={sessionLocked}
+        className="mobile-mailbox-picker"
         mailboxes={mailboxes}
         hasMore={mailboxHasMore}
         loadMoreBusy={mailboxLoadMoreBusy}
@@ -164,6 +231,44 @@ export function DesktopNavigation({
         onLoadMore={onMailboxLoadMore}
         t={t}
       />
+      <div className="mobile-mailbox-scope__session-controls">
+        <LanguagePicker locale={locale} onChange={onLocaleChange} t={t} />
+        <button
+          className="mobile-sign-out"
+          aria-label={t("nav.signOut")}
+          onClick={onSignOut}
+        >
+          <Icon aria-hidden name="sign-out" size={18} />
+          <span className="mobile-action-label">{t("nav.signOut")}</span>
+        </button>
+      </div>
+    </>
+  );
+}
+
+export function DesktopNavigation(props: MailNavigationProps) {
+  const {
+    activeMailbox,
+    mailboxes,
+    mailboxHasMore,
+    mailboxLoadMoreBusy,
+    mailboxLoadMoreError,
+    canCompose,
+    composeBusy = false,
+    sessionLocked = false,
+    activeView,
+    locale,
+    unreadInboxCount,
+    onMailboxChange,
+    onMailboxLoadMore,
+    onCompose,
+    onOpenCommandPalette,
+    onViewChange,
+    t,
+  } = props;
+
+  return (
+    <aside className="sidebar" data-dialog-background>
       <button
         className="button compose"
         disabled={!canCompose || composeBusy}
@@ -173,6 +278,28 @@ export function DesktopNavigation({
         <Icon aria-hidden name="compose" size={18} />
         {t("nav.compose")}
       </button>
+      <MailViewNavigation
+        activeView={activeView}
+        canCompose={canCompose}
+        locale={locale}
+        unreadInboxCount={unreadInboxCount}
+        onViewChange={onViewChange}
+        t={t}
+      />
+      <div className="sidebar__mailbox">
+        <MailboxPicker
+          activeMailboxId={activeMailbox.mailbox_id}
+          disabled={sessionLocked}
+          mailboxes={mailboxes}
+          hasMore={mailboxHasMore}
+          loadMoreBusy={mailboxLoadMoreBusy}
+          loadMoreError={mailboxLoadMoreError}
+          onChange={onMailboxChange}
+          onLoadMore={onMailboxLoadMore}
+          t={t}
+        />
+        <MailboxIdentity activeMailbox={activeMailbox} t={t} />
+      </div>
       <button
         className="command-trigger"
         aria-label={t("command.open")}
@@ -182,161 +309,119 @@ export function DesktopNavigation({
         <span>{t("command.title")}</span>
         <kbd aria-hidden="true">{t("command.triggerShortcut")}</kbd>
       </button>
-      <nav aria-label={t("nav.mailboxLabel")}>
-        <button
-          className={activeView === "inbox" ? "active" : undefined}
-          aria-current={activeView === "inbox" ? "page" : undefined}
-          onClick={() => onViewChange("inbox")}
-        >
-          <Icon aria-hidden name="inbox" size={17} />
-          {t("nav.inbox")}
-        </button>
-        <button
-          className={activeView === "sent" ? "active" : undefined}
-          aria-current={activeView === "sent" ? "page" : undefined}
-          disabled={!canCompose}
-          title={!canCompose ? t("mailbox.composeUnavailable") : undefined}
-          onClick={() => onViewChange("sent")}
-        >
-          <Icon aria-hidden name="sent" size={17} />
-          {t("nav.sent")}
-        </button>
-        <button
-          className={activeView === "drafts" ? "active" : undefined}
-          aria-current={activeView === "drafts" ? "page" : undefined}
-          disabled={!canCompose}
-          title={!canCompose ? t("mailbox.composeUnavailable") : undefined}
-          onClick={() => onViewChange("drafts")}
-        >
-          <Icon aria-hidden name="draft" size={17} />
-          {t("nav.drafts")}
-        </button>
-      </nav>
-      <div className="sidebar-footer">
-        <LanguagePicker locale={locale} onChange={onLocaleChange} t={t} />
-        <button className="sidebar-sign-out" onClick={onSignOut}>
-          <Icon aria-hidden name="sign-out" size={17} />
-          {t("nav.signOut")}
-        </button>
-      </div>
     </aside>
   );
 }
 
-export function MobileToolbar({
-  locale,
-  activeMailbox,
-  mailboxes,
-  mailboxHasMore,
-  mailboxLoadMoreBusy,
-  mailboxLoadMoreError,
-  canCompose,
-  composeBusy = false,
-  sessionLocked = false,
-  activeView,
-  onLocaleChange,
-  onMailboxChange,
-  onMailboxLoadMore,
-  onCompose,
-  onOpenCommandPalette,
-  onViewChange,
-  onSignOut,
-  t,
-}: MailNavigationProps) {
+interface MobileNavigationProps extends MailNavigationProps {
+  drawerOpen: boolean;
+  onDrawerClose: () => void;
+}
+
+/**
+ * Narrow-viewport navigation: a floating compose action plus a left drawer
+ * that carries the same view list, mailbox scope, and session controls as the
+ * desktop rail. The drawer closes itself if the viewport grows past the
+ * mobile breakpoint while it is open.
+ */
+export function MobileNavigation(props: MobileNavigationProps) {
+  const {
+    canCompose,
+    composeBusy = false,
+    activeView,
+    locale,
+    unreadInboxCount,
+    drawerOpen,
+    onDrawerClose,
+    onCompose,
+    onOpenCommandPalette,
+    onViewChange,
+    t,
+  } = props;
+
+  useEffect(() => {
+    if (!drawerOpen || typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia("(min-width: 1008px)");
+    if (media.matches) {
+      onDrawerClose();
+      return;
+    }
+    const closeWhenWide = (event: MediaQueryListEvent) => {
+      if (event.matches) onDrawerClose();
+    };
+    media.addEventListener("change", closeWhenWide);
+    return () => media.removeEventListener("change", closeWhenWide);
+  }, [drawerOpen, onDrawerClose]);
+
+  const selectView = (view: MailView) => {
+    onViewChange(view);
+    onDrawerClose();
+  };
+
   return (
-    <header
-      className="mobile-toolbar"
-      aria-label={t("nav.mobileActions")}
-      data-dialog-background
-    >
-      <div className="mobile-toolbar-main">
-        <div className="mobile-brand">
-          <span className="mark" aria-hidden="true"><Icon name="mail" size={18} /></span>
-          <strong>{t("app.name")}</strong>
-        </div>
-        <div className="mobile-actions">
-          <button
-            className="mobile-compose"
-            aria-label={t("nav.compose")}
-            disabled={!canCompose || composeBusy}
-            title={!canCompose ? t("mailbox.composeUnavailable") : undefined}
-            onClick={onCompose}
-          >
-            <Icon aria-hidden name="compose" size={18} />
-            <span className="mobile-action-label">{t("nav.compose")}</span>
-          </button>
-          <button
-            className="mobile-command-trigger"
-            aria-label={t("command.open")}
-            onClick={(event) => onOpenCommandPalette(event.currentTarget)}
-          >
-            <Icon aria-hidden name="command" size={18} />
-            <span className="mobile-action-label">{t("command.title")}</span>
-          </button>
-        </div>
-      </div>
-      <details className="mobile-mailbox-scope">
-        <MobileMailboxScopeSummary activeMailbox={activeMailbox} t={t} />
-        <div className="mobile-mailbox-scope__content">
-          <MailboxIdentity
-            activeMailbox={activeMailbox}
-            className="mobile-mailbox-identity"
-            t={t}
-          />
-          <MailboxPicker
-            activeMailboxId={activeMailbox.mailbox_id}
-            disabled={sessionLocked}
-            className="mobile-mailbox-picker"
-            mailboxes={mailboxes}
-            hasMore={mailboxHasMore}
-            loadMoreBusy={mailboxLoadMoreBusy}
-            loadMoreError={mailboxLoadMoreError}
-            onChange={onMailboxChange}
-            onLoadMore={onMailboxLoadMore}
-            t={t}
-          />
-          <div className="mobile-mailbox-scope__session-controls">
-            <LanguagePicker locale={locale} onChange={onLocaleChange} t={t} />
+    <>
+      <button
+        className="compose-fab"
+        aria-label={t("nav.compose")}
+        disabled={!canCompose || composeBusy}
+        title={!canCompose ? t("mailbox.composeUnavailable") : undefined}
+        onClick={onCompose}
+      >
+        <Icon aria-hidden name="compose" size={22} />
+      </button>
+      {drawerOpen ? (
+        <Dialog
+          backdropClassName="mail-nav-backdrop"
+          className="mail-nav-drawer"
+          closeLabel={t("nav.closeMenu")}
+          title={t("nav.drawerTitle")}
+          onClose={onDrawerClose}
+        >
+          <div className="mail-nav-drawer__body">
             <button
-              className="mobile-sign-out"
-              aria-label={t("nav.signOut")}
-              onClick={onSignOut}
+              className="button compose"
+              disabled={!canCompose || composeBusy}
+              title={!canCompose ? t("mailbox.composeUnavailable") : undefined}
+              onClick={() => {
+                onCompose();
+                onDrawerClose();
+              }}
             >
-              <Icon aria-hidden name="sign-out" size={18} />
-              <span className="mobile-action-label">{t("nav.signOut")}</span>
+              <Icon aria-hidden name="compose" size={18} />
+              {t("nav.compose")}
+            </button>
+            <MailViewNavigation
+              activeView={activeView}
+              canCompose={canCompose}
+              locale={locale}
+              unreadInboxCount={unreadInboxCount}
+              onViewChange={selectView}
+              t={t}
+            />
+            <details className="mobile-mailbox-scope">
+              <MobileMailboxScopeSummary
+                activeMailbox={props.activeMailbox}
+                t={t}
+              />
+              <div className="mobile-mailbox-scope__content">
+                <MailboxScopeControls {...props} />
+              </div>
+            </details>
+            <button
+              className="command-trigger mobile-command-trigger"
+              aria-label={t("command.open")}
+              onClick={(event) => {
+                onOpenCommandPalette(event.currentTarget);
+                onDrawerClose();
+              }}
+            >
+              <Icon aria-hidden name="command" size={17} />
+              <span>{t("command.title")}</span>
+              <kbd aria-hidden="true">{t("command.triggerShortcut")}</kbd>
             </button>
           </div>
-        </div>
-      </details>
-      <nav className="mobile-view-tabs" aria-label={t("nav.mobileViews")}>
-        <button
-          className={activeView === "inbox" ? "active" : undefined}
-          aria-current={activeView === "inbox" ? "page" : undefined}
-          onClick={() => onViewChange("inbox")}
-        >
-          <Icon aria-hidden name="inbox" size={16} />
-          {t("nav.inbox")}
-        </button>
-        <button
-          className={activeView === "sent" ? "active" : undefined}
-          aria-current={activeView === "sent" ? "page" : undefined}
-          disabled={!canCompose}
-          title={!canCompose ? t("mailbox.composeUnavailable") : undefined}
-          onClick={() => onViewChange("sent")}
-        >
-          <Icon aria-hidden name="sent" size={16} />
-          {t("nav.sent")}
-        </button>
-        <button
-          className={activeView === "drafts" ? "active" : undefined}
-          aria-current={activeView === "drafts" ? "page" : undefined}
-          disabled={!canCompose}
-          onClick={() => onViewChange("drafts")}
-        >
-          <Icon aria-hidden name="draft" size={16} />
-          {t("nav.drafts")}
-        </button>
-      </nav>
-    </header>
+        </Dialog>
+      ) : null}
+    </>
   );
 }

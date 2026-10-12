@@ -75,7 +75,7 @@ test.describe("Mail localized browser state", () => {
     const { page } = mailApp;
     await mailApp.goto();
 
-    await page.locator(".sidebar").getByRole("combobox", { name: "Language" })
+    await page.locator(".mail-topbar").getByRole("combobox", { name: "Language" })
       .selectOption("zh-CN");
 
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
@@ -128,7 +128,7 @@ test("keeps the normal Compose context strip factual and compact at D4D widths",
     await mailApp.goto();
     const trigger = viewport.width > 1007
       ? page.locator(".sidebar").getByRole("button", { name: "Compose", exact: true })
-      : page.locator(".mobile-toolbar").getByRole("button", { name: "Compose", exact: true });
+      : page.locator(".compose-fab");
     await trigger.click();
 
     const composer = page.getByRole("dialog", { name: "New message", exact: true });
@@ -219,10 +219,9 @@ test.describe("Mail server-authoritative read-only state", () => {
     await page.keyboard.press("s");
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: LONG_SUBJECT, level: 2 })).toBeVisible();
-    await expect(page.locator(".mobile-view-tabs").getByRole("button", {
-      name: "Inbox",
-      exact: true,
-    })).toHaveClass(/active/);
+    await page.locator(".mail-topbar__menu").click();
+    await expect(page.getByRole("dialog", { name: "Mail navigation" })
+      .getByRole("button", { name: "Inbox", exact: true })).toHaveClass(/active/);
     expect(fixture.state.draftListRequestCount).toBe(0);
     expect(fixture.state.sentListRequestCount).toBe(0);
     expect(fixture.state.submissionRequestCount).toBe(0);
@@ -494,13 +493,9 @@ test.describe("Mail narrow-screen interaction cost", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mailApp.goto();
 
-    const toolbar = page.locator(".mobile-toolbar");
     for (const [label, locator] of [
-      ["compose", toolbar.getByRole("button", { name: "Compose" })],
-      ["command palette", toolbar.getByRole("button", { name: "Open command palette" })],
-      ["Inbox tab", toolbar.getByRole("button", { name: "Inbox" })],
-      ["Sent tab", toolbar.getByRole("button", { name: "Sent" })],
-      ["Drafts tab", toolbar.getByRole("button", { name: "Drafts" })],
+      ["menu button", page.locator(".mail-topbar__menu")],
+      ["floating compose", page.locator(".compose-fab")],
       ["search field", page.getByRole("textbox", { name: "Search email" })],
       ["search submit", page.getByRole("button", { name: "Search", exact: true })],
       ["inbox refresh", page.getByRole("button", { name: "Refresh", exact: true })],
@@ -508,20 +503,32 @@ test.describe("Mail narrow-screen interaction cost", () => {
       await expectMinimumTouchTarget(locator, label);
     }
 
-    const mailboxScope = toolbar.locator(".mobile-mailbox-scope");
+    await page.locator(".mail-topbar__menu").click();
+    const drawer = page.getByRole("dialog", { name: "Mail navigation" });
+    for (const [label, locator] of [
+      ["compose", drawer.getByRole("button", { name: "Compose" })],
+      ["command palette", drawer.getByRole("button", { name: "Open command palette" })],
+      ["Inbox tab", drawer.getByRole("button", { name: "Inbox" })],
+      ["Sent tab", drawer.getByRole("button", { name: "Sent" })],
+      ["Drafts tab", drawer.getByRole("button", { name: "Drafts" })],
+    ] as const) {
+      await expectMinimumTouchTarget(locator, label);
+    }
+
+    const mailboxScope = drawer.locator(".mobile-mailbox-scope");
     const mailboxScopeSummary = mailboxScope.locator("summary");
     await expectMinimumTouchTarget(mailboxScopeSummary, "mailbox scope disclosure");
     await mailboxScopeSummary.click();
     await expect(mailboxScope).toHaveAttribute("open", "");
     for (const [label, locator] of [
-      ["mailbox selector", toolbar.getByRole("combobox", { name: "Switch mailbox" })],
-      ["language selector", toolbar.getByRole("combobox", { name: "Language" })],
-      ["sign out", toolbar.getByRole("button", { name: "Sign out" })],
+      ["mailbox selector", drawer.getByRole("combobox", { name: "Switch mailbox" })],
+      ["language selector", drawer.getByRole("combobox", { name: "Language" })],
+      ["sign out", drawer.getByRole("button", { name: "Sign out" })],
     ] as const) {
       await expectMinimumTouchTarget(locator, label);
     }
 
-    await toolbar.getByRole("button", { name: "Open command palette" }).click();
+    await drawer.getByRole("button", { name: "Open command palette" }).click();
     const commandDialog = page.getByRole("dialog", { name: "Command palette" });
     const commandSearch = page.getByRole("combobox", { name: "Search commands" });
     await expect(commandSearch).toBeFocused();

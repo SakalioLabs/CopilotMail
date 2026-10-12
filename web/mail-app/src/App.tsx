@@ -20,10 +20,11 @@ import { DraftRestoreConfirmDialog } from "./components/DraftRestoreConfirmDialo
 import { MailAccessSurface } from "./components/MailAccessSurface";
 import {
   DesktopNavigation,
-  MobileToolbar,
+  MobileNavigation,
   type MailView,
 } from "./components/MailNavigation";
 import { MessageDetail as MessageDetailView } from "./components/MessageDetail";
+import { MailTopbar } from "./components/MailTopbar";
 import { MessageList } from "./components/MessageList";
 import { SentList } from "./components/SentList";
 import { SessionVerificationNotice } from "./components/SessionVerificationNotice";
@@ -292,6 +293,7 @@ function AuthenticatedWorkspace({
   const [page, setPage] = useState<InboxPage>();
   const [searchText, setSearchText] = useState("");
   const [activeSearch, setActiveSearch] = useState<string>();
+  const [navDrawerOpen, setNavDrawerOpen] = useState(false);
   const [searchBusy, setSearchBusy] = useState(false);
   const [selected, setSelected] = useState<MessageSummary>();
   const [openedMessageId, setOpenedMessageId] = useState<string>();
@@ -859,10 +861,10 @@ function AuthenticatedWorkspace({
       }
     }
   };
-  const toggleFlag = () => {
-    if (sessionLocked || !selected || !authenticated || !mailboxSettings) return;
+  const requestFlagUpdate = (message: MessageSummary) => {
+    if (sessionLocked || !authenticated || !mailboxSettings) return;
     const requestMailboxId = mailboxSettings.mailboxId;
-    updateMessageState(mailboxSettings, selected.message_id, { is_flagged: !selected.is_flagged })
+    updateMessageState(mailboxSettings, message.message_id, { is_flagged: !message.is_flagged })
       .then((state) => {
         if (activeMailboxIdRef.current !== requestMailboxId) return;
         applyState(state.message_id, { is_flagged: state.is_flagged });
@@ -874,12 +876,16 @@ function AuthenticatedWorkspace({
       .catch(() => {
         if (activeMailboxIdRef.current === requestMailboxId) {
           setDetailActionError({
-            messageId: selected.message_id,
+            messageId: message.message_id,
             operation: "flag",
             key: "error.updateStar",
           });
         }
       });
+  };
+  const toggleFlag = () => {
+    if (!selected) return;
+    requestFlagUpdate(selected);
   };
   const retryMessageDetail = () => {
     if (sessionLocked || !openedMessageId) return;
@@ -1272,58 +1278,63 @@ function AuthenticatedWorkspace({
       />
     );
   }
+  const unreadInboxCount = !activeSearch && page && !page.has_more
+    ? page.items.filter((item) => !item.is_read).length
+    : undefined;
+  const navigationProps = {
+    activeMailbox,
+    activeView: mailView,
+    canCompose: activeMailbox.can_send,
+    composeBusy: draftRestoreBusyId !== undefined,
+    sessionLocked: submissionUnresolved,
+    locale,
+    mailboxes,
+    mailboxHasMore: mailboxDirectoryPage.has_more,
+    mailboxLoadMoreBusy,
+    mailboxLoadMoreError: mailboxDirectoryPageError
+      ? t(mailboxDirectoryPageError)
+      : undefined,
+    unreadInboxCount,
+    onLocaleChange,
+    onMailboxChange: switchMailbox,
+    onMailboxLoadMore: () => { void loadMoreMailboxes(); },
+    onCompose: openComposer,
+    onOpenCommandPalette: (trigger: HTMLElement) => { openCommandPalette(trigger); },
+    onSignOut: requestSignOut,
+    onViewChange: switchView,
+    t,
+  };
   return (
     <MailWorkspaceShell
       messageOpen={mailView === "inbox" && Boolean(openedMessage)}
       directoryView={mailView !== "inbox"}
       sessionLocked={sessionLocked}
-      desktopNavigation={(
-        <DesktopNavigation
-        activeMailbox={activeMailbox}
-        activeView={mailView}
-        canCompose={activeMailbox.can_send}
-        composeBusy={draftRestoreBusyId !== undefined}
-        sessionLocked={submissionUnresolved}
+      topbar={(
+        <MailTopbar
+        activeSearch={activeSearch}
         locale={locale}
-        mailboxes={mailboxes}
-        mailboxHasMore={mailboxDirectoryPage.has_more}
-        mailboxLoadMoreBusy={mailboxLoadMoreBusy}
-        mailboxLoadMoreError={mailboxDirectoryPageError
-          ? t(mailboxDirectoryPageError)
-          : undefined}
-        onLocaleChange={onLocaleChange}
-        onMailboxChange={switchMailbox}
-        onMailboxLoadMore={() => void loadMoreMailboxes()}
-        onCompose={openComposer}
-        onOpenCommandPalette={(trigger) => { openCommandPalette(trigger); }}
-        onSignOut={requestSignOut}
-        onViewChange={switchView}
+        navigationOpen={navDrawerOpen}
+        searchBusy={searchBusy}
+        searchInputRef={inboxSearchInput}
+        searchText={searchText}
         t={t}
+        onClearSearch={() => void clearSearch()}
+        onLocaleChange={onLocaleChange}
+        onOpenMenu={() => setNavDrawerOpen(true)}
+        onSearch={() => void submitSearch()}
+        onSearchTextChange={setSearchText}
+        onSignOut={requestSignOut}
         />
       )}
-      mobileToolbar={(
-        <MobileToolbar
-        activeMailbox={activeMailbox}
-        activeView={mailView}
-        canCompose={activeMailbox.can_send}
-        composeBusy={draftRestoreBusyId !== undefined}
-        sessionLocked={submissionUnresolved}
-        locale={locale}
-        mailboxes={mailboxes}
-        mailboxHasMore={mailboxDirectoryPage.has_more}
-        mailboxLoadMoreBusy={mailboxLoadMoreBusy}
-        mailboxLoadMoreError={mailboxDirectoryPageError
-          ? t(mailboxDirectoryPageError)
-          : undefined}
-        onLocaleChange={onLocaleChange}
-        onMailboxChange={switchMailbox}
-        onMailboxLoadMore={() => void loadMoreMailboxes()}
-        onCompose={openComposer}
-        onOpenCommandPalette={(trigger) => { openCommandPalette(trigger); }}
-        onSignOut={requestSignOut}
-        onViewChange={switchView}
-        t={t}
-        />
+      navigation={(
+        <>
+          <DesktopNavigation {...navigationProps} />
+          <MobileNavigation
+            {...navigationProps}
+            drawerOpen={navDrawerOpen}
+            onDrawerClose={() => setNavDrawerOpen(false)}
+          />
+        </>
       )}
       content={mailView === "inbox" ? (
         <>
@@ -1331,19 +1342,17 @@ function AuthenticatedWorkspace({
             activeSearch={activeSearch}
             error={error ? t(error) : undefined}
             headingRef={inboxHeading}
-            searchInputRef={inboxSearchInput}
             locale={locale}
             page={page}
             searchBusy={searchBusy}
             searchText={searchText}
             selectedMessageId={selectedMessageId}
             t={t}
-            onClearSearch={() => void clearSearch()}
             onLoadMore={() => void loadMore()}
             onOpenMessage={openMessage}
             onRefresh={() => void refreshMessages()}
             onSearch={() => void submitSearch()}
-            onSearchTextChange={setSearchText}
+            onToggleFlag={requestFlagUpdate}
             messageButtonRef={registerMessageButton}
           />
           <MessageDetailView

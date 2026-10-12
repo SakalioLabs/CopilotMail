@@ -1,43 +1,16 @@
+/* The top bar search composes the shared .search-omnibox shell; these rules
+   only carry the Mail-specific constraints and its touch-target floor. */
 .mail-search {
-  display: flex;
-  min-height: 54px;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 2px;
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--cm-line);
-  background: var(--cm-surface);
+  min-width: 120px;
 }
-
-.mail-search input {
-  min-width: 0;
-  min-height: 36px;
-  flex: 1;
-  padding: 7px 10px;
-  border: 1px solid transparent;
-  border-radius: var(--cm-radius-control);
-  outline: 0;
-  color: var(--cm-ink);
-  background: var(--cm-surface-subtle);
-}
-
-.mail-search input:hover { border-color: var(--cm-line); }
-.mail-search input:focus { border-color: var(--cm-agent); background: var(--cm-surface); box-shadow: var(--cm-focus-ring); }
 
 .mail-search__clear,
 .mail-search__submit {
   flex: 0 0 auto;
 }
 
-.mail-search__submit { color: var(--cm-surface); background: var(--cm-ink); }
-.mail-search__submit:hover:not(:disabled) { color: var(--cm-surface); background: var(--cm-muted-strong); }
-
 /* Match the Mail Shell's explicit list-detail stack breakpoint. */
 @media (max-width: 1007px) {
-  .mail-search {
-    min-height: calc(var(--mail-touch-target-size) + 16px);
-  }
-
   .mail-search input {
     min-height: var(--mail-touch-target-size);
   }
@@ -46,8 +19,4 @@
     width: var(--mail-touch-target-size);
     height: var(--mail-touch-target-size);
   }
-}
-
-@media (max-width: 560px) {
-  .mail-search { padding-inline: 12px; }
 }

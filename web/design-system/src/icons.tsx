@@ -9,6 +9,7 @@ export const ICON_NAMES = [
   "add",
   "check",
   "search",
+  "menu",
   "refresh",
   "close",
   "star",
@@ -90,6 +91,14 @@ export const ICON_REGISTRY: Readonly<Record<IconName, IconGlyph>> = {
     <>
       <circle cx="10.75" cy="10.75" r="5.75" />
       <path d="m15 15 4 4" />
+    </>
+  ),
+  /** Three horizontal bars: opens a navigation drawer, never a generic list. */
+  menu: () => (
+    <>
+      <path d="M4 6.5h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17.5h16" />
     </>
   ),
   refresh: () => (
@@ -390,6 +399,10 @@ export function CheckIcon(props: IconComponentProps) {
 
 export function SearchIcon(props: IconComponentProps) {
   return <Icon name="search" {...props} />;
+}
+
+export function MenuIcon(props: IconComponentProps) {
+  return <Icon name="menu" {...props} />;
 }
 
 export function RefreshIcon(props: IconComponentProps) {

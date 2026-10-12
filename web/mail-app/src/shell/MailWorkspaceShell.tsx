@@ -4,8 +4,8 @@ interface MailWorkspaceShellProps {
   messageOpen: boolean;
   directoryView: boolean;
   sessionLocked: boolean;
-  desktopNavigation: ReactNode;
-  mobileToolbar: ReactNode;
+  topbar: ReactNode;
+  navigation: ReactNode;
   content: ReactNode;
   overlays: ReactNode;
 }
@@ -21,8 +21,8 @@ export function MailWorkspaceShell({
   messageOpen,
   directoryView,
   sessionLocked,
-  desktopNavigation,
-  mobileToolbar,
+  topbar,
+  navigation,
   content,
   overlays,
 }: MailWorkspaceShellProps) {
@@ -37,8 +37,8 @@ export function MailWorkspaceShell({
       data-dialog-background
       inert={sessionLocked || undefined}
     >
-      {desktopNavigation}
-      {mobileToolbar}
+      {topbar}
+      {navigation}
       {content}
       {overlays}
     </main>

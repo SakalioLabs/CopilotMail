@@ -337,18 +337,22 @@ test.describe("Mail D4C metadata-only directory boundaries", () => {
     for (const viewport of DIRECTORY_VIEWPORTS) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await mailApp.goto();
-      const navigation = viewport.width > 1007
-        ? page.locator(".sidebar")
-        : page.locator(".mobile-view-tabs");
+      const openNavigation = async () => {
+        if (viewport.width > 1007) return page.locator(".sidebar");
+        await page.locator(".mail-topbar__menu").click();
+        return page.getByRole("dialog", { name: "Mail navigation" });
+      };
 
-      await navigation.getByRole("button", { name: "Drafts", exact: true }).click();
+      await (await openNavigation())
+        .getByRole("button", { name: "Drafts", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Drafts", exact: true })).toBeVisible();
       await expect(page.locator(".draft-item")).toHaveCount(1);
       await expect(page.locator(".mail-shell > .detail")).toHaveCount(0);
       await expectNoHorizontalOverflow(page);
       expectDirectoryToStayMetadataOnly(fixture);
 
-      await navigation.getByRole("button", { name: "Sent", exact: true }).click();
+      await (await openNavigation())
+        .getByRole("button", { name: "Sent", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
       await expect(page.locator(".sent-item")).toHaveCount(4);
       await expect(page.locator(".mail-shell > .detail")).toHaveCount(0);

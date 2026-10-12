@@ -99,14 +99,15 @@ test.describe("Mail built-artifact browser contracts", () => {
     const { page } = mailApp;
 
     for (const expectation of [
-      { width: 1084, rail: 224 },
-      { width: 1083, rail: 160 },
-      { width: 1008, rail: 160 },
+      { width: 1440, rail: 264 },
+      { width: 1084, rail: 216 },
+      { width: 1008, rail: 216 },
     ]) {
       await page.setViewportSize({ width: expectation.width, height: 900 });
       await mailApp.goto();
       await expect(page.locator(".sidebar")).toBeVisible();
-      await expect(page.locator(".mobile-toolbar")).toBeHidden();
+      await expect(page.locator(".mail-topbar__menu")).toBeHidden();
+      await expect(page.locator(".compose-fab")).toBeHidden();
 
       const geometry = await page.locator(".mail-shell").evaluate((shell) => {
         const rail = shell.querySelector<HTMLElement>(".sidebar");
@@ -123,9 +124,8 @@ test.describe("Mail built-artifact browser contracts", () => {
       });
 
       expect(geometry.rail).toBeCloseTo(expectation.rail, 0);
-      expect(geometry.queue).toBeGreaterThanOrEqual(327.5);
-      expect(geometry.queue).toBeLessThanOrEqual(400.5);
-      expect(geometry.reading).toBeGreaterThanOrEqual(519.5);
+      expect(geometry.queue).toBeGreaterThanOrEqual(299.5);
+      expect(geometry.reading).toBeGreaterThanOrEqual(459.5);
       expect(geometry.documentWidth).toBe(geometry.viewportWidth);
       expect(mailApp.fixture.state.detailRequestCount).toBe(0);
     }
@@ -133,7 +133,8 @@ test.describe("Mail built-artifact browser contracts", () => {
     await page.setViewportSize({ width: 1007, height: 900 });
     await mailApp.goto();
     await expect(page.locator(".sidebar")).toBeHidden();
-    await expect(page.locator(".mobile-toolbar")).toBeVisible();
+    await expect(page.locator(".mail-topbar__menu")).toBeVisible();
+    await expect(page.locator(".compose-fab")).toBeVisible();
     await expect(page.locator(".mail-shell > .detail")).toBeHidden();
     await expect(page.getByText(FIXTURE_MESSAGE.preview, { exact: true })).toBeVisible();
     expect(mailApp.fixture.state.detailRequestCount).toBe(0);
@@ -188,7 +189,9 @@ test.describe("Mail built-artifact browser contracts", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mailApp.goto();
 
-    const scope = page.locator(".mobile-mailbox-scope");
+    await page.locator(".mail-topbar__menu").click();
+    const scope = page.getByRole("dialog", { name: "Mail navigation" })
+      .locator(".mobile-mailbox-scope");
     const summary = scope.locator("summary");
     await expect(scope).not.toHaveAttribute("open", "");
     await expect(summary).toContainText("alex.chen@copilotmail.test");
@@ -220,7 +223,9 @@ test.describe("Mail built-artifact browser contracts", () => {
     await page.setViewportSize({ width: 768, height: 900 });
     await mailApp.goto();
 
-    const scope = page.locator(".mobile-mailbox-scope");
+    await page.locator(".mail-topbar__menu").click();
+    const scope = page.getByRole("dialog", { name: "Mail navigation" })
+      .locator(".mobile-mailbox-scope");
     const summary = scope.locator("summary");
     await expect(summary).toContainText("alex.chen@copilotmail.test");
     await expect(summary).toContainText("Personal");

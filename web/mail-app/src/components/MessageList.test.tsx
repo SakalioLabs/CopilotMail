@@ -30,12 +30,11 @@ function renderList(overrides: Partial<React.ComponentProps<typeof MessageList>>
     searchBusy: false,
     searchText: "",
     t,
-    onClearSearch: vi.fn(),
     onLoadMore: vi.fn(),
     onOpenMessage: vi.fn(),
     onRefresh: vi.fn(),
     onSearch: vi.fn(),
-    onSearchTextChange: vi.fn(),
+    onToggleFlag: vi.fn(),
     messageButtonRef: () => () => undefined,
     ...overrides,
   };

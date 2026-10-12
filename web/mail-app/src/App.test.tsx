@@ -251,7 +251,8 @@ describe("human mail application shell", () => {
     await screen.findByRole("heading", { name: "Inbox" });
     const desktopDrafts = within(container.querySelector<HTMLElement>(".sidebar")!)
       .getByRole("button", { name: "Drafts" });
-    const mobileDrafts = within(container.querySelector<HTMLElement>(".mobile-view-tabs")!)
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".mail-topbar__menu")!);
+    const mobileDrafts = within(await screen.findByRole("dialog", { name: "Mail navigation" }))
       .getByRole("button", { name: "Drafts" });
     expect(desktopDrafts).toBeEnabled();
     expect(mobileDrafts).toBeEnabled();
@@ -278,7 +279,8 @@ describe("human mail application shell", () => {
     await screen.findByRole("heading", { name: "Inbox" });
     const desktopSent = within(container.querySelector<HTMLElement>(".sidebar")!)
       .getByRole("button", { name: "Sent" });
-    const mobileSent = within(container.querySelector<HTMLElement>(".mobile-view-tabs")!)
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".mail-topbar__menu")!);
+    const mobileSent = within(await screen.findByRole("dialog", { name: "Mail navigation" }))
       .getByRole("button", { name: "Sent" });
     expect(desktopSent).toBeEnabled();
     expect(mobileSent).toBeEnabled();
@@ -496,7 +498,8 @@ describe("human mail application shell", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Close composer" }));
 
-    const signOut = within(sidebar).getByRole("button", { name: "Sign out" });
+    const signOut = within(container.querySelector<HTMLElement>(".mail-topbar")!)
+      .getByRole("button", { name: "Sign out" });
     fireEvent.click(signOut);
     const warning = await screen.findByRole("alertdialog", {
       name: "Leave the current writing context?",
@@ -753,28 +756,35 @@ describe("human mail application shell", () => {
     });
   });
 
-  it("keeps compose, sign-out, and locale controls reachable in the mobile toolbar", async () => {
+  it("keeps compose, sign-out, and locale controls reachable in the mobile drawer", async () => {
     setNarrowViewport(true);
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "收件箱" });
-    const mobileCompose = container.querySelector<HTMLButtonElement>(".mobile-compose");
-    const mobileSignOut = container.querySelector<HTMLButtonElement>(".mobile-sign-out");
+    const composeFab = container.querySelector<HTMLButtonElement>(".compose-fab");
 
-    expect(mobileCompose).toHaveAccessibleName("写信");
-    expect(mobileSignOut).toHaveAccessibleName("退出登录");
-    expect(container.querySelector(".mobile-toolbar .language-picker select"))
+    expect(composeFab).toHaveAccessibleName("写信");
+
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".mail-topbar__menu")!);
+    const drawer = await screen.findByRole("dialog", { name: "邮件导航" });
+    fireEvent.click(drawer.querySelector<HTMLElement>(".mobile-mailbox-scope summary")!);
+    expect(drawer.querySelector<HTMLButtonElement>(".mobile-sign-out"))
+      .toHaveAccessibleName("退出登录");
+    expect(drawer.querySelector(".language-picker select"))
       .toHaveAccessibleName("语言");
-    expect(container.querySelector(".mobile-toolbar .mailbox-picker select"))
+    expect(drawer.querySelector(".mobile-mailbox-picker select"))
       .toHaveAccessibleName("切换邮箱");
-
-    mobileCompose?.focus();
-    fireEvent.click(mobileCompose!);
-    expect(await screen.findByRole("dialog", { name: "新邮件" })).toBeInTheDocument();
-    expect(container.querySelector(".mobile-toolbar")).toHaveAttribute("inert");
 
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(mobileCompose).toHaveFocus();
+
+    composeFab?.focus();
+    fireEvent.click(composeFab!);
+    expect(await screen.findByRole("dialog", { name: "新邮件" })).toBeInTheDocument();
+    expect(container.querySelector(".mail-shell")).toHaveAttribute("inert");
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(composeFab).toHaveFocus();
   });
 
   it("switches every visible label and the document language without a reload", async () => {
@@ -1341,8 +1351,9 @@ describe("human mail application shell", () => {
 
     fireEvent.click(messageButton);
     await screen.findByText("The safe plain-text message body.");
+    const detailPane = container.querySelector<HTMLElement>(".detail")!;
     await waitFor(() => expect(api.updateMessageState).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByRole("button", { name: "Add star" }));
+    fireEvent.click(within(detailPane).getByRole("button", { name: "Add star" }));
     expect(api.updateMessageState).toHaveBeenCalledTimes(2);
 
     await act(async () => {
@@ -1353,7 +1364,7 @@ describe("human mail application shell", () => {
       });
       await flushMicrotasks();
     });
-    expect(screen.getByRole("button", { name: "Remove star" })).toBeInTheDocument();
+    expect(within(detailPane).getByRole("button", { name: "Remove star" })).toBeInTheDocument();
 
     await act(async () => {
       readUpdate.resolve({
@@ -1363,7 +1374,7 @@ describe("human mail application shell", () => {
       });
       await flushMicrotasks();
     });
-    expect(screen.getByRole("button", { name: "Remove star" })).toBeInTheDocument();
+    expect(within(detailPane).getByRole("button", { name: "Remove star" })).toBeInTheDocument();
     expect(container.querySelector(".message")).not.toHaveClass("unread");
   });
 
@@ -1432,7 +1443,7 @@ describe("human mail application shell", () => {
       .mockReset()
       .mockResolvedValueOnce(page)
       .mockResolvedValueOnce({ ...page, items: [updatedMessage] });
-    render(<App />);
+    const { container } = render(<App />);
 
     fireEvent.click(await screen.findByRole("button", { name: /Quarterly review/ }));
     expect(await screen.findByText(detail.text_body)).toBeVisible();
@@ -1441,7 +1452,8 @@ describe("human mail application shell", () => {
     expect(await screen.findByRole("heading", {
       name: "Quarterly review — updated",
     })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Remove star" })).toBeVisible();
+    expect(within(container.querySelector<HTMLElement>(".detail")!)
+      .getByRole("button", { name: "Remove star" })).toBeVisible();
     expect(api.getMessage).toHaveBeenCalledTimes(1);
   });
 
@@ -1601,13 +1613,14 @@ describe("human mail application shell", () => {
       is_read: true,
       is_flagged: true,
     });
-    render(<App />);
+    const { container } = render(<App />);
 
     const row = await screen.findByRole("button", { name: /Quarterly review/ });
     fireEvent.click(row);
     await screen.findByText("The safe plain-text message body.");
     fireEvent.click(screen.getByRole("button", { name: "Load more" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add star" }));
+    fireEvent.click(within(container.querySelector<HTMLElement>(".detail")!)
+      .getByRole("button", { name: "Add star" }));
     await waitFor(() => expect(api.updateMessageState).toHaveBeenCalledWith(
       expect.anything(),
       message.message_id,
@@ -2156,18 +2169,21 @@ describe("human mail application shell", () => {
 
     await screen.findByRole("heading", { name: "Inbox" });
     expect(container.querySelector<HTMLButtonElement>(".sidebar .compose")).toBeDisabled();
-    expect(container.querySelector<HTMLButtonElement>(".mobile-compose")).toBeDisabled();
-    const draftEntries = screen.getAllByRole("button", { name: "Drafts" });
-    expect(draftEntries).toHaveLength(2);
-    draftEntries.forEach((entry) => expect(entry).toBeDisabled());
-    const sentEntries = screen.getAllByRole("button", { name: "Sent" });
-    expect(sentEntries).toHaveLength(2);
-    sentEntries.forEach((entry) => expect(entry).toBeDisabled());
+    expect(container.querySelector<HTMLButtonElement>(".compose-fab")).toBeDisabled();
+    const sidebarNav = container.querySelector<HTMLElement>(".sidebar")!;
+    expect(within(sidebarNav).getByRole("button", { name: "Drafts" })).toBeDisabled();
+    expect(within(sidebarNav).getByRole("button", { name: "Sent" })).toBeDisabled();
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".mail-topbar__menu")!);
+    const drawer = await screen.findByRole("dialog", { name: "Mail navigation" });
+    expect(within(drawer).getByRole("button", { name: "Drafts" })).toBeDisabled();
+    expect(within(drawer).getByRole("button", { name: "Sent" })).toBeDisabled();
     expect(api.listDrafts).not.toHaveBeenCalled();
     expect(api.listSentSubmissions).not.toHaveBeenCalled();
     // Desktop scope, the mobile disclosure summary, and the disclosure's
     // expanded factual context all bind the same server-provided boundary.
     expect(screen.getAllByText("This mailbox is read-only")).toHaveLength(3);
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(drawer).not.toBeInTheDocument());
     fireEvent.click(await screen.findByRole("button", { name: /Alice/ }));
     await screen.findByText("The safe plain-text message body.");
     expect(screen.getByRole("button", { name: "Reply" })).toBeDisabled();
