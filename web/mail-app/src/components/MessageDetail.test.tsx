@@ -118,4 +118,60 @@ describe("MessageDetail truthful metadata", () => {
     renderDetail();
     expect(screen.queryByRole("button", { name: "Reply" })).not.toBeInTheDocument();
   });
+
+  it("announces a pending read politely and reports failures as alerts", () => {
+    const { rerender } = render(
+      <MessageDetail
+        canReply
+        headingRef={createRef<HTMLHeadingElement>()}
+        locale="en"
+        selected={detail.message}
+        t={t}
+        onBack={vi.fn()}
+        onReply={vi.fn()}
+        onRetry={vi.fn()}
+        onToggleFlag={vi.fn()}
+      />,
+    );
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Loading…");
+    expect(status).toHaveAttribute("aria-live", "polite");
+
+    rerender(
+      <MessageDetail
+        canReply
+        headingRef={createRef<HTMLHeadingElement>()}
+        loadError="This message is temporarily unavailable"
+        locale="en"
+        selected={detail.message}
+        t={t}
+        onBack={vi.fn()}
+        onReply={vi.fn()}
+        onRetry={vi.fn()}
+        onToggleFlag={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert"))
+      .toHaveTextContent("This message is temporarily unavailable");
+
+    rerender(
+      <MessageDetail
+        actionError="The star state could not be saved"
+        canReply
+        detail={detail}
+        headingRef={createRef<HTMLHeadingElement>()}
+        locale="en"
+        selected={detail.message}
+        t={t}
+        onBack={vi.fn()}
+        onReply={vi.fn()}
+        onRetry={vi.fn()}
+        onToggleFlag={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("alert"))
+      .toHaveTextContent("The star state could not be saved");
+  });
 });

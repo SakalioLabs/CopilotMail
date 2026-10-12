@@ -138,7 +138,10 @@ describe("DraftList", () => {
       onRestore={vi.fn()}
     />);
 
-    expect(screen.getByRole("status")).toHaveTextContent("Syncing…");
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Syncing…");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveAttribute("aria-atomic", "true");
     expect(container.querySelector(".draft-items")).toHaveAttribute("aria-busy", "true");
 
     rerender(<DraftList

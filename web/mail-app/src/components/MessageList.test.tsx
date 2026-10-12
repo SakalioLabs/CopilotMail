@@ -48,7 +48,10 @@ describe("MessageList", () => {
   it("announces syncing and marks the message collection busy during its initial load and refresh", () => {
     const { container, rerender, props } = renderList({ page: undefined });
 
-    expect(screen.getByRole("status")).toHaveTextContent("Syncing…");
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Syncing…");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveAttribute("aria-atomic", "true");
     expect(container.querySelector(".messages")).toHaveAttribute("aria-busy", "true");
 
     rerender(<MessageList {...props} page={page} searchBusy />);
@@ -59,6 +62,10 @@ describe("MessageList", () => {
       "aria-busy",
       "true",
     );
+
+    rerender(<MessageList {...props} page={page} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("1 message");
   });
 
   it("retries an inbox failure in place", () => {
