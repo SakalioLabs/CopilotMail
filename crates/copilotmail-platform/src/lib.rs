@@ -437,6 +437,7 @@ impl ControlPlaneSettings {
                 ));
             }
         };
+        validate_human_session_oidc_pairing(&environment, oidc.as_ref(), human_session.as_ref())?;
         let agent_core_values = [
             optional_value("COPILOTMAIL_AGENT_OAUTH_ISSUER"),
             optional_value("COPILOTMAIL_AGENT_OAUTH_AUDIENCE"),
@@ -1117,6 +1118,23 @@ fn human_browser_cookie_hosts_are_distinct(clients: &[HumanBrowserClientSettings
     })
 }
 
+/// In production the session allowlist and the OIDC relying parties must be
+/// configured together: a session cookie client without a relying party would
+/// pass the safe-method CSRF check on the allowlist alone, and a relying party
+/// without a session block can never issue a governed browser session.
+fn validate_human_session_oidc_pairing(
+    environment: &str,
+    oidc: Option<&OidcSettings>,
+    human_session: Option<&HumanSessionSettings>,
+) -> Result<(), SettingsError> {
+    if environment == "production" && oidc.is_some() != human_session.is_some() {
+        return Err(SettingsError::Invalid(
+            "COPILOTMAIL_OIDC_*/COPILOTMAIL_HUMAN_SESSION_*",
+        ));
+    }
+    Ok(())
+}
+
 fn validate_agent_event_stream_limits(
     tenant_limit: u32,
     principal_limit: u32,
@@ -1324,10 +1342,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::{
-        MailEngineSettings, OtlpTraceSettings, SettingsError,
-        human_browser_cookie_hosts_are_distinct, valid_audit_object_prefix,
-        validate_agent_event_stream_limits, validate_agent_ingress_rate_limits,
-        validate_human_browser_client, validate_mail_data_plane_configuration,
+        HumanBrowserClientSettings, HumanSessionSettings, MailEngineSettings, OidcSettings,
+        OtlpTraceSettings, SettingsError, human_browser_cookie_hosts_are_distinct,
+        valid_audit_object_prefix, validate_agent_event_stream_limits,
+        validate_agent_ingress_rate_limits, validate_human_browser_client,
+        validate_human_session_oidc_pairing, validate_mail_data_plane_configuration,
     };
     use std::{path::PathBuf, time::Duration};
     use uuid::Uuid;
@@ -1516,6 +1535,48 @@ mod tests {
         assert!(!human_browser_cookie_hosts_are_distinct(&[
             admin, same_host
         ]));
+    }
+
+    #[test]
+    fn production_pairs_human_session_allowlist_with_oidc_relying_parties() {
+        let oidc = OidcSettings {
+            issuer: "https://login.company.example".into(),
+            audience: "copilotmail-control".into(),
+            allow_insecure_http: false,
+        };
+        let human_session = HumanSessionSettings {
+            clients: vec![HumanBrowserClientSettings {
+                key: "admin".into(),
+                client_id: "copilotmail-admin".into(),
+                public_origin: "https://admin.company.example".into(),
+                scope: "openid profile email".into(),
+            }],
+            encryption_key_file: PathBuf::from("/run/secrets/human-session-key"),
+            maximum_lifetime: Duration::from_secs(3600),
+            login_requests_per_minute: 600,
+            allow_insecure_cookie: false,
+        };
+
+        for (environment, oidc_arg, session_arg) in [
+            ("production", Some(&oidc), Some(&human_session)),
+            ("production", None, None),
+            ("development", Some(&oidc), None),
+            ("development", None, Some(&human_session)),
+            ("testing", Some(&oidc), None),
+        ] {
+            assert!(
+                validate_human_session_oidc_pairing(environment, oidc_arg, session_arg).is_ok(),
+                "{environment} pairing must remain valid"
+            );
+        }
+        for (oidc_arg, session_arg) in [(Some(&oidc), None), (None, Some(&human_session))] {
+            assert_eq!(
+                validate_human_session_oidc_pairing("production", oidc_arg, session_arg),
+                Err(SettingsError::Invalid(
+                    "COPILOTMAIL_OIDC_*/COPILOTMAIL_HUMAN_SESSION_*"
+                ))
+            );
+        }
     }
 
     #[test]

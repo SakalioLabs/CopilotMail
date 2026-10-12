@@ -8,10 +8,13 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   outputDir: "./test-results",
-  // Browser screenshots run on Windows locally and in the dedicated Windows
-  // CI job. Keep one reviewable baseline path inside that pinned OS family;
-  // unit/build gates continue to run independently on Linux.
-  snapshotPathTemplate: "{testDir}/{testFilePath}-snapshots/{arg}{ext}",
+  // Browser screenshots are platform-sensitive pixel evidence, so baselines
+  // carry an explicit OS suffix: Windows keeps the human-reviewed `-win32`
+  // PNGs used by the dedicated Windows CI job, while Linux hosts compare
+  // against their own `-linux` set. Unit/build gates continue to run
+  // independently on Linux. `maxDiffPixelRatio` and the case inventory are
+  // identical on both platforms.
+  snapshotPathTemplate: "{testDir}/{testFilePath}-snapshots/{arg}-{platform}{ext}",
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
