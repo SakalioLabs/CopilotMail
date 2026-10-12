@@ -36,12 +36,16 @@ Playwright。两个预览服务只绑定 `127.0.0.1:4173/4174`；测试在导航
 未声明的 `/api/**` 或外部网络请求都会使测试失败，因此不会访问真实 IdP、数据库、
 邮件引擎、CDN 或公司 API。
 
-当前浏览器上下文固定浅色、默认 `en-US`、UTC、`deviceScaleFactor=1` 与减少动画偏好；
-Mail 与 Admin 的中文场景都通过产品内真实语言控件进入 `zh-CN`，并验证 `<html lang>`、
-严格 Locale 持久化和刷新后恢复。截至 2026-08-24 的 D1/D3/D4A/D4B/D4C/D4D/D4E 当前本地回归中，
-`npm run check`、受限 worker 的 Vitest、`npm run build` 与 `npm run e2e:run` 均通过：Web Vitest 共
-411 条（共享设计系统 17、Admin 207、Mail 187），Chromium 共 109 条，并保留 103 张 Windows PNG
-基线（Admin 40、Mail 63）。这些同源固定夹具的回归覆盖：
+当前浏览器上下文固定浅色、`en-US`、UTC、`deviceScaleFactor=1` 与减少动画偏好。2026-10-12
+起两个应用的产品默认语言均为 `zh-CN`（无已存选择时一律渲染简体中文，不再按浏览器语言回退
+`en`）；为让选择器文本与视觉基线不依赖宿主机，Admin/Mail 夹具都在首次渲染前向产品自己的
+Locale 存储键写入显式 `en` 选择，已有选择（例如测试中经可见语言切换产生的选择）不被覆盖。
+中文场景继续通过产品内真实语言控件进入 `zh-CN`，并验证 `<html lang>`、严格 Locale 持久化和
+刷新后恢复。2026-10-12 的 Gmail 风格外壳改版（见下文「2026-10-12 设计语言」）之后的当前本地
+回归中，`npm run check`、受限 worker 的 Vitest、`npm run build` 与 `npm run e2e:run` 均通过：
+Web Vitest 共 428 条（共享设计系统 19、Admin 217、Mail 192），Chromium 共 122 条，并按平台
+保留 205 张 PNG 基线（`-linux` 102 张：Admin 39、Mail 63；`-win32` 103 张：Admin 40、Mail 63）。
+这些同源固定夹具的回归覆盖：
 
 - Mail 已授权 Human Mailbox 的真实 DTO 结构、长主题、多收件人、附件和详情，在
   1440、1280、1024、768、390px 五档进行截图比较；
@@ -93,7 +97,7 @@ Mail 与 Admin 的中文场景都通过产品内真实语言控件进入 `zh-CN`
 
 基线只能通过 `npm run e2e:update` 显式更新，且每个平台各有一份：`{arg}-win32.png` 供
 Windows CI、本机人工审图的 `*-linux.png` 供 Linux 开发机；更新任一侧都必须人工查看对应
-平台的 103 张 PNG（Admin 40、Mail 63）：
+平台的全套 PNG（win32 103 张：Admin 40、Mail 63；linux 102 张：Admin 39、Mail 63）：
 Admin 40 张，覆盖英文/简体中文五档布局、分组导航、域名治理、P2 调查/受控观察与治理列表—详情状态；Mail 63 张，除既有响应式、
 搜索无结果、详情错误与草稿 CAS 冲突外，还覆盖真实 `manual_review` 全页状态及严格 footer
 局部基线、D4A 390px 移动 Scope 披露基线、D4B Queue 1440/1008/390px 和 768px Scope
@@ -116,13 +120,40 @@ Compose 1440/1008/390px、unknown 1008px、manual review 展开证据与恢复�
 | 翻译不承担图标职责 | 仅扫描运行时 locale catalog（`web/*/src/i18n.ts` 与 `web/*/src/locales/`），拒绝 emoji、dingbat 与常用符号图标，包括 TypeScript 的 Unicode escape。破折号、中文标点、正文和邮件内容不在扫描范围。 | 使用 `@copilotmail/design-system` 的 SVG icon registry；翻译只提供可读名称与文案。 |
 | 有插画的 `EmptyState` 必有 Alt | 检查从 `@copilotmail/design-system` 的命名导入（含别名）和 namespace 导入的 JSX `EmptyState` 调用。发现 `illustration` 时必须显式提供 `illustrationAlt`。 | 传入对应 locale 的 Alt；刻意装饰时也要明确传入空 Alt，而不是遗漏属性。 |
 
-### D4A/D4B/D4C/D4D/D4E 当前生产构建测量（2026-08-24）
+### 2026-10-12 设计语言
 
-最新 `npm run build` 的 Admin 工件为：首屏 JavaScript 334,233 B（gzip 102,136 B）、完整图谱
-JavaScript 484,636 B、CSS 52,895 B（gzip 9,861 B）。Mail 工件为：首屏/完整图谱 JavaScript
-322,054 B（gzip 95,532 B）、CSS 49,145 B（gzip 8,715 B）；Mail 交付位图 3 个，最大
-43,484 B。D4A/D4B/D4C/D4D/D4E 没有引入 CDN、运行时样式、额外 API 请求或新的生产素材，既有预算及其
-Fail-Closed 检查没有放宽。D4E 只复用已登记的登录主视觉。表中较早 P2/P3/D3 测量仅保留为历史演进记录；
+按 2026-10-12 用户要求（评审此前 Linux 截图后认为旧外观"有点丑"），Mail 与 Admin 已统一为
+Gmail 风格外壳，仅表现层与布局改动，API 调用、权限、审计与业务逻辑不变：
+
+- **共享外壳**：顶部栏承载纯文字字标（`app-wordmark`，无图片/SVG 图形 Logo）、大圆角
+  `search-omnibox` 搜索框与语言/账户区；左侧导航栏使用共享 `app-nav-item` 胶囊条目（选中项
+  浅色高亮、未读计数徽标），Mail 顶部另置圆角「撰写」主按钮。Mail ≤1007px、Admin ≤1279px 时
+  导航收进原生 Dialog 抽屉，Mail 的撰写入口改为右下角悬浮按钮；同一抽屉内保留语言与退出控件，
+  不丢失任何功能入口。
+- **视觉令牌**：白底 `--cm-surface`、浅灰分隔 `--cm-line`、胶囊/8–16px 圆角、轻阴影
+  `--cm-shadow-1/2`、4/8px 间距栅格与语义字号集中在 `design-system/src/styles.css` 的
+  `@layer tokens`；WCAG AA 对比度、双环 `--cm-focus-ring`、44px 触点与键盘导航契约不变。
+- **Admin 专用组件拆分**：Mail 从不挂载的 `Panel`/`Badge`/`Field`/`EmptyState`/`Spinner`/
+  `UnknownWriteLock` 样式移入 `design-system/src/admin.css`（仅 Admin 经
+  `@copilotmail/design-system/admin.css` 引入），共享层名不变、级联一致；减少动画的 Spinner
+  静止保证仍留在共享 `styles.css` 的同一 media 块中。拆分为预算卫生措施，不构成第二套
+  视觉语言，Admin 侧规则仍只消费共享 token。
+- **i18n**：两个应用默认 `zh-CN`，`en` 为第二语言；语言切换在顶栏（宽屏）与抽屉（窄屏）可见、
+  可键盘操作并写入各自 `copilotmail.*.locale.v1` 存储键。`scripts/check_web_i18n.py` 及其
+  AST 检查覆盖 mail-app、admin-app 与 design-system，失败即关闭；两端单测断言 zh-CN 与 en
+  键集合完全一致且无空值。
+- **视觉基线**：改版产生的像素差异为预期；本机已按 `--update-snapshots --workers=1` 重建
+  `-linux` 基线（102 张）并人工审图。`-win32` 基线保持原样未动：Windows 环境的视觉比对在
+  重新生成前会失败，需待 Windows CI/机器按同一流程重建。
+
+### D4A/D4B/D4C/D4D/D4E 当前生产构建测量（2026-10-12）
+
+最新 `npm run build` 的 Admin 工件为：首屏 JavaScript 335,832 B（gzip 102,377 B）、完整图谱
+JavaScript 490,572 B、CSS 54,210 B（gzip 10,037 B）。Mail 工件为：首屏/完整图谱 JavaScript
+323,279 B（gzip 95,761 B）、CSS 48,186 B（gzip 8,677 B）；Mail 交付位图 3 个，最大
+43,484 B。Gmail 风格外壳没有引入 CDN、运行时样式、额外 API 请求或新的生产素材，既有预算及其
+Fail-Closed 检查没有放宽（Admin CSS 仍压在 53 KiB 例外线内，Mail CSS 在共享 48 KiB 默认线内）。
+D4E 只复用已登记的登录主视觉。表中较早 P2/P3/D3 与 2026-08-24 测量仅保留为历史演进记录；
 本节是当前构建事实。
 
 素材清单的表格行是门禁的机器可读接口：每一行必须包含完整仓库路径、具体页面/

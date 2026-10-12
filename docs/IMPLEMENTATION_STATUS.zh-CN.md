@@ -17,13 +17,14 @@
 > SQL/PLpgSQL 离线语法检查。最新新增迁移到 0060，均未在本轮部署。详见
 > [代码质量审查](CODE_QUALITY_REVIEW.zh-CN.md)；未完成的函数级验证、会话代次屏障和最终签字
 > 不被本地通过数替代。下列 411/317 等计数保持其历史口径，不是当前汇总。
-> **本轮 V2 设计 D1/D3/D4A/D4B/D4C/D4D/D4E 当前 Web 门禁（2026-08-24）**：`npm run check`、
-> Vitest（411 条：设计系统 17、Admin 207、Mail 187）、`npm run build` 与
-> `npm run e2e:run`（109/109，仅回环 Chromium；PNG 基线 103 张：Admin 40、Mail 63）均通过。
-> 最新 Admin 工件为首屏 JavaScript 334,233 B（gzip 102,136 B）、完整图谱 484,636 B、CSS
-> 52,895 B（gzip 9,861 B）；Mail 为首屏/完整图谱 JavaScript 322,054 B（gzip 95,532 B）、
-> CSS 49,145 B（gzip 8,715 B），交付位图 3 个、最大 43,484 B。该结果只覆盖本地构建工件
-> 与内存 BFF 夹具，不表示 Docker、NixOS、数据库、IdP、域名邮件或生产环境已经验证。
+> **批次 14 改版（2026-10-12）后的当前 Web 门禁**：`npm run check`、Vitest（428 条：设计
+> 系统 19、Admin 217、Mail 192）、`npm run build` 与 `npx playwright test --workers=1`
+> （122/122，仅回环 Chromium；PNG 基线按平台拆分：`-linux` 102 张 Admin 39/Mail 63，
+> `-win32` 103 张 Admin 40/Mail 63）均通过。最新 Admin 工件为首屏 JavaScript 335,832 B
+> （gzip 102,377 B）、完整图谱 490,572 B、CSS 54,210 B（gzip 10,037 B）；Mail 为首屏/
+> 完整图谱 JavaScript 323,279 B（gzip 95,761 B）、CSS 48,186 B（gzip 8,677 B），交付
+> 位图 3 个、最大 43,484 B。该结果只覆盖本地构建工件与内存 BFF 夹具，不表示 Docker、
+> NixOS、数据库、IdP、域名邮件或生产环境已经验证；`-win32` 基线待 Windows 环境重新生成。
 > 当前源码审计目录声明：85 类事件；下列 Application 108、Domain 43、Mail Engine 35、
 > Contracts 17、Control Plane 60；全工作区 `cargo test --workspace --locked` 实跑
 > 381 个非忽略 Rust 测试通过、0 个失败，另有 43 个 ignored 场景（含本轮新增 5 个
@@ -116,6 +117,21 @@ Compose 长状态继续完整换行；D4E 把登录入口、已认证目录准�
 
 ## 本轮已落地
 
+- 2026-10-12 批次 14 按用户当日 UI 改版要求（优先级高于 B-07/B-10，二者顺延）完成 Web
+  界面改版，仅表现层与布局：Mail 与 Admin 默认语言统一为 `zh-CN`（无已存选择时不再按
+  浏览器语言回退 `en`），`en` 为第二语言，两端顶栏/抽屉内语言切换可见、可键盘操作并
+  持久化；`scripts/check_web_i18n.py`（含 AST 检查）覆盖 mail-app、admin-app 与
+  design-system，两端单测断言 zh-CN 与 en 键集合一致且无空值。两端统一 Gmail 风格
+  外壳：顶部栏纯文字字标（无图片 Logo）、大圆角搜索框与语言/账户区；左侧 `app-nav-item`
+  胶囊导航；Mail 紧凑单行邮件列表（未读加粗、悬停浮出操作、独立星标）、圆角「撰写」
+  按钮与窄屏（≤1007px）抽屉导航 + 右下角撰写悬浮按钮；Admin ≤1279px 收进同一抽屉并
+  保留全部入口。视觉令牌集中在 `design-system/src/styles.css`；Mail 不使用的
+  Panel/Badge/Field/EmptyState/Spinner/UnknownWriteLock 样式拆入仅 Admin 引入的
+  `design-system/src/admin.css`，共享 reduced-motion Spinner 静止保证留在共享表。
+  因 DOM 结构变化失效的 e2e 选择器已改写且断言强度不变，`r` 快捷键用例补了等详情加载
+  完成的确定性门控；`-linux` 基线重建 102 张并人工审图，`-win32` 基线未动、待 Windows
+  环境重新生成（在此之前 Windows CI 视觉比对会失败）。设计语言与测量口径见
+  [DESIGN_GOVERNANCE.zh-CN.md](DESIGN_GOVERNANCE.zh-CN.md) 的「2026-10-12 设计语言」。
 - 2026-10-12 批次 13 按 [决定记录](DECISIONS_2026-10-12.zh-CN.md) 落地四项：
   视觉基线拆平台（`snapshotPathTemplate` 加 `{platform}`，103 张既有 PNG
   `git mv` 为 `-win32` 供 Windows CI，本机新增 `-linux` 基线，未改
@@ -764,11 +780,13 @@ Compose 长状态继续完整换行；D4E 把登录入口、已认证目录准�
 ## 已验证
 
 下表中的“通过”均保留各自执行时的证据。P2 的 390 条 Vitest、82 条 Chromium 与 66 张
-Windows PNG 是历史合并基线；D1/D3/D4A/D4B/D4C/D4D/D4E 的当前本地 Web 回归为 411 条 Vitest、109 条
-Chromium 与 103 张 PNG。环境依赖集成项仍按 ignored/实际执行状态分别解释。
+Windows PNG 是历史合并基线；批次 14 改版后的当前本地 Web 回归为 428 条 Vitest、122 条
+Chromium 与按平台拆分的 205 张 PNG 基线（`-linux` 102、`-win32` 103）。环境依赖集成项仍按
+ignored/实际执行状态分别解释。
 
 | 验证项 | 结果 |
 |---|---|
+| 2026-10-12 批次 14 Web 界面改版：zh-CN 默认与 Gmail 风格外壳 | Node v20.19.2、npm 9.2.0、Chromium 151（仅回环 Vite Preview 与内存 BFF 夹具）。未改 Rust；`cargo fmt --all --check` 通过，未跑 clippy 与工作区测试。`npm run check` 通过；`npm test` 为设计系统 19、Admin 217、Mail 192，共 428 通过；`npm run build` 通过（bundle 自测 13 个负向 fixture；Admin 首屏 JavaScript 335,832 B、gzip 102,377 B、完整图谱 490,572 B、CSS 54,210 B ≤ 54,272 B 例外线；Mail 首屏/完整 323,279 B、gzip 95,761 B、CSS 48,186 B ≤ 49,152 B 默认线）。`npm run e2e:check` 通过；`npx playwright test --update-snapshots --workers=1` 重建 `-linux` 基线（102 张：Admin 39、Mail 63）并人工审图无错位/截断/重叠；随后 `npx playwright test --workers=1` 本机全量 122/122 通过（含既有 Axe A/AA 扫描与 44px 触点测量）。Admin 默认 `zh-CN`：无已存选择不再按浏览器语言回退 `en`；夹具改为向产品 Locale 存储键写入显式 `en` 且不清空已有选择。失效 e2e 选择器按新 DOM 重写（断言强度不变；`r` 用例先等详情动作出现再按键）；`topbar-sign-out` 上移共享表、Compose 补 `:focus-visible` 环、队列右外边距收窄以保持 1008px 最小宽度契约。`-win32` 基线未动，待 Windows 环境重新生成，此前 Windows CI 视觉比对会失败。本行写入后运行并通过：`python3 scripts/check_documentation.py`（13 个必需文件、101 份文档）、`check_audit_governance.py`（86）、`check_function_test_matrix.py`（106，未跑 `--release`）、`check_architecture.py`、`check_crypto_boundary.py`、`check_agent_skill.py`（11 个工作流）、`check_web_i18n.py`、`check_design_governance.py --self-test`、`python3 -m unittest discover -s scripts -p test_audit_governance.py`（17 项）。ignored PostgreSQL/MinIO 未执行；无 Docker、SSH、真实邮件、外部 IdP。 |
 | 2026-10-12 批次 13 决定落地：平台后缀基线、source-map-js、OIDC/会话配对 | Node v20.19.2、npm 9.2.0、Chromium 151（仅回环 Vite Preview 与内存 BFF 夹具）；Rust 1.97.1。`cargo fmt --all --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings` 通过；`cargo test --workspace --locked` 为 455 passed、0 failed、52 ignored（+1：`production_pairs_human_session_allowlist_with_oidc_relying_parties`）。`npm run check`、`npm test`（设计系统 19、Admin 215、Mail 192）与 `npm run build`（bundle 自测 13 个负向 fixture；Admin 首屏 334,280 B、gzip 101,855 B；Mail 322,285 B、gzip 95,093 B）通过。`npx playwright test --update-snapshots --workers=1` 生成 `-linux` 基线并 122/122 通过；`npm run e2e:run`（含 `e2e:check`）本机全量 122/122 通过。锁文件仅 `source-map-js` 1.2.1→1.2.2 一处条目改动；`npm audit` 归零（GHSA-68fv-2mgg-jv7q 消失）。103 张既有 PNG `git mv` 为 `-win32`，新增 102 张 `-linux`（孤儿 `admin-navigation-drawer-720` 仅 win32）。未改 `maxDiffPixelRatio`、预算与用例清单；Windows CI 继续比对 `-win32`。本行写入后运行并通过：`python3 scripts/check_documentation.py`（13 个必需文件、101 份文档）、`check_audit_governance.py`（86）、`check_function_test_matrix.py`（106，未跑 `--release`）、`check_architecture.py`、`check_crypto_boundary.py`、`check_agent_skill.py`（11 个工作流）、`check_web_i18n.py`、`check_design_governance.py --self-test`、`python3 -m unittest discover -s scripts -p test_audit_governance.py`（17 项）。ignored PostgreSQL/MinIO 未执行；无 Docker、SSH、真实邮件、外部 IdP。 |
 | 2026-10-12 批次 12 邮件端与剩余管理视图的自动化无障碍补证 | Node v20.19.2、npm 9.2.0、Chromium 151（仅回环 Vite Preview 与内存 BFF 夹具）。`cargo fmt --all --check` 通过；未改 Rust，未跑 clippy 与工作区测试。`npm run check`、`npm test`（设计系统 19、Admin 215、Mail 192）与 `npm run build`（bundle 自测 13 个负向 fixture；Admin 首屏 JavaScript 334,280 B、gzip 101,855 B；Mail 322,285 B、gzip 95,093 B）通过。`npm run e2e:check` 通过。新增 `e2e/mail/mail-a11y-contracts.spec.ts` 5/5：Composer 对话框真实浏览器内 Tab/Shift+Tab 双向陷阱、Escape 关闭、焦点返回 Compose 触发器、`.dialog` 的 Axe `wcag2a/2aa/21aa/22aa` 扫描；草稿恢复 alertdialog 双向焦点陷阱、焦点返回「Resume editing」行、Axe 与零 POST 证据；Inbox/Drafts/Sent 列表状态区 `role="status"` + `aria-live="polite"` + `aria-atomic="true"`；队列纯 Tab 顺序（搜索→提交→两条消息行）与 `j`/`k` 移动真实焦点并置 `aria-current`；zh-CN 播报警化与 `.inbox` Axe。新增 `e2e/admin/admin-workspace-a11y.spec.ts` 5/5：Approvals 仅键盘路由进入、`.workspace` Axe、创建表单自定义校验绑定（`aria-invalid`、指向 `role="alert"` 的 `aria-describedby`、`focusVisible` 聚焦、零 POST）、`.approval-create-panel` Axe 与 Escape 后焦点返回触发器；Cases、Legal holds、Mail domains、Audit 全 `.workspace` Axe（含选中详情）。单测补证：MessageList/DraftList/SentList 状态区断言 `aria-live`/`aria-atomic`；MessageDetail 新增读取中 `role="status"` 与失败 `role="alert"` 用例。本批 Axe 与键盘扫描未发现真实缺陷，产品代码无改动。全部不截图；未改快照、`maxDiffPixelRatio` 与锁文件。这仍是自动化证据，不等同 WCAG 2.2 AA 验收。本行写入后运行并通过：`python3 scripts/check_documentation.py`、`check_audit_governance.py`（86）、`check_function_test_matrix.py`（未跑 `--release`）、`check_architecture.py`、`check_crypto_boundary.py`、`check_agent_skill.py`、`check_web_i18n.py`、`test_audit_governance`（17 项）。 |
 | 2026-10-12 批次 11 管理端自动化无障碍补证 | Node v20.19.2、npm 9.2.0、Chromium 151（仅回环 Vite Preview 与内存 BFF 夹具）。`cargo fmt --all --check` 通过；未改 Rust，未跑 clippy 与工作区测试。`npm run check`（admin-app `tsc -b`）、`npm test`（Admin 15 个文件 215/215）与 `npm run build`（bundle 自测 13 个负向 fixture；Admin 首屏 JavaScript 334,280 B、gzip 101,855 B）通过。新增 `e2e/admin/audit-search.spec.ts` 2/2（仅键盘交互、字段绑定、Axe `wcag2a/2aa/21aa/22aa` 扫描 `.audit-filters`，英文与 zh-CN）与 `mail-domains.spec.ts` 注册对话框用例（焦点陷阱、焦点返回、Axe、不截图）通过。同 spec 两条既有 `toHaveScreenshot` 用例在本机 Linux 失败（`mail-domain-onboarding-1440.png` 差 40,255 px、比例 0.03；`mail-domain-onboarding-390.png` 差 24,899 px、比例 0.04），属既有 Windows 视觉基线的平台漂移：未改快照、未改 `maxDiffPixelRatio`、未改锁文件。产品修复：共享 Dialog/CommandPalette 的脚本焦点带 `focusVisible`（指针关闭不画焦点环）；审计高级筛选折叠时校验失败先展开 `<details>` 再以可见焦点落到字段；审计检索、域名（注册/DNS 校验/路由配置/挂起）与审批创建的本地校验把 `aria-invalid` 与指向 `role="alert"` 的 `aria-describedby` 绑到具体控件。这些是 Axe 自动扫描与键盘/焦点自动化证据，不等同完整 WCAG 2.2 AA 验收；真实屏幕阅读器与触屏走查仍需人工。本行写入后运行并通过：`python3 scripts/check_documentation.py`、`check_audit_governance.py`（86）、`check_function_test_matrix.py`（未跑 `--release`）、`check_architecture.py`、`check_crypto_boundary.py`、`check_agent_skill.py`、`check_web_i18n.py`、`python3 -m unittest discover -s scripts -p test_audit_governance.py`（17 项）。 |
