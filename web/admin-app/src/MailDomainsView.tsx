@@ -18,6 +18,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   type FormEvent,
@@ -75,6 +76,13 @@ interface UnknownWriteContext {
 }
 
 const emptyCreateDraft = (): CreateDraft => ({ name: "", routeMode: "" });
+
+/** See the same helper in dialog.tsx. */
+function focusWithVisibleRing(element: HTMLElement | null | undefined) {
+  if (!element) return;
+  const options: FocusOptions & { focusVisible: boolean } = { focusVisible: true };
+  element.focus(options);
+}
 
 function routeDraftFor(domain: MailDomain): RouteDraft {
   return {
@@ -297,6 +305,18 @@ export default function MailDomainsView({
   const draftIdentity = useRef("");
   const registerButtonRef = useRef<HTMLButtonElement>(null);
   const createNameRef = useRef<HTMLInputElement>(null);
+  const createRouteModeRef = useRef<HTMLSelectElement>(null);
+  const createValidationMessageId = useId();
+  const suspendReasonRef = useRef<HTMLInputElement>(null);
+  const suspendValidationMessageId = useId();
+  const dnsTokenRef = useRef<HTMLInputElement>(null);
+  const dkimSelectorRef = useRef<HTMLInputElement>(null);
+  const dnsValidationMessageId = useId();
+  const routeInboundRef = useRef<HTMLInputElement>(null);
+  const routeOutboundRef = useRef<HTMLInputElement>(null);
+  const routeSmartHostRef = useRef<HTMLInputElement>(null);
+  const routeDkimKeyRef = useRef<HTMLInputElement>(null);
+  const routeValidationMessageId = useId();
 
   const after = afterHistory.at(-1);
 
@@ -478,10 +498,14 @@ export default function MailDomainsView({
     const routeMode = draft.routeMode;
     if (!name || !routeMode) {
       setCreateValidation("required");
+      window.requestAnimationFrame(() => focusWithVisibleRing(
+        name ? createRouteModeRef.current : createNameRef.current,
+      ));
       return;
     }
     if (!isCandidateDomain(draft.name)) {
       setCreateValidation("invalid");
+      window.requestAnimationFrame(() => focusWithVisibleRing(createNameRef.current));
       return;
     }
     setCreateValidation(undefined);
@@ -539,10 +563,14 @@ export default function MailDomainsView({
     const selector = dkimSelector.trim();
     if (!domain || !ownershipToken || !selector) {
       setDnsValidation("required");
+      window.requestAnimationFrame(() => focusWithVisibleRing(
+        ownershipToken ? dkimSelectorRef.current : dnsTokenRef.current,
+      ));
       return;
     }
     if (!isDkimSelector(selector)) {
       setDnsValidation("invalid-selector");
+      window.requestAnimationFrame(() => focusWithVisibleRing(dkimSelectorRef.current));
       return;
     }
     setDnsValidation(undefined);
@@ -594,10 +622,12 @@ export default function MailDomainsView({
     const reasonCode = suspendReason.trim();
     if (!domain || !reasonCode) {
       setSuspendValidation("required");
+      window.requestAnimationFrame(() => focusWithVisibleRing(suspendReasonRef.current));
       return;
     }
     if (!isReasonCode(reasonCode)) {
       setSuspendValidation("invalid");
+      window.requestAnimationFrame(() => focusWithVisibleRing(suspendReasonRef.current));
       return;
     }
     setSuspendValidation(undefined);
@@ -627,14 +657,19 @@ export default function MailDomainsView({
     const dkimKeyRef = optionalReference(draft.dkimKeyRef);
     if ((draft.inboundEnabled || draft.outboundEnabled) && domain.status !== "active") {
       setRouteValidation("activation");
+      window.requestAnimationFrame(() => focusWithVisibleRing(
+        draft.inboundEnabled ? routeInboundRef.current : routeOutboundRef.current,
+      ));
       return;
     }
     if (draft.outboundEnabled && domain.route_mode === "smart_host" && !smartHostRef) {
       setRouteValidation("smart-host");
+      window.requestAnimationFrame(() => focusWithVisibleRing(routeSmartHostRef.current));
       return;
     }
     if (draft.outboundEnabled && !dkimKeyRef) {
       setRouteValidation("dkim");
+      window.requestAnimationFrame(() => focusWithVisibleRing(routeDkimKeyRef.current));
       return;
     }
     setRouteValidation(undefined);
@@ -690,12 +725,18 @@ export default function MailDomainsView({
   const dnsVerificationForm = selected && canVerifyDns ? (
     <form className="form-grid" onSubmit={verifyDns}>
       {dnsValidation ? (
-        <p role="alert">{dnsValidation === "required"
+        <p id={dnsValidationMessageId} role="alert">{dnsValidation === "required"
           ? t("domainRequired")
           : t("domainInvalidDkimSelector")}</p>
       ) : null}
       <Field label={t("domainOwnershipToken")} hint={t("domainTokenWarning")}>
         <Input
+          ref={dnsTokenRef}
+          aria-describedby={dnsValidation === "required" && !dnsToken.trim()
+            ? dnsValidationMessageId
+            : undefined}
+          aria-invalid={dnsValidation === "required" && !dnsToken.trim()
+            || undefined}
           autoComplete="off"
           disabled={!canWriteDetail}
           spellCheck={false}
@@ -709,6 +750,14 @@ export default function MailDomainsView({
       </Field>
       <Field label={t("domainDkimSelector")}>
         <Input
+          ref={dkimSelectorRef}
+          aria-describedby={dnsValidation === "invalid-selector"
+            || (dnsValidation === "required" && !dkimSelector.trim())
+            ? dnsValidationMessageId
+            : undefined}
+          aria-invalid={dnsValidation === "invalid-selector"
+            || (dnsValidation === "required" && !dkimSelector.trim())
+            || undefined}
           autoComplete="off"
           disabled={!canWriteDetail}
           maxLength={63}
@@ -730,7 +779,7 @@ export default function MailDomainsView({
 
   const routeConfigurationForm = selected && routeDraft ? (
     <form className="form-grid" onSubmit={saveRoute}>
-      {routeValidation ? <p role="alert">{
+      {routeValidation ? <p id={routeValidationMessageId} role="alert">{
         routeValidation === "activation"
           ? t("domainRouteActivationRequired")
           : routeValidation === "smart-host"
@@ -739,29 +788,52 @@ export default function MailDomainsView({
       }</p> : null}
       <label className="checkbox-field">
         <input
+          ref={routeInboundRef}
+          aria-describedby={routeValidation === "activation" && routeDraft.inboundEnabled
+            ? routeValidationMessageId
+            : undefined}
+          aria-invalid={routeValidation === "activation" && routeDraft.inboundEnabled
+            || undefined}
           checked={routeDraft.inboundEnabled}
           disabled={!canWriteDetail || selectedIsRetired}
           type="checkbox"
-          onChange={(event) => setRouteDraft((current) => current
-            ? { ...current, inboundEnabled: event.target.checked }
-            : current)}
+          onChange={(event) => {
+            setRouteDraft((current) => current
+              ? { ...current, inboundEnabled: event.target.checked }
+              : current);
+            setRouteValidation(undefined);
+          }}
         />
         {t("domainRouteInbound")}
       </label>
       <label className="checkbox-field">
         <input
+          ref={routeOutboundRef}
+          aria-describedby={routeValidation === "activation" && routeDraft.outboundEnabled
+            ? routeValidationMessageId
+            : undefined}
+          aria-invalid={routeValidation === "activation" && routeDraft.outboundEnabled
+            || undefined}
           checked={routeDraft.outboundEnabled}
           disabled={!canWriteDetail || selectedIsRetired}
           type="checkbox"
-          onChange={(event) => setRouteDraft((current) => current
-            ? { ...current, outboundEnabled: event.target.checked }
-            : current)}
+          onChange={(event) => {
+            setRouteDraft((current) => current
+              ? { ...current, outboundEnabled: event.target.checked }
+              : current);
+            setRouteValidation(undefined);
+          }}
         />
         {t("domainRouteOutbound")}
       </label>
       {selected.route_mode === "smart_host" ? (
         <Field label={t("domainSmartHostRef")}>
           <Input
+            ref={routeSmartHostRef}
+            aria-describedby={routeValidation === "smart-host"
+              ? routeValidationMessageId
+              : undefined}
+            aria-invalid={routeValidation === "smart-host" || undefined}
             disabled={!canWriteDetail || selectedIsRetired}
             value={routeDraft.smartHostRef}
             onChange={(event) => {
@@ -775,6 +847,11 @@ export default function MailDomainsView({
       ) : null}
       <Field label={t("domainDkimKeyRef")}>
         <Input
+          ref={routeDkimKeyRef}
+          aria-describedby={routeValidation === "dkim"
+            ? routeValidationMessageId
+            : undefined}
+          aria-invalid={routeValidation === "dkim" || undefined}
           disabled={!canWriteDetail || selectedIsRetired}
           value={routeDraft.dkimKeyRef}
           onChange={(event) => {
@@ -1215,13 +1292,20 @@ export default function MailDomainsView({
           <form onSubmit={submitCreate}>
             <div className="dialog__body form-grid">
               {createValidation ? (
-                <p role="alert">{createValidation === "required"
+                <p id={createValidationMessageId} role="alert">{createValidation === "required"
                   ? t("domainRequired")
                   : t("domainInvalidName")}</p>
               ) : null}
               <Field label={t("domainName")}>
                 <Input
                   ref={createNameRef}
+                  aria-describedby={createValidation === "invalid"
+                    || (createValidation === "required" && !createDraft.name.trim())
+                    ? createValidationMessageId
+                    : undefined}
+                  aria-invalid={createValidation === "invalid"
+                    || (createValidation === "required" && !createDraft.name.trim())
+                    || undefined}
                   autoComplete="off"
                   disabled={operation === "create"}
                   spellCheck={false}
@@ -1234,6 +1318,12 @@ export default function MailDomainsView({
               </Field>
               <Field label={t("domainRouteMode")}>
                 <Select
+                  ref={createRouteModeRef}
+                  aria-describedby={createValidation === "required" && !createDraft.routeMode
+                    ? createValidationMessageId
+                    : undefined}
+                  aria-invalid={createValidation === "required" && !createDraft.routeMode
+                    || undefined}
                   disabled={operation === "create"}
                   value={createDraft.routeMode}
                   onChange={(event) => {
@@ -1326,11 +1416,16 @@ export default function MailDomainsView({
           onConfirm={suspendDomain}
         >
           <div className="form-grid">
-            {suspendValidation ? <p role="alert">{suspendValidation === "required"
+            {suspendValidation ? <p id={suspendValidationMessageId} role="alert">{suspendValidation === "required"
               ? t("domainRequired")
               : t("domainInvalidSuspendReason")}</p> : null}
             <Field label={t("domainSuspendReason")}>
               <Input
+                ref={suspendReasonRef}
+                aria-describedby={suspendValidation
+                  ? suspendValidationMessageId
+                  : undefined}
+                aria-invalid={suspendValidation !== undefined || undefined}
                 disabled={operation === "suspend"}
                 autoComplete="off"
                 maxLength={100}

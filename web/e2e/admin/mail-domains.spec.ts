@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import type { Locator, Page } from "@playwright/test";
 import {
   E2E_INITIAL_MAIL_DOMAIN_TOKEN,
@@ -21,6 +22,17 @@ import {
 
 function mailDomainPath(mailDomainId: string): string {
   return `/api/v2/mail-domains/${mailDomainId}`;
+}
+
+const WCAG_AA_TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"] as const;
+
+async function expectNoAxeViolations(page: Page, include: string) {
+  const results = await new AxeBuilder({ page })
+    .include(include)
+    .withTags([...WCAG_AA_TAGS])
+    .analyze();
+  expect(results.violations, JSON.stringify(results.violations, null, 2))
+    .toEqual([]);
 }
 
 function domainRequests(adminApp: AdminAppFixture) {
@@ -235,6 +247,68 @@ test("Mail domain onboarding uses the real list/detail lifecycle and keeps owner
   await expect(detail.getByRole("checkbox", { name: "Enable inbound", exact: true })).toHaveCount(0);
   await expect(detail.getByRole("checkbox", { name: "Enable outbound", exact: true })).toHaveCount(0);
   await expect(detail.getByRole("button", { name: "Verify DNS", exact: true })).toHaveCount(0);
+});
+
+test("the registration dialog traps keyboard focus, binds its validation, and returns focus", async ({
+  adminApp,
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.clock.setFixedTime(new Date("2026-08-24T12:00:00.000Z"));
+  await openMailDomains(adminApp, page);
+
+  const trigger = page.getByRole("button", { name: "Register domain", exact: true });
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+
+  const dialog = page.getByRole("dialog", {
+    name: "Register mail domain",
+    exact: true,
+  });
+  await expect(dialog).toBeVisible();
+  const close = dialog.getByRole("button", { name: "Close dialog", exact: true })
+    .first();
+  const name = dialog.getByRole("textbox", { name: "Domain name", exact: true });
+  const routeMode = dialog.getByRole("combobox", {
+    name: "Outbound route mode",
+    exact: true,
+  });
+  const submit = dialog.getByRole("button", {
+    name: "Register and get TXT token",
+    exact: true,
+  });
+
+  // The declared first field owns initial focus; Tab wraps inside the dialog
+  // in both directions instead of leaking to the inert background.
+  await expect(name).toBeFocused();
+  await submit.focus();
+  await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(submit).toBeFocused();
+
+  // An empty submission is announced and bound to both required fields, then
+  // focus moves to the first offending control with a painted ring.
+  await page.keyboard.press("Enter");
+  const alert = dialog.getByRole("alert");
+  await expect(alert).toHaveText("Complete all required domain fields.");
+  const alertId = await alert.getAttribute("id");
+  expect(alertId ?? "").not.toBe("");
+  await expect(name).toBeFocused();
+  expect(await name.evaluate((element) => element.matches(":focus-visible")))
+    .toBe(true);
+  for (const field of [name, routeMode]) {
+    await expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(await field.getAttribute("aria-describedby") ?? "")
+      .toContain(alertId);
+  }
+  expect(domainRequests(adminApp).filter(({ method }) => method !== "GET"))
+    .toHaveLength(0);
+  await expectNoAxeViolations(page, ".dialog");
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
 });
 
 test("a response-unknown route write freezes mutations and reconciles through GET only", async ({

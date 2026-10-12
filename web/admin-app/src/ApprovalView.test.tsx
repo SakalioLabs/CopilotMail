@@ -273,9 +273,14 @@ describe("ApprovalView truthful asynchronous states", () => {
       name: "Submit approval request",
     }).closest("form")!);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
       "A policy key may contain only lowercase letters",
     );
+    const policyKey = screen.getByRole("textbox", { name: /^Policy key/ });
+    expect(policyKey).toHaveAttribute("aria-invalid", "true");
+    expect(policyKey.getAttribute("aria-describedby") ?? "").toContain(alert.id);
+    await waitFor(() => expect(policyKey).toHaveFocus());
     expect(createApprovalRequest).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -283,6 +288,43 @@ describe("ApprovalView truthful asynchronous states", () => {
     expect(screen.queryByRole("heading", {
       name: "Create approval request",
     })).not.toBeInTheDocument();
+  });
+
+  it("binds creation validation to the first missing required field", async () => {
+    const createApprovalRequest = vi.fn();
+    const client = {
+      listApprovalRequests: vi.fn().mockResolvedValue(page([])),
+      createApprovalRequest,
+    } as unknown as ControlPlaneClient;
+
+    render(<ApprovalView client={client} locale="en" t={en} />);
+    await screen.findByText("No approval requests");
+    fireEvent.click(screen.getByRole("button", { name: "Request approval" }));
+    const submitButton = screen.getByRole("button", {
+      name: "Submit approval request",
+    });
+    fireEvent.submit(submitButton.closest("form")!);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Enter a policy key, action, resource type, resource ID, reason, and expiration.",
+    );
+    const policyKey = screen.getByRole("textbox", { name: /^Policy key/ });
+    expect(policyKey).toHaveAttribute("aria-invalid", "true");
+    expect(policyKey.getAttribute("aria-describedby") ?? "").toContain(alert.id);
+    await waitFor(() => expect(policyKey).toHaveFocus());
+    expect(createApprovalRequest).not.toHaveBeenCalled();
+
+    // With the policy key present, the binding moves to the next missing field.
+    fireEvent.change(policyKey, { target: { value: "audit.export" } });
+    fireEvent.submit(submitButton.closest("form")!);
+    const actionAlert = await screen.findByRole("alert");
+    const action = screen.getByLabelText("High-risk action");
+    expect(policyKey).not.toHaveAttribute("aria-invalid");
+    expect(action).toHaveAttribute("aria-invalid", "true");
+    expect(action.getAttribute("aria-describedby") ?? "").toContain(actionAlert.id);
+    await waitFor(() => expect(action).toHaveFocus());
+    expect(createApprovalRequest).not.toHaveBeenCalled();
   });
 
   it("shows only a bounded retryable error after an initial list failure", async () => {

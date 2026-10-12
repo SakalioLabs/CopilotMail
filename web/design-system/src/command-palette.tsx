@@ -95,6 +95,13 @@ function restoreAttribute(
   else element.setAttribute(name, value);
 }
 
+/** See the same helper in dialog.tsx. Return focus stays a plain focus(). */
+function focusWithVisibleRing(element: HTMLElement | null | undefined) {
+  if (!element) return;
+  const options: FocusOptions & { focusVisible: boolean } = { focusVisible: true };
+  element.focus(options);
+}
+
 /**
  * An accessible, controlled command palette primitive. It intentionally owns
  * no product actions: callers provide the exact commands their current state
@@ -160,7 +167,7 @@ export function CommandPalette({
     const reclaimFocus = (event: FocusEvent) => {
       const dialog = dialogRef.current;
       if (event.target instanceof Node && dialog?.contains(event.target)) return;
-      inputRef.current?.focus();
+      focusWithVisibleRing(inputRef.current);
     };
     document.addEventListener("focusin", reclaimFocus, true);
     return () => {
@@ -179,7 +186,7 @@ export function CommandPalette({
           ? document.activeElement
           : null);
         setQuery("");
-        window.requestAnimationFrame(() => inputRef.current?.focus());
+        window.requestAnimationFrame(() => focusWithVisibleRing(inputRef.current));
       }
       wasOpen.current = true;
       return;
@@ -226,7 +233,7 @@ export function CommandPalette({
     if (!next) return;
     setActiveCommandId(next.id);
     if (moveFocus) {
-      window.requestAnimationFrame(() => commandRefs.current.get(next.id)?.focus());
+      window.requestAnimationFrame(() => focusWithVisibleRing(commandRefs.current.get(next.id)));
     }
   };
 
@@ -246,10 +253,10 @@ export function CommandPalette({
       const focused = document.activeElement;
       if (event.shiftKey && (focused === first || !dialogRef.current?.contains(focused))) {
         event.preventDefault();
-        last.focus();
+        focusWithVisibleRing(last);
       } else if (!event.shiftKey && (focused === last || !dialogRef.current?.contains(focused))) {
         event.preventDefault();
-        first.focus();
+        focusWithVisibleRing(first);
       }
       return;
     }

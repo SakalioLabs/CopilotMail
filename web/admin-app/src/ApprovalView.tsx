@@ -14,7 +14,7 @@ import {
   EvidenceInspector,
   UnknownWriteLock,
 } from "@copilotmail/design-system";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { AdminErrorNotice } from "./AdminErrorNotice";
 import { AdminListDetail } from "./AdminListDetail";
 import { ControlPlaneClient, isUnknownWriteFailure } from "./api";
@@ -57,6 +57,13 @@ interface ApprovalCreateDraft {
   reason: string;
   ticketReference: string;
   expiresAt: string;
+}
+
+type ApprovalCreateField = keyof ApprovalCreateDraft;
+
+interface ApprovalCreateValidation {
+  field: ApprovalCreateField;
+  message: string;
 }
 
 interface ApprovalDecisionCommand {
@@ -117,38 +124,61 @@ function validBoundedText(value: string, maximum: number): boolean {
     && !CONTROL_CHARACTER.test(value);
 }
 
+/** See the same helper in dialog.tsx. */
+function focusWithVisibleRing(element: HTMLElement | null | undefined) {
+  if (!element) return;
+  const options: FocusOptions & { focusVisible: boolean } = { focusVisible: true };
+  element.focus(options);
+}
+
 function validateApprovalCreateDraft(
   draft: ApprovalCreateDraft,
   now: number,
   t: T,
-): string | undefined {
-  if (
-    !draft.policyKey.trim()
-    || !draft.action
-    || !draft.resourceKind.trim()
-    || !draft.resourceId.trim()
-    || !draft.reason.trim()
-    || !draft.expiresAt
-  ) return t("approvalCreateRequired");
+): ApprovalCreateValidation | undefined {
+  if (!draft.policyKey.trim()) {
+    return { field: "policyKey", message: t("approvalCreateRequired") };
+  }
+  if (!draft.action) {
+    return { field: "action", message: t("approvalCreateRequired") };
+  }
+  if (!draft.resourceKind.trim()) {
+    return { field: "resourceKind", message: t("approvalCreateRequired") };
+  }
+  if (!draft.resourceId.trim()) {
+    return { field: "resourceId", message: t("approvalCreateRequired") };
+  }
+  if (!draft.reason.trim()) {
+    return { field: "reason", message: t("approvalCreateRequired") };
+  }
+  if (!draft.expiresAt) {
+    return { field: "expiresAt", message: t("approvalCreateRequired") };
+  }
   if (
     draft.policyKey.length > 100
     || !/^[a-z0-9]+(?:[.][a-z0-9]+)*$/u.test(draft.policyKey)
-  ) return t("approvalCreatePolicyInvalid");
+  ) return { field: "policyKey", message: t("approvalCreatePolicyInvalid") };
   if (!APPROVAL_ACTIONS.includes(draft.action as ApprovalAction)) {
-    return t("approvalCreateActionInvalid");
+    return { field: "action", message: t("approvalCreateActionInvalid") };
   }
-  if (
-    !validBoundedText(draft.resourceKind, 100)
-    || !validBoundedText(draft.resourceId, 500)
-    || !validBoundedText(draft.reason, 1_000)
-    || (draft.ticketReference !== "" && !validBoundedText(draft.ticketReference, 500))
-  ) return t("approvalCreateTextInvalid");
+  if (!validBoundedText(draft.resourceKind, 100)) {
+    return { field: "resourceKind", message: t("approvalCreateTextInvalid") };
+  }
+  if (!validBoundedText(draft.resourceId, 500)) {
+    return { field: "resourceId", message: t("approvalCreateTextInvalid") };
+  }
+  if (!validBoundedText(draft.reason, 1_000)) {
+    return { field: "reason", message: t("approvalCreateTextInvalid") };
+  }
+  if (draft.ticketReference !== "" && !validBoundedText(draft.ticketReference, 500)) {
+    return { field: "ticketReference", message: t("approvalCreateTextInvalid") };
+  }
   const expiresAt = Date.parse(draft.expiresAt);
   if (
     !Number.isFinite(expiresAt)
     || expiresAt <= now
     || expiresAt > now + APPROVAL_MAX_LIFETIME_MS
-  ) return t("approvalCreateExpirationInvalid");
+  ) return { field: "expiresAt", message: t("approvalCreateExpirationInvalid") };
   return undefined;
 }
 
@@ -366,7 +396,7 @@ export default function ApprovalView({
   );
   const [createWindow, setCreateWindow] = useState(expirationBounds);
   const [creating, setCreating] = useState(false);
-  const [createValidationError, setCreateValidationError] = useState<string>();
+  const [createValidation, setCreateValidation] = useState<ApprovalCreateValidation>();
   const [createError, setCreateError] = useState<unknown>();
   const [uncertainCreate, setUncertainCreate] = useState<ApprovalRequestCreateInput>();
   const [uncertainDecision, setUncertainDecision] = useState<ApprovalDecisionCommand>();
@@ -395,6 +425,13 @@ export default function ApprovalView({
   >(undefined);
   const createTriggerRef = useRef<HTMLButtonElement>(null);
   const createFirstFieldRef = useRef<HTMLInputElement>(null);
+  const createActionRef = useRef<HTMLSelectElement>(null);
+  const createResourceKindRef = useRef<HTMLInputElement>(null);
+  const createResourceIdRef = useRef<HTMLInputElement>(null);
+  const createReasonRef = useRef<HTMLTextAreaElement>(null);
+  const createTicketReferenceRef = useRef<HTMLInputElement>(null);
+  const createExpiresAtRef = useRef<HTMLInputElement>(null);
+  const createValidationMessageId = useId();
   const createdRequestNoticeRef = useRef<HTMLDivElement>(null);
   const returnCreateFocusRef = useRef(false);
   const cancellationInFlightRef = useRef(false);
@@ -616,7 +653,7 @@ export default function ApprovalView({
   function openCreateForm() {
     if (interactionLockedRef.current) return;
     setCreateWindow(expirationBounds());
-    setCreateValidationError(undefined);
+    setCreateValidation(undefined);
     setCreateError(undefined);
     setCreateOpen(true);
   }
@@ -626,14 +663,14 @@ export default function ApprovalView({
     returnCreateFocusRef.current = true;
     setCreateOpen(false);
     setCreateDraft(emptyApprovalCreateDraft());
-    setCreateValidationError(undefined);
+    setCreateValidation(undefined);
     setCreateError(undefined);
   }
 
   function updateCreateDraft(patch: Partial<ApprovalCreateDraft>) {
     if (interactionLockedRef.current) return;
     setCreateDraft((value) => ({ ...value, ...patch }));
-    setCreateValidationError(undefined);
+    setCreateValidation(undefined);
     setCreateError(undefined);
   }
 
@@ -646,7 +683,7 @@ export default function ApprovalView({
     const sequence = createRequestSequence.current + 1;
     createRequestSequence.current = sequence;
     setCreating(true);
-    setCreateValidationError(undefined);
+    setCreateValidation(undefined);
     setCreateError(undefined);
     try {
       const result = await client.createApprovalRequest(command);
@@ -687,13 +724,28 @@ export default function ApprovalView({
     }
   }
 
+  function createFieldElement(field: ApprovalCreateField): HTMLElement | null {
+    switch (field) {
+      case "policyKey": return createFirstFieldRef.current;
+      case "action": return createActionRef.current;
+      case "resourceKind": return createResourceKindRef.current;
+      case "resourceId": return createResourceIdRef.current;
+      case "reason": return createReasonRef.current;
+      case "ticketReference": return createTicketReferenceRef.current;
+      case "expiresAt": return createExpiresAtRef.current;
+    }
+  }
+
   async function submitApprovalRequest() {
     if (creating || interactionLockedRef.current) return;
     const now = Date.now();
-    const validationError = validateApprovalCreateDraft(createDraft, now, t);
-    if (validationError) {
-      setCreateValidationError(validationError);
+    const validation = validateApprovalCreateDraft(createDraft, now, t);
+    if (validation) {
+      setCreateValidation(validation);
       setCreateError(undefined);
+      window.requestAnimationFrame(() => focusWithVisibleRing(
+        createFieldElement(validation.field),
+      ));
       return;
     }
     if (!createDraft.action) return;
@@ -1111,9 +1163,13 @@ export default function ApprovalView({
               void submitApprovalRequest();
             }}
           >
-            {createValidationError ? (
-              <div className="notice notice--error approval-create-form__wide" role="alert">
-                <p>{createValidationError}</p>
+            {createValidation ? (
+              <div
+                className="notice notice--error approval-create-form__wide"
+                id={createValidationMessageId}
+                role="alert"
+              >
+                <p>{createValidation.message}</p>
               </div>
             ) : null}
             {createError ? (
@@ -1137,6 +1193,10 @@ export default function ApprovalView({
             ) : null}
             <Field label={t("policyKey")} hint={t("policyKeyServerHint")}>
               <Input
+                aria-describedby={createValidation?.field === "policyKey"
+                  ? createValidationMessageId
+                  : undefined}
+                aria-invalid={createValidation?.field === "policyKey" || undefined}
                 autoComplete="off"
                 disabled={creating || interactionLocked}
                 maxLength={100}
@@ -1151,10 +1211,15 @@ export default function ApprovalView({
             </Field>
             <Field label={t("approvalAction")}>
               <Select
+                aria-describedby={createValidation?.field === "action"
+                  ? createValidationMessageId
+                  : undefined}
+                aria-invalid={createValidation?.field === "action" || undefined}
                 disabled={creating || interactionLocked}
                 onChange={(event) => updateCreateDraft({
                   action: event.target.value as ApprovalAction | "",
                 })}
+                ref={createActionRef}
                 required
                 value={createDraft.action}
               >
@@ -1169,11 +1234,16 @@ export default function ApprovalView({
               hint={t("approvalResourceKindHint")}
             >
               <Input
+                aria-describedby={createValidation?.field === "resourceKind"
+                  ? createValidationMessageId
+                  : undefined}
+                aria-invalid={createValidation?.field === "resourceKind" || undefined}
                 disabled={creating || interactionLocked}
                 maxLength={100}
                 onChange={(event) => updateCreateDraft({
                   resourceKind: event.target.value,
                 })}
+                ref={createResourceKindRef}
                 required
                 value={createDraft.resourceKind}
               />
@@ -1183,11 +1253,16 @@ export default function ApprovalView({
               hint={t("approvalResourceIdHint")}
             >
               <Input
+                aria-describedby={createValidation?.field === "resourceId"
+                  ? createValidationMessageId
+                  : undefined}
+                aria-invalid={createValidation?.field === "resourceId" || undefined}
                 disabled={creating || interactionLocked}
                 maxLength={500}
                 onChange={(event) => updateCreateDraft({
                   resourceId: event.target.value,
                 })}
+                ref={createResourceIdRef}
                 required
                 value={createDraft.resourceId}
               />
@@ -1195,12 +1270,17 @@ export default function ApprovalView({
             <div className="approval-create-form__wide">
               <Field label={t("reason")} hint={t("approvalReasonHint")}>
                 <Textarea
+                  aria-describedby={createValidation?.field === "reason"
+                    ? createValidationMessageId
+                    : undefined}
+                  aria-invalid={createValidation?.field === "reason" || undefined}
                   className="control approval-create-reason"
                   disabled={creating || interactionLocked}
                   maxLength={1000}
                   onChange={(event) => updateCreateDraft({
                     reason: event.target.value,
                   })}
+                  ref={createReasonRef}
                   required
                   value={createDraft.reason}
                 />
@@ -1208,22 +1288,32 @@ export default function ApprovalView({
             </div>
             <Field label={t("ticketReferenceOptional")}>
               <Input
+                aria-describedby={createValidation?.field === "ticketReference"
+                  ? createValidationMessageId
+                  : undefined}
+                aria-invalid={createValidation?.field === "ticketReference" || undefined}
                 disabled={creating || interactionLocked}
                 maxLength={500}
                 onChange={(event) => updateCreateDraft({
                   ticketReference: event.target.value,
                 })}
+                ref={createTicketReferenceRef}
                 value={createDraft.ticketReference}
               />
             </Field>
             <Field label={t("expiresAt")} hint={t("approvalExpirationHint")}>
               <Input
+                aria-describedby={createValidation?.field === "expiresAt"
+                  ? createValidationMessageId
+                  : undefined}
+                aria-invalid={createValidation?.field === "expiresAt" || undefined}
                 disabled={creating || interactionLocked}
                 max={createWindow.max}
                 min={createWindow.min}
                 onChange={(event) => updateCreateDraft({
                   expiresAt: event.target.value,
                 })}
+                ref={createExpiresAtRef}
                 required
                 type="datetime-local"
                 value={createDraft.expiresAt}

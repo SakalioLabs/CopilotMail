@@ -469,6 +469,129 @@ describe("AuditView export authorization evidence", () => {
   });
 });
 
+describe("AuditView filter validation", () => {
+  it("binds the missing resource type to its field, announces the alert, and keeps the search unsent", async () => {
+    const searchAuditEvents = vi.fn().mockResolvedValue(emptyAuditPage());
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    viewAuditExport({ searchAuditEvents });
+    await screen.findByRole("region", { name: "Query context" });
+
+    fireEvent.click(screen.getByText("More filters"));
+    fireEvent.change(screen.getByRole("textbox", { name: "Resource ID" }), {
+      target: { value: "case-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Run search" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Resource type is required when filtering by resource ID.",
+    );
+    expect(alert.id).not.toBe("");
+    const resourceType = screen.getByRole("textbox", { name: "Resource type" });
+    expect(resourceType).toHaveAttribute("aria-invalid", "true");
+    expect(resourceType.getAttribute("aria-describedby") ?? "")
+      .toContain(alert.id);
+    await waitFor(() => expect(resourceType).toHaveFocus());
+    expect(focus.mock.calls.some(([options]) => (
+      typeof options === "object"
+      && options !== null
+      && "focusVisible" in options
+      && options.focusVisible === true
+    ))).toBe(true);
+    focus.mockRestore();
+    expect(searchAuditEvents).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("From")).not.toHaveAttribute("aria-invalid");
+
+    fireEvent.change(resourceType, { target: { value: "compliance.case" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run search" }));
+
+    await waitFor(() => expect(searchAuditEvents).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(resourceType).not.toHaveAttribute("aria-invalid");
+    expect(resourceType.getAttribute("aria-describedby") ?? "")
+      .not.toContain(alert.id);
+  });
+
+  it("reopens collapsed advanced filters before focusing the invalid field", async () => {
+    const searchAuditEvents = vi.fn().mockResolvedValue(emptyAuditPage());
+    viewAuditExport({ searchAuditEvents });
+    await screen.findByRole("region", { name: "Query context" });
+
+    const details = screen.getByText("More filters").closest("details")!;
+    fireEvent.click(screen.getByText("More filters"));
+    fireEvent.change(screen.getByRole("textbox", { name: "Resource ID" }), {
+      target: { value: "case-1" },
+    });
+    fireEvent.click(screen.getByText("More filters"));
+    expect(details).not.toHaveAttribute("open");
+
+    fireEvent.click(screen.getByRole("button", { name: "Run search" }));
+    await screen.findByRole("alert");
+    await waitFor(() => expect(details).toHaveAttribute("open"));
+    await waitFor(() => expect(
+      screen.getByRole("textbox", { name: "Resource type" }),
+    ).toHaveFocus());
+  });
+
+  it("binds an invalid time range to both boundaries and focuses the start", async () => {
+    const searchAuditEvents = vi.fn().mockResolvedValue(emptyAuditPage());
+    viewAuditExport({ searchAuditEvents });
+    await screen.findByRole("region", { name: "Query context" });
+
+    const from = screen.getByLabelText("From");
+    const to = screen.getByLabelText("To");
+    fireEvent.change(from, { target: { value: "2026-07-26T08:00" } });
+    fireEvent.change(to, { target: { value: "2026-07-25T08:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run search" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "The time window must be valid and no longer than 31 days.",
+    );
+    for (const boundary of [from, to]) {
+      expect(boundary).toHaveAttribute("aria-invalid", "true");
+      expect(boundary.getAttribute("aria-describedby") ?? "")
+        .toContain(alert.id);
+    }
+    await waitFor(() => expect(from).toHaveFocus());
+    expect(searchAuditEvents).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(from, { target: { value: "2026-07-24T08:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run search" }));
+
+    await waitFor(() => expect(searchAuditEvents).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(from).not.toHaveAttribute("aria-invalid");
+    expect(to).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("announces the same field binding in zh-CN", async () => {
+    const client = {
+      searchAuditEvents: vi.fn().mockResolvedValue(emptyAuditPage()),
+    } as unknown as ControlPlaneClient;
+    render(createElement(AuditView, {
+      client,
+      locale: "zh-CN",
+      t: translator("zh-CN"),
+    }));
+    await screen.findByRole("region", { name: "查询上下文" });
+
+    fireEvent.click(screen.getByText("更多筛选"));
+    fireEvent.change(screen.getByRole("textbox", { name: "资源 ID" }), {
+      target: { value: "case-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "执行检索" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("填写资源 ID 时必须同时填写资源类型。");
+    const resourceType = screen.getByRole("textbox", { name: "资源类型" });
+    expect(resourceType).toHaveAttribute("aria-invalid", "true");
+    expect(resourceType.getAttribute("aria-describedby") ?? "")
+      .toContain(alert.id);
+    await waitFor(() => expect(resourceType).toHaveFocus());
+  });
+});
+
 describe("AuditView list states", () => {
   it("does not turn an initial 503 into an empty audit result", async () => {
     const searchAuditEvents = vi.fn()

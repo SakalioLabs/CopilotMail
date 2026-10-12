@@ -39,6 +39,23 @@ describe("shared dialog focus and dismissal contract", () => {
     expect(trigger).toHaveFocus();
   });
 
+  it("asks the browser to paint the focus ring on dialog targets", () => {
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    render(
+      <Dialog closeLabel="Close" title="Evidence" onClose={vi.fn()}>
+        <button type="button">Continue</button>
+      </Dialog>,
+    );
+
+    expect(focus.mock.calls.some(([options]) => (
+      typeof options === "object"
+      && options !== null
+      && "focusVisible" in options
+      && options.focusVisible === true
+    ))).toBe(true);
+    focus.mockRestore();
+  });
+
   it("reclaims escaped focus and wraps both Tab directions", () => {
     const outside = document.createElement("button");
     outside.textContent = "Outside";

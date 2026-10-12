@@ -274,21 +274,104 @@ describe("MailDomainsView", () => {
       target: { value: "-invalid" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Verify DNS" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    const dnsAlert = await screen.findByRole("alert");
+    expect(dnsAlert).toHaveTextContent(
       "DKIM selector must contain 1–63 letters",
     );
+    const selector = screen.getByLabelText("DKIM selector");
+    expect(selector).toHaveAttribute("aria-invalid", "true");
+    expect(selector.getAttribute("aria-describedby") ?? "").toContain(dnsAlert.id);
+    await waitFor(() => expect(selector).toHaveFocus());
     expect(verifyMailDomainDns).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Suspend domain" }));
     const suspension = screen.getByRole("dialog", { name: "Suspend domain" });
-    fireEvent.change(within(suspension).getByRole("textbox", { name: "Suspension reason code" }), {
+    const reason = within(suspension).getByRole("textbox", { name: "Suspension reason code" });
+    fireEvent.change(reason, {
       target: { value: "Invalid Reason" },
     });
     fireEvent.click(within(suspension).getByRole("button", { name: "Suspend domain" }));
-    expect(await within(suspension).findByRole("alert")).toHaveTextContent(
+    const suspendAlert = await within(suspension).findByRole("alert");
+    expect(suspendAlert).toHaveTextContent(
       "Suspension reason code may contain lowercase letters",
     );
+    expect(reason).toHaveAttribute("aria-invalid", "true");
+    expect(reason.getAttribute("aria-describedby") ?? "").toContain(suspendAlert.id);
+    await waitFor(() => expect(reason).toHaveFocus());
     expect(suspendMailDomain).not.toHaveBeenCalled();
+  });
+
+  it("binds DNS verification validation to the first missing field", async () => {
+    const pending = domain();
+    const { client, verifyMailDomainDns } = createClient([pending], pending);
+    renderView(client);
+    await selectDomain();
+
+    const token = screen.getByLabelText("TXT record value");
+    const selector = screen.getByLabelText("DKIM selector");
+
+    fireEvent.click(screen.getByRole("button", { name: "Verify DNS" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Complete all required domain fields.");
+    expect(token).toHaveAttribute("aria-invalid", "true");
+    expect(token.getAttribute("aria-describedby") ?? "").toContain(alert.id);
+    expect(selector).toHaveAttribute("aria-invalid", "true");
+    await waitFor(() => expect(token).toHaveFocus());
+    expect(verifyMailDomainDns).not.toHaveBeenCalled();
+
+    // With the token present, only the selector stays bound to the alert.
+    fireEvent.change(token, { target: { value: "cmv1_current-token" } });
+    fireEvent.click(screen.getByRole("button", { name: "Verify DNS" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Complete all required domain fields.",
+    );
+    expect(token).not.toHaveAttribute("aria-invalid");
+    expect(selector).toHaveAttribute("aria-invalid", "true");
+    await waitFor(() => expect(selector).toHaveFocus());
+    expect(verifyMailDomainDns).not.toHaveBeenCalled();
+  });
+
+  it("binds route validation to the smart-host and DKIM inputs", async () => {
+    const relay = domain({
+      status: "active",
+      latest_dns_activation_ready: true,
+      route_mode: "smart_host",
+      inbound_enabled: false,
+      outbound_enabled: false,
+      smart_host_ref: null,
+      dkim_key_ref: "kms://mail/dkim/pilot",
+    });
+    const { client, updateMailDomainRoute } = createClient([relay], relay);
+    renderView(client);
+    await selectDomain();
+
+    await screen.findByRole("button", { name: "Save route configuration" });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enable outbound" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save route configuration" }));
+
+    const routeAlert = await screen.findByRole("alert");
+    expect(routeAlert).toHaveTextContent(
+      "A managed relay reference is required",
+    );
+    const smartHost = screen.getByLabelText("Managed relay reference");
+    expect(smartHost).toHaveAttribute("aria-invalid", "true");
+    expect(smartHost.getAttribute("aria-describedby") ?? "").toContain(routeAlert.id);
+    await waitFor(() => expect(smartHost).toHaveFocus());
+    expect(updateMailDomainRoute).not.toHaveBeenCalled();
+
+    // With the relay reference present, the missing DKIM key takes the binding.
+    fireEvent.change(smartHost, { target: { value: "smtp://relay.internal" } });
+    fireEvent.change(screen.getByLabelText("DKIM key reference"), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save route configuration" }));
+    const dkimAlert = await screen.findByRole("alert");
+    expect(dkimAlert).toHaveTextContent("A DKIM key reference is required");
+    const dkim = screen.getByLabelText("DKIM key reference");
+    expect(dkim).toHaveAttribute("aria-invalid", "true");
+    expect(dkim.getAttribute("aria-describedby") ?? "").toContain(dkimAlert.id);
+    await waitFor(() => expect(dkim).toHaveFocus());
+    expect(updateMailDomainRoute).not.toHaveBeenCalled();
   });
 
   it("requires explicit confirmation for activation and leaves a suspended domain without a lifecycle write", async () => {
@@ -365,6 +448,47 @@ describe("MailDomainsView", () => {
     expect(getMailDomain).toHaveBeenLastCalledWith(domainId);
     expect(listMailDomains).toHaveBeenCalledTimes(1);
     expect(updateMailDomainRoute).toHaveBeenCalledTimes(1);
+  });
+
+  it("binds registration validation to the offending fields and keeps the dialog open", async () => {
+    const { client, createMailDomain } = createClient([]);
+    renderView(client);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Register domain" }));
+    const dialog = screen.getByRole("dialog", { name: "Register mail domain" });
+    const name = within(dialog).getByRole("textbox", { name: "Domain name" });
+    const routeMode = within(dialog).getByRole("combobox", { name: "Outbound route mode" });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Register and get TXT token" }));
+    const alert = within(dialog).getByRole("alert");
+    expect(alert).toHaveTextContent("Complete all required domain fields.");
+    expect(alert.id).not.toBe("");
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(routeMode).toHaveAttribute("aria-invalid", "true");
+    expect(name.getAttribute("aria-describedby") ?? "").toContain(alert.id);
+    expect(routeMode.getAttribute("aria-describedby") ?? "").toContain(alert.id);
+    await waitFor(() => expect(name).toHaveFocus());
+    expect(dialog).toBeVisible();
+    expect(createMailDomain).not.toHaveBeenCalled();
+
+    // With the name present, the same failure marks only the route mode.
+    fireEvent.change(name, { target: { value: "pilot.example.test" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Register and get TXT token" }));
+    expect(within(dialog).getByRole("alert").id).toBe(alert.id);
+    expect(name).not.toHaveAttribute("aria-invalid");
+    expect(routeMode).toHaveAttribute("aria-invalid", "true");
+    await waitFor(() => expect(routeMode).toHaveFocus());
+
+    // An invalid candidate name binds the error back to the name field.
+    fireEvent.change(routeMode, { target: { value: "direct_mx" } });
+    fireEvent.change(name, { target: { value: " pilot.example.test " } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Register and get TXT token" }));
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Enter a valid enterprise domain",
+    );
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    await waitFor(() => expect(name).toHaveFocus());
+    expect(createMailDomain).not.toHaveBeenCalled();
   });
 
   it("freezes an unknown create without guessing an exact target from a broad list", async () => {

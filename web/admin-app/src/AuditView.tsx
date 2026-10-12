@@ -12,7 +12,7 @@ import {
   StatusIndicator,
   UnknownWriteLock,
 } from "@copilotmail/design-system";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { AdminErrorNotice } from "./AdminErrorNotice";
 import { AdminListDetail } from "./AdminListDetail";
 import { ControlPlaneClient, isUnknownWriteFailure } from "./api";
@@ -56,6 +56,18 @@ export interface AuditDraftFilters {
   resourceId: string;
   outcome: AuditOutcome | "";
   requestId: string;
+}
+
+type AuditFieldValidation = "resource" | "time";
+
+/**
+ * Script focus does not match `:focus-visible` unless this option is set.
+ * The checked-in DOM lib omits `focusVisible`.
+ */
+function focusWithVisibleRing(element: HTMLInputElement | null) {
+  if (!element) return;
+  const options: FocusOptions & { focusVisible: boolean } = { focusVisible: true };
+  element.focus(options);
 }
 
 const MAX_WINDOW_MS = 31 * 24 * 60 * 60 * 1000;
@@ -190,7 +202,11 @@ export default function AuditView({
   const [selected, setSelected] = useState<AuditEvent>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>();
-  const [validationError, setValidationError] = useState<string>();
+  const [validationError, setValidationError] = useState<AuditFieldValidation>();
+  const validationMessageId = useId();
+  const resourceTypeRef = useRef<HTMLInputElement>(null);
+  const fromRef = useRef<HTMLInputElement>(null);
+  const advancedFiltersRef = useRef<HTMLDetailsElement>(null);
   const [exportArchiveId, setExportArchiveId] = useState("");
   const [exportApprovalId, setExportApprovalId] = useState("");
   const [exportEvidence, setExportEvidence] = useState<AuditExportEvidence>();
@@ -206,6 +222,11 @@ export default function AuditView({
   const exportAuthorizationInFlight = useRef(false);
   const exportRevision = useRef(0);
   const cursor = cursorHistory.at(-1);
+  const validationMessage = validationError === "resource"
+    ? t("resourceRequired")
+    : validationError === "time"
+      ? t("invalidTimeRange")
+      : undefined;
   const queryFilterFacts = useMemo(
     () => auditQueryFilterFacts(activeFilters, t),
     [activeFilters, t],
@@ -277,12 +298,18 @@ export default function AuditView({
   function runSearch(event: FormEvent) {
     event.preventDefault();
     if (draft.resourceId.trim() && !draft.resourceType.trim()) {
-      setValidationError(t("resourceRequired"));
+      setValidationError("resource");
+      window.requestAnimationFrame(() => {
+        // The target field cannot take focus while its <details> is closed.
+        if (advancedFiltersRef.current) advancedFiltersRef.current.open = true;
+        focusWithVisibleRing(resourceTypeRef.current);
+      });
       return;
     }
     const filters = auditFiltersFromDraft(draft);
     if (!filters) {
-      setValidationError(t("invalidTimeRange"));
+      setValidationError("time");
+      window.requestAnimationFrame(() => focusWithVisibleRing(fromRef.current));
       return;
     }
     setValidationError(undefined);
@@ -542,23 +569,23 @@ export default function AuditView({
             </div>
           </div>
           <div className="audit-time-grid">
-            <Field label={t("from")}><Input type="datetime-local" value={draft.from} onChange={(event) => update("from", event.target.value)} required /></Field>
-            <Field label={t("to")}><Input type="datetime-local" value={draft.to} onChange={(event) => update("to", event.target.value)} required /></Field>
+            <Field label={t("from")}><Input ref={fromRef} type="datetime-local" value={draft.from} aria-invalid={validationError === "time" || undefined} aria-describedby={validationError === "time" ? validationMessageId : undefined} onChange={(event) => update("from", event.target.value)} required /></Field>
+            <Field label={t("to")}><Input type="datetime-local" value={draft.to} aria-invalid={validationError === "time" || undefined} aria-describedby={validationError === "time" ? validationMessageId : undefined} onChange={(event) => update("to", event.target.value)} required /></Field>
             <Field label={t("outcome")}><Select value={draft.outcome} onChange={(event) => update("outcome", event.target.value as AuditOutcome | "")}>
               <option value="">{t("all")}</option><option value="success">{t("success")}</option><option value="failure">{t("failure")}</option><option value="denied">{t("denied")}</option>
             </Select></Field>
           </div>
-          <details className="advanced-filters">
+          <details className="advanced-filters" ref={advancedFiltersRef}>
             <summary>{t("advancedFilters")}</summary>
             <div className="advanced-filter-grid">
               <Field label={t("action")} hint={t("auditActionFilterHint")}><Input value={draft.action} onChange={(event) => update("action", event.target.value)} maxLength={100} pattern="[a-z][a-z0-9_.]+" /></Field>
               <Field label={t("actor")} hint={t("auditActorFilterHint")}><Input value={draft.actor} onChange={(event) => update("actor", event.target.value)} /></Field>
-              <Field label={t("resourceType")} hint={t("auditResourceTypeFilterHint")}><Input value={draft.resourceType} onChange={(event) => update("resourceType", event.target.value)} maxLength={100} pattern="[a-z][a-z0-9_.]+" /></Field>
+              <Field label={t("resourceType")} hint={t("auditResourceTypeFilterHint")}><Input ref={resourceTypeRef} value={draft.resourceType} aria-invalid={validationError === "resource" || undefined} aria-describedby={validationError === "resource" ? validationMessageId : undefined} onChange={(event) => update("resourceType", event.target.value)} maxLength={100} pattern="[a-z][a-z0-9_.]+" /></Field>
               <Field label={t("resourceId")}><Input value={draft.resourceId} onChange={(event) => update("resourceId", event.target.value)} maxLength={512} /></Field>
               <Field label={t("requestFilter")}><Input value={draft.requestId} onChange={(event) => update("requestId", event.target.value)} maxLength={200} /></Field>
             </div>
           </details>
-          {validationError ? <div className="notice notice--error" role="alert"><p>{validationError}</p></div> : null}
+          {validationMessage ? <div className="notice notice--error" id={validationMessageId} role="alert"><p>{validationMessage}</p></div> : null}
           <div className="audit-filter-actions">
             <Button type="button" variant="quiet" onClick={clearOptionalFilters}>{t("clear")}</Button>
             <Button type="submit">{t("search")}</Button>

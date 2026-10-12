@@ -46,6 +46,18 @@ function restoreAttribute(
   else element.setAttribute(name, value);
 }
 
+/**
+ * Script focus does not match `:focus-visible` unless the option is set.
+ * The checked-in DOM lib omits `focusVisible`; the browser still honors it.
+ * Return focus stays a plain `focus()` so a closed dialog does not paint a
+ * ring on the trigger after pointer dismissal.
+ */
+function focusWithVisibleRing(element: HTMLElement | null | undefined) {
+  if (!element) return;
+  const options: FocusOptions & { focusVisible: boolean } = { focusVisible: true };
+  element.focus(options);
+}
+
 export interface DialogProps {
   /** Required localized title used as the accessible dialog name. */
   title: string;
@@ -136,7 +148,7 @@ export function Dialog({
       const target = requested && dialog.contains(requested) && !requested.matches(":disabled, [hidden], [aria-hidden='true']")
         ? requested
         : (focusableElements(dialog)[0] ?? dialog);
-      target.focus();
+      focusWithVisibleRing(target);
     };
     focusInitial();
 
@@ -152,7 +164,7 @@ export function Dialog({
       const focusable = focusableElements(dialog);
       if (focusable.length === 0) {
         event.preventDefault();
-        dialog.focus();
+        focusWithVisibleRing(dialog);
         return;
       }
 
@@ -162,10 +174,10 @@ export function Dialog({
       const activeIsFocusable = active instanceof HTMLElement && focusable.includes(active);
       if (event.shiftKey && (active === first || !activeIsFocusable)) {
         event.preventDefault();
-        last.focus();
+        focusWithVisibleRing(last);
       } else if (!event.shiftKey && (active === last || !activeIsFocusable)) {
         event.preventDefault();
-        first.focus();
+        focusWithVisibleRing(first);
       }
     };
     const onFocusIn = (event: FocusEvent) => {
@@ -211,7 +223,7 @@ export function Dialog({
       || !dialog.contains(activeControl)
       || activeControl.matches(":disabled, [hidden], [aria-hidden='true']")
     ) {
-      dialog.focus();
+      focusWithVisibleRing(dialog);
     }
   }, [busy]);
 
