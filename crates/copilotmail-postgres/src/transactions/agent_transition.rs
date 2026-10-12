@@ -1,6 +1,8 @@
 use crate::*;
 
 impl PgControlPlaneTransaction {
+    /// Locks a matching mailbox delegation with `FOR SHARE` until commit.
+    /// Lease extension, acknowledgement, and nack share that lock.
     pub(crate) async fn tx_transition_agent_message(
         &mut self,
         write: &AgentMessageTransitionWrite,
@@ -116,6 +118,7 @@ impl PgControlPlaneTransaction {
                                   AND delegation.revoked_at IS NULL
                                   AND delegation.valid_from <= $7
                                   AND delegation.valid_until > $7
+                             FOR SHARE OF delegation
                            )
                        )
                     RETURNING state.message_id, state.attempt_count,
@@ -185,6 +188,7 @@ impl PgControlPlaneTransaction {
                                   AND delegation.revoked_at IS NULL
                                   AND delegation.valid_from <= $6
                                   AND delegation.valid_until > $6
+                             FOR SHARE OF delegation
                            )
                        )
                     RETURNING state.message_id, state.attempt_count,
@@ -261,6 +265,7 @@ impl PgControlPlaneTransaction {
                                   AND delegation.revoked_at IS NULL
                                   AND delegation.valid_from <= $7
                                   AND delegation.valid_until > $7
+                             FOR SHARE OF delegation
                            )
                        )
                     RETURNING state.message_id, state.attempt_count,

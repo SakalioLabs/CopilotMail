@@ -70,6 +70,7 @@ impl PgControlPlaneTransaction {
         ))
     }
 
+    /// Locks a matching mailbox delegation with `FOR SHARE` until commit.
     pub(crate) async fn tx_change_agent_processing_subscription(
         &mut self,
         write: &AgentProcessingSubscriptionChangeWrite,
@@ -195,6 +196,7 @@ impl PgControlPlaneTransaction {
                               AND delegation.revoked_at IS NULL
                               AND delegation.valid_from <= $6
                               AND delegation.valid_until > $6
+                         FOR SHARE OF delegation
                        )
                    )
                    AND (

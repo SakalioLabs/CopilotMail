@@ -1,6 +1,9 @@
 use crate::*;
 
 impl PgControlPlaneTransaction {
+    /// Locks a matching mailbox delegation with `FOR SHARE` until commit.
+    /// Revocation cannot land after this statement returns and before the
+    /// caller writes the audit event.
     pub(crate) async fn tx_claim_next_agent_message(
         &mut self,
         write: &AgentMessageClaimWrite,
@@ -91,6 +94,7 @@ impl PgControlPlaneTransaction {
                               AND delegation.revoked_at IS NULL
                               AND delegation.valid_from <= $8
                               AND delegation.valid_until > $8
+                         FOR SHARE OF delegation
                        )
                    )
                    AND (

@@ -1,6 +1,8 @@
 use crate::*;
 
 impl PgControlPlaneTransaction {
+    /// Locks each matching mailbox delegation with `FOR SHARE` until commit.
+    /// Draft list, sent list, and draft read share that lock on both grants.
     pub(crate) async fn tx_human_draft_list_still_authorized(
         &mut self,
         proof: &HumanDraftListRecheck,
@@ -91,6 +93,7 @@ impl PgControlPlaneTransaction {
                               AND delegation.revoked_at IS NULL
                               AND delegation.valid_from <= CURRENT_TIMESTAMP
                               AND delegation.valid_until > CURRENT_TIMESTAMP
+                         FOR SHARE OF delegation
                        )
                    )
                    AND (
@@ -117,6 +120,7 @@ impl PgControlPlaneTransaction {
                               AND delegation.revoked_at IS NULL
                               AND delegation.valid_from <= CURRENT_TIMESTAMP
                               AND delegation.valid_until > CURRENT_TIMESTAMP
+                         FOR SHARE OF delegation
                        )
                    )
                    AND NOT EXISTS (
@@ -255,6 +259,7 @@ impl PgControlPlaneTransaction {
                               AND delegation.revoked_at IS NULL
                               AND delegation.valid_from <= CURRENT_TIMESTAMP
                               AND delegation.valid_until > CURRENT_TIMESTAMP
+                         FOR SHARE OF delegation
                        )
                    )
                    AND (
@@ -281,6 +286,7 @@ impl PgControlPlaneTransaction {
                               AND delegation.revoked_at IS NULL
                               AND delegation.valid_from <= CURRENT_TIMESTAMP
                               AND delegation.valid_until > CURRENT_TIMESTAMP
+                         FOR SHARE OF delegation
                        )
                    )
                    AND NOT EXISTS (
@@ -443,6 +449,7 @@ impl PgControlPlaneTransaction {
                               AND delegation.revoked_at IS NULL
                               AND delegation.valid_from <= CURRENT_TIMESTAMP
                               AND delegation.valid_until > CURRENT_TIMESTAMP
+                         FOR SHARE OF delegation
                        )
                    )
                    AND (
@@ -469,6 +476,7 @@ impl PgControlPlaneTransaction {
                               AND delegation.revoked_at IS NULL
                               AND delegation.valid_from <= CURRENT_TIMESTAMP
                               AND delegation.valid_until > CURRENT_TIMESTAMP
+                         FOR SHARE OF delegation
                        )
                    )
             )

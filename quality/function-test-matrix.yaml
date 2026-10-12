@@ -130,9 +130,9 @@
           "execution": "passed"
         }
       },
-      "environment": "Rust fixtures and disposable PostgreSQL 17 (executed green)",
+      "environment": "Rust fixtures stay at their prior result. On 2026-10-12 a dirty local PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, rejected the fixed engine domain ref with Conflict. That ref is now unique per run and is the value the assertion compares. Both later ignored-suite runs on that same dirty database passed mail_domain_lifecycle_is_atomic_versioned_and_append_only inside 45 passed, 0 failed. review_status stays baseline_unreviewed.",
       "evidence_ref": "docs/CODE_QUALITY_REVIEW.zh-CN.md",
-      "candidate_revision": "R0-R3-unsealed-working-tree-2026-09-19",
+      "candidate_revision": "local-pg17-batch9-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "baseline_unreviewed"
     },
@@ -765,9 +765,9 @@
           "execution": "passed"
         }
       },
-      "environment": "Unit refs keep their prior passed result. On 2026-10-12 a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, passed approval_decisions_are_mutually_exclusive_under_concurrency in 3.98s. Two connections overlap while the request row is locked. Exactly one approver commits when one approval is required; the same approver cannot vote twice; the requester cannot self-approve; approve versus cancel and approve versus reject each have one winner; an approval held across expiry does not commit.",
+      "environment": "Unit refs keep their prior passed result. On 2026-10-12 a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, passed approval_decisions_are_mutually_exclusive_under_concurrency alone in 3.98s. Two connections overlap while the request row is locked. Exactly one approver commits when one approval is required; the same approver cannot vote twice; the requester cannot self-approve; approve versus cancel and approve versus reject each have one winner; an approval held across expiry does not commit. Recording this test and mailbox_grant_revoke_and_send_are_single_effect_under_concurrency as passed in one ignored command was not reproducible. On 2026-10-12 09:30 that --ignored --exact command failed three times (1 passed, 1 failed) because count_lock_waiters counted every same-user Lock waiter in the database. After the helper counted only sessions blocked by the holder, including the wait chain, three consecutive same-command runs each reported 2 passed and 0 failed (4.09s, 4.20s, 3.98s). Local, non-CI. Expected waiter counts stayed 0, then 1, then 2.",
       "evidence_ref": "docs/CODE_QUALITY_REVIEW.zh-CN.md",
-      "candidate_revision": "local-pg17-batch8-2026-10-12",
+      "candidate_revision": "local-pg17-batch9-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -1596,7 +1596,8 @@
         ],
         "concurrency": [
           "outbox",
-          "disconnect"
+          "disconnect",
+          "revoke_gap"
         ]
       },
       "test_refs": {
@@ -1619,11 +1620,16 @@
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "outbox_backend_disconnect_rolls_back_uncommitted_work_and_reclaims_by_lease_rule",
           "execution": "passed"
+        },
+        "revoke_gap": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "delegation_revoke_cannot_land_between_statement_and_audit_commit",
+          "execution": "passed"
         }
       },
-      "environment": "Earlier outbox and lease refs keep their prior passed result. On 2026-10-12 a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, passed outbox_backend_disconnect_rolls_back_uncommitted_work_and_reclaims_by_lease_rule twice on the same database (0.86s, then 0.81s). The test terminates the holding backend with pg_terminate_backend. It does not kill an operating-system worker process.",
+      "environment": "Earlier outbox and lease refs keep their prior passed result. On 2026-10-12 a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, passed outbox_backend_disconnect_rolls_back_uncommitted_work_and_reclaims_by_lease_rule twice on the same database (0.86s, then 0.81s). The test terminates the holding backend with pg_terminate_backend. It does not kill an operating-system worker process. The same class of database later proved a revoke could commit after agent claim, acknowledge, and subscription rechecks returned and before audit commit. Those EXISTS clauses, plus lease extension and nack, now take FOR SHARE OF delegation until commit. The interleaving test covers claim, acknowledge, and subscription; extension and nack share that lock without a separate interleaving case. After the lock, the test passed three times (0.79s, 0.83s, 0.92s). Both later dirty-database ignored suite runs passed it. Local, non-CI. No published migration changed.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "local-pg17-batch7-2026-10-12",
+      "candidate_revision": "local-pg17-batch9-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -2242,9 +2248,9 @@
           "execution": "passed"
         }
       },
-      "environment": "Disposable PostgreSQL 17 integration suite executed green",
+      "environment": "Earlier disposable PostgreSQL evidence stays passed. On 2026-10-12 a dirty local PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, made the whole-table login count assert fail: cleanup deletes other tenants' expired rows, and the observed counts were 5 and 12. The assertion now counts only the two state_sha256 values this test submitted and still expects exactly 1. Rate-limit, window count 3, and recovery asserts were not changed. Login state and session digests are unique per run. Both later ignored-suite runs on that same dirty database passed this test inside 45 passed, 0 failed.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "post-fence-remediation-2026-08-22",
+      "candidate_revision": "local-pg17-batch9-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -2339,7 +2345,8 @@
           "tamper"
         ],
         "authorization": [
-          "rbac"
+          "rbac",
+          "revoke_gap"
         ],
         "transaction": [
           "restore"
@@ -2375,11 +2382,16 @@
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "human_drafts_are_private_authorized_binding_safe_and_finally_rechecked",
           "execution": "passed"
+        },
+        "revoke_gap": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "delegation_revoke_cannot_land_between_statement_and_audit_commit",
+          "execution": "passed"
         }
       },
-      "environment": "Earlier disposable PostgreSQL evidence stays passed. On 2026-10-12 a local non-CI PostgreSQL 17.11 database named copilotmail_test_<suffix> reran human_drafts_are_private_authorized_binding_safe_and_finally_rechecked after draft metadata began holding the send grant until commit. That test passed.",
+      "environment": "Earlier disposable PostgreSQL evidence stays passed. On 2026-10-12 a local non-CI PostgreSQL 17.11 database named copilotmail_test_<suffix> reran human_drafts_are_private_authorized_binding_safe_and_finally_rechecked after draft metadata began holding the send grant until commit. That test passed. The same database later showed a revoke could commit after the draft-list delegation recheck returned and before audit commit. Draft list, sent list, and draft read now take FOR SHARE OF delegation until commit. The interleaving test covers draft list only. Sent list and draft read share that lock without a separate interleaving case. After the lock, the window test passed three times (0.79s, 0.83s, 0.92s), and both dirty-database ignored suite runs passed the draft-list test and the window test. Local, non-CI.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "local-pg17-batch8-2026-10-12",
+      "candidate_revision": "local-pg17-batch9-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -2493,9 +2505,9 @@
           "execution": "passed"
         }
       },
-      "environment": "Earlier disposable PostgreSQL evidence stays passed. On 2026-10-12 a local non-CI PostgreSQL 17.11 database named copilotmail_test_<suffix> returned SQLSTATE 42501 for SET session_replication_role until the non-superuser role received GRANT SET ON PARAMETER session_replication_role. That single test then passed in 0.59s and the grant was revoked. A dirty-database rerun is not repeatable because several fixtures use fixed unique keys. After the send recheck, the same test again returned 42501 without that grant. A temporary GRANT SET ON PARAMETER session_replication_role made it pass in 0.80s, and the grant was revoked.",
+      "environment": "Earlier disposable PostgreSQL evidence stays passed. On 2026-10-12 a local non-CI PostgreSQL 17.11 database named copilotmail_test_<suffix> returned SQLSTATE 42501 for SET session_replication_role until the non-superuser role received GRANT SET ON PARAMETER session_replication_role. That single test then passed in 0.59s and the grant was revoked. After the send recheck, the same test again returned 42501 without that grant. A temporary GRANT SET ON PARAMETER session_replication_role made it pass in 0.80s, and the grant was revoked. Sent-list delegation rechecks now take FOR SHARE until commit, matching the draft-list interleaving proof; this test is not that interleaving case. A later single run with the same temporary grant passed in 0.63s and the grant was revoked. Both subsequent dirty-database ignored suite runs passed this test while that grant was held for the suite, then the grant was revoked. Local, non-CI.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "post-fence-remediation-2026-08-22",
+      "candidate_revision": "local-pg17-batch9-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -2556,9 +2568,9 @@
           "execution": "passed"
         }
       },
-      "environment": "Earlier clean-database evidence stays passed. On 2026-10-12 a dirty-database rerun of mail_draft_provenance_is_versioned_frozen_and_submission_bound stopped at bind with Store(Conflict) on the fixed legacy data-plane account_ref, before the new send recheck. execution stays passed from the earlier clean-database run.",
+      "environment": "Earlier clean-database evidence stays passed. On 2026-10-12 a dirty-database rerun of mail_draft_provenance_is_versioned_frozen_and_submission_bound stopped at bind with Store(Conflict) on the fixed legacy data-plane account_ref, before the new send recheck. That account_ref and the reply document ref are now unique per run. The seeded data plane id ending 2101 stays, because bindings reference that migration row. After that change, both ignored-suite runs on the same dirty local PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, passed this test inside 45 passed, 0 failed. execution stays passed.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "post-fence-remediation-2026-08-22",
+      "candidate_revision": "local-pg17-batch9-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -2679,9 +2691,9 @@
           "execution": "passed"
         }
       },
-      "environment": "Disposable PostgreSQL 17 integration suite executed green",
+      "environment": "Earlier disposable PostgreSQL evidence stays passed. On 2026-10-12 a dirty local PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, rejected bind with Store(Conflict) on the fixed account_ref before the fixture was made unique per run. Account, source-event, document, and queue refs in this test are now unique per run. The seeded data plane id ending 2101 stays. Both later ignored-suite runs on that same dirty database passed this test inside 45 passed, 0 failed.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "post-fence-remediation-2026-08-22",
+      "candidate_revision": "local-pg17-batch9-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -2719,7 +2731,8 @@
         ],
         "concurrency": [
           "pg",
-          "race"
+          "race",
+          "revoke_gap"
         ]
       },
       "test_refs": {
@@ -2737,11 +2750,16 @@
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "mailbox_grant_revoke_and_send_are_single_effect_under_concurrency",
           "execution": "passed"
+        },
+        "revoke_gap": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "delegation_revoke_cannot_land_between_statement_and_audit_commit",
+          "execution": "passed"
         }
       },
-      "environment": "Earlier delegation ref keeps its prior passed result. On 2026-10-12 a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, passed mailbox_grant_revoke_and_send_are_single_effect_under_concurrency and reran mailbox_delegation_is_tenant_resource_time_and_send_as_bound. One grant and one revoke succeed. A revoke that commits during the engine gap leaves no draft. A submission that is already waiting on the grant cannot create a second intent after revocation.",
+      "environment": "Earlier delegation ref keeps its prior passed result. On 2026-10-12 a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, passed mailbox_grant_revoke_and_send_are_single_effect_under_concurrency and reran mailbox_delegation_is_tenant_resource_time_and_send_as_bound. One grant and one revoke succeed. A revoke that commits during the engine gap leaves no draft. A submission that is already waiting on the grant cannot create a second intent after revocation. Recording those two concurrency tests as passed in one ignored command was not reproducible: on 2026-10-12 09:30 the same --ignored --exact command failed three times because count_lock_waiters counted every same-user Lock waiter. After the helper counted only sessions blocked by the holder, three consecutive same-command runs each reported 2 passed and 0 failed (4.09s, 4.20s, 3.98s). The delegation window test then showed a revoke could commit after the delegation check returned and before audit commit. Matching delegation rows now take FOR SHARE until commit. Local, non-CI. Assertions were not relaxed.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "local-pg17-batch8-2026-10-12",
+      "candidate_revision": "local-pg17-batch9-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
