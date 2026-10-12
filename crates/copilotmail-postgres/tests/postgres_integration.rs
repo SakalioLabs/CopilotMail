@@ -18,8 +18,8 @@ use copilotmail_application::{
     AgentIngressRateLimitDecision, AgentIngressRateLimitStore, AgentInspectorError,
     AgentInspectorService, AgentMailPolicyQueryStore, AgentMailPolicyService,
     AgentMailSandboxService, AgentMailSubmissionEvidenceService, AgentMessageClaimWrite,
-    AgentMessageProcessingOperation, AgentMessageProcessingState, AgentMessageTransitionWrite,
-    AgentProcessingService, AgentProcessingSubscriptionChangeWrite,
+    AgentMessageProcessingOperation, AgentMessageProcessingResult, AgentMessageProcessingState,
+    AgentMessageTransitionWrite, AgentProcessingService, AgentProcessingSubscriptionChangeWrite,
     AgentProcessingSubscriptionStatus, AppendRetentionPolicyVersionCommand, ApprovalGateService,
     ApprovalPolicyService, ApprovalProof, ApprovalQueryStore, ApprovalRequestView,
     ApprovalWorkflowError, ApprovalWorkflowService, ArchivedObjectRecord, AuditArchiveRecord,
@@ -38,32 +38,33 @@ use copilotmail_application::{
     ExternalIdentityResolver, GetAgentInspectorCommand, GetAgentMailSubmissionEvidenceCommand,
     GetApprovalRequestCommand, GrantMailboxDelegationCommand, GrantRoleAssignmentCommand,
     HumanDraftError, HumanDraftListItemRecheck, HumanDraftListQuery, HumanDraftListRecheck,
-    HumanDraftQueryStore, HumanDraftRestoreQuery, HumanDraftService, HumanMailContentQueryStore,
-    HumanMailboxDirectoryError, HumanMailboxDirectoryService, HumanSentError,
-    HumanSentListItemRecheck, HumanSentListQuery, HumanSentListRecheck, HumanSentQueryStore,
-    HumanSentService, HumanSessionClient, HumanSessionError, HumanSessionRevocationCause,
-    HumanSessionService, InboundMailEventIngestionService, IngestInboundMailEventsCommand,
-    IngestMailEngineEventsCommand, IssueScimTokenCommand, IssueScimTokenService,
-    ListAgentProcessingDeadLettersCommand, ListApprovalRequestsCommand, ListHumanDraftsCommand,
-    ListHumanMailboxDirectoryCommand, ListHumanSentSubmissionsCommand, ListRoleAssignmentsCommand,
-    MailDataPlaneFingerprintScheme, MailDeliveryQueryStore, MailDeliveryReconciliationError,
-    MailDeliveryReconciliationResult, MailDeliveryReconciliationService, MailDomainGovernanceError,
-    MailDomainGovernanceService, MailDomainQueryStore, MailDraftMetadataStore,
-    MailDraftRecipientEvidence, MailDraftWrite, MailEngineEventIngestionService,
-    MailEngineMailboxBindingService, MailEventFingerprintScheme, MailSubmissionError,
-    MailSubmissionExecutionResult, MailSubmissionExecutor, MailSubmissionIntentRecord,
-    MailSubmissionService, MailboxAuthorizationError, MailboxAuthorizationStore,
-    MailboxDelegationService, MailboxManagementService, NackAgentMessageCommand,
-    OpenAgentEventStreamCommand, PendingEvent, ProvisionScimGroupCommand, ProvisionScimUserCommand,
-    PullAgentEventsCommand, ReconcileMailDeliveryCommand, RecordAuditArchiveCommand,
-    RecordAuditArchiveService, RecordAuditExportDownloadCommand, RecordMailDomainDnsCommand,
-    RegisterAgentCommand, RegisterAgentService, RegisterMailDomainCommand, ReplaceScimGroupCommand,
-    ReplaceScimUserCommand, ReplayWebhookDeadLetterCommand, RequestApprovalCommand,
-    RequestMailSubmissionCommand, ResolveAuditExportObjectCommand, ResolveHumanSessionCommand,
-    RestoreHumanDraftCommand, RetentionPolicyQueryStore, RetentionPolicyService,
-    RevokeAgentCredentialCommand, RevokeAgentCredentialService, RevokeHumanSessionCommand,
-    RevokeMailboxDelegationCommand, RevokeRoleAssignmentCommand, RevokeScimTokenCommand,
-    RevokeScimTokenService, RoleGovernanceError, RoleGovernanceQueryStore, RoleGovernanceService,
+    HumanDraftQueryStore, HumanDraftReadRecheck, HumanDraftRestoreQuery, HumanDraftService,
+    HumanMailContentQueryStore, HumanMailboxDirectoryError, HumanMailboxDirectoryService,
+    HumanSentError, HumanSentListItemRecheck, HumanSentListQuery, HumanSentListRecheck,
+    HumanSentQueryStore, HumanSentService, HumanSessionClient, HumanSessionError,
+    HumanSessionRevocationCause, HumanSessionService, InboundMailEventIngestionService,
+    IngestInboundMailEventsCommand, IngestMailEngineEventsCommand, IssueScimTokenCommand,
+    IssueScimTokenService, ListAgentProcessingDeadLettersCommand, ListApprovalRequestsCommand,
+    ListHumanDraftsCommand, ListHumanMailboxDirectoryCommand, ListHumanSentSubmissionsCommand,
+    ListRoleAssignmentsCommand, MailDataPlaneFingerprintScheme, MailDeliveryQueryStore,
+    MailDeliveryReconciliationError, MailDeliveryReconciliationResult,
+    MailDeliveryReconciliationService, MailDomainGovernanceError, MailDomainGovernanceService,
+    MailDomainQueryStore, MailDraftMetadataStore, MailDraftRecipientEvidence, MailDraftWrite,
+    MailEngineEventIngestionService, MailEngineMailboxBindingService, MailEventFingerprintScheme,
+    MailSubmissionError, MailSubmissionExecutionResult, MailSubmissionExecutor,
+    MailSubmissionIntentRecord, MailSubmissionService, MailboxAuthorizationError,
+    MailboxAuthorizationStore, MailboxDelegationService, MailboxManagementService,
+    NackAgentMessageCommand, OpenAgentEventStreamCommand, PendingEvent, ProvisionScimGroupCommand,
+    ProvisionScimUserCommand, PullAgentEventsCommand, ReconcileMailDeliveryCommand,
+    RecordAuditArchiveCommand, RecordAuditArchiveService, RecordAuditExportDownloadCommand,
+    RecordMailDomainDnsCommand, RegisterAgentCommand, RegisterAgentService,
+    RegisterMailDomainCommand, ReplaceScimGroupCommand, ReplaceScimUserCommand,
+    ReplayWebhookDeadLetterCommand, RequestApprovalCommand, RequestMailSubmissionCommand,
+    ResolveAuditExportObjectCommand, ResolveHumanSessionCommand, RestoreHumanDraftCommand,
+    RetentionPolicyQueryStore, RetentionPolicyService, RevokeAgentCredentialCommand,
+    RevokeAgentCredentialService, RevokeHumanSessionCommand, RevokeMailboxDelegationCommand,
+    RevokeRoleAssignmentCommand, RevokeScimTokenCommand, RevokeScimTokenService,
+    RoleGovernanceError, RoleGovernanceQueryStore, RoleGovernanceService,
     RotateMailDomainChallengeCommand, SaveTextDraftCommand, SavedTextDraft,
     ScimDirectoryQueryStore, ScimGroupService, ScimUserService, SearchAuditEventsCommand,
     StoreError, SuspendMailDomainCommand, UpdateMailDomainRouteCommand,
@@ -80,7 +81,7 @@ use copilotmail_domain::{
     DnsVerificationEvidence, DraftId, HumanSessionId, LeaseId, MailDataPlaneId,
     MailDomainRouteMode, MailDomainStatus, MailEngineProjectionStatus, MailboxAddress,
     MailboxCapability, MailboxKind, OrganizationId, Permission, PrincipalId, RetentionResourceKind,
-    ScimTokenId, SystemRole,
+    ScimTokenId, SubscriptionId, SystemRole,
 };
 use copilotmail_postgres::{PgControlPlaneStore, WebhookDeliveryOutcome};
 use serde_json::json;
@@ -6334,6 +6335,698 @@ async fn delegation_revoke_cannot_land_between_statement_and_audit_commit() {
     );
 }
 
+async fn claim_committed_message(
+    store: &PgControlPlaneStore,
+    context: &AuthorizationContext,
+    subscription_id: SubscriptionId,
+    now: chrono::DateTime<Utc>,
+) -> AgentMessageProcessingResult {
+    let mut transaction = store
+        .begin_authorized(context)
+        .await
+        .expect("begin committed claim");
+    let claimed = transaction
+        .claim_next_agent_message(&AgentMessageClaimWrite {
+            organization_id: context.organization_id,
+            principal_id: context.principal_id,
+            subscription_id,
+            lease_id: LeaseId::new(),
+            idempotency_key_sha256: digest_key(&format!("claim-setup-{}", Uuid::new_v4().simple())),
+            request_sha256: digest_key(&format!("claim-setup-request-{}", Uuid::new_v4().simple())),
+            lease_expires_at: now + chrono::Duration::seconds(120),
+            now,
+        })
+        .await
+        .expect("claim one pending message")
+        .expect("a pending message is claimable");
+    let (audit, outbox) = delegation_audit(
+        context,
+        "agent.message.claimed",
+        "agent.message_processing",
+        claimed.message_id.to_string(),
+        "agent.message.claimed.v1",
+        "agent.message_processing",
+        json!({
+            "organization_id": context.organization_id,
+            "subscription_id": subscription_id,
+            "message_id": claimed.message_id,
+            "state": "leased",
+        }),
+        claimed.occurred_at,
+    );
+    transaction
+        .append_audit_event(&audit)
+        .await
+        .expect("audit the setup claim");
+    transaction
+        .enqueue_event(&outbox)
+        .await
+        .expect("enqueue the setup claim");
+    transaction.commit().await.expect("commit the setup claim");
+    claimed
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[ignore = "requires a disposable PostgreSQL database"]
+async fn delegation_revoke_waits_for_lease_nack_sent_list_and_draft_read() {
+    let store = migrated_store().await;
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "delegation-rest-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .expect("bootstrap remaining delegation-window tenant");
+    let now = Utc::now();
+    let owner = BindOidcOwnerService::new(store.clone())
+        .execute(BindOidcOwnerCommand {
+            organization_id: bootstrap.organization_id,
+            issuer: format!("https://login-{}.example.test", Uuid::new_v4().simple()),
+            subject: format!("owner-{}", Uuid::new_v4().simple()),
+            display_name: "Remaining Window Owner".into(),
+            trace_id: Uuid::now_v7().to_string(),
+            now,
+        })
+        .await
+        .expect("bind remaining-window owner");
+    let owner_context = store
+        .resolve_authorization(owner.principal_id, now)
+        .await
+        .expect("resolve remaining-window owner")
+        .expect("remaining-window owner is active");
+    let mailbox = MailboxManagementService::new(store.clone())
+        .create_authorized(
+            &owner_context,
+            CreateMailboxCommand {
+                organization_id: bootstrap.organization_id,
+                kind: MailboxKind::Agent,
+                primary_address: format!("rest-window-{}@example.test", Uuid::new_v4().simple()),
+                trace_id: Uuid::now_v7().to_string(),
+                now,
+            },
+        )
+        .await
+        .expect("create remaining-window mailbox");
+    let account_ref = random_numeric_engine_ref();
+    MailEngineMailboxBindingService::try_new(
+        store.clone(),
+        legacy_mail_data_plane_id(),
+        "stalwart",
+    )
+    .expect("construct remaining-window binding service")
+    .bind_authorized(
+        &owner_context,
+        BindMailEngineMailboxCommand {
+            organization_id: bootstrap.organization_id,
+            mailbox_id: mailbox.mailbox_id,
+            account_ref: account_ref.clone(),
+            expected_version: 0,
+            trace_id: Uuid::now_v7().to_string(),
+            now,
+        },
+    )
+    .await
+    .expect("bind remaining-window mailbox");
+    let public_key = test_public_key();
+    let agent = RegisterAgentService::new(store.clone())
+        .execute(RegisterAgentCommand {
+            organization_id: bootstrap.organization_id,
+            display_name: "Remaining Window Agent".into(),
+            environment: AgentEnvironment::Testing,
+            risk_level: AgentRiskLevel::Medium,
+            purpose: "Prove lease, nack, sent-list, and draft-read locks".into(),
+            review_due_at: now + chrono::Duration::days(30),
+            public_key_fingerprint: rsa_public_key_fingerprint(public_key.as_bytes()).unwrap(),
+            public_key_pem: public_key,
+            allowed_scopes: Permission::AGENT_TOKEN.into_iter().collect(),
+            credential_expires_at: now + chrono::Duration::days(30),
+            trace_id: Uuid::now_v7().to_string(),
+            now,
+        })
+        .await
+        .expect("register remaining-window agent");
+    let agent_context = store
+        .resolve_authorization(agent.principal_id, now)
+        .await
+        .expect("resolve remaining-window agent")
+        .expect("remaining-window agent is active");
+    let mut delegation_id = grant_processing_delegation(
+        &store,
+        &owner_context,
+        mailbox.mailbox_id,
+        agent.principal_id,
+        [MailboxCapability::Read],
+        "Read access for lease extension and nack",
+        now,
+    )
+    .await;
+    let processing = AgentProcessingService::new(store.clone());
+    let subscription = processing
+        .ensure_subscription(EnsureAgentProcessingSubscriptionCommand {
+            context: agent_context.clone(),
+            mailbox_id: mailbox.mailbox_id,
+            trace_id: Uuid::now_v7().to_string(),
+            now,
+        })
+        .await
+        .expect("ensure remaining-window subscription");
+    for _ in 0..3 {
+        InboundMailEventIngestionService::new(
+            store.clone(),
+            legacy_mail_data_plane_id(),
+            legacy_mail_event_fingerprint_scheme(),
+        )
+        .ingest(IngestInboundMailEventsCommand {
+            events: vec![InboundMailEngineEvent {
+                source_event_id: random_numeric_engine_ref(),
+                source_occurred_at: now,
+                account_ref: account_ref.clone(),
+                document_ref: random_numeric_engine_ref(),
+                classification: InboundMessageClassification::Ham,
+            }],
+            received_at: now,
+        })
+        .await
+        .expect("ingest one pending message");
+    }
+    let claim_now = now + chrono::Duration::seconds(1);
+    let first = claim_committed_message(
+        &store,
+        &agent_context,
+        subscription.subscription_id,
+        claim_now,
+    )
+    .await;
+    let second = claim_committed_message(
+        &store,
+        &agent_context,
+        subscription.subscription_id,
+        claim_now,
+    )
+    .await;
+    let third = claim_committed_message(
+        &store,
+        &agent_context,
+        subscription.subscription_id,
+        claim_now,
+    )
+    .await;
+
+    let mut defects = Vec::new();
+    let extend_now = claim_now + chrono::Duration::seconds(10);
+    let extended_until = pg_micros(claim_now + chrono::Duration::hours(2));
+    let mut extend_tx = store
+        .begin_authorized(&agent_context)
+        .await
+        .expect("begin lease-extension transaction");
+    let extended = extend_tx
+        .transition_agent_message(&AgentMessageTransitionWrite {
+            organization_id: bootstrap.organization_id,
+            principal_id: agent.principal_id,
+            subscription_id: subscription.subscription_id,
+            message_id: first.message_id,
+            lease_id: first.lease_id,
+            operation: AgentMessageProcessingOperation::LeaseExtended,
+            idempotency_key_sha256: digest_key(&format!(
+                "extend-window-{}",
+                Uuid::new_v4().simple()
+            )),
+            request_sha256: digest_key(&format!("extend-request-{}", Uuid::new_v4().simple())),
+            lease_expires_at: Some(extended_until),
+            reason_code: None,
+            max_attempts: 5,
+            now: extend_now,
+        })
+        .await
+        .expect("run the lease-extension statement")
+        .expect("the leased message can be extended before revocation");
+    let (extend_audit, extend_outbox) = delegation_audit(
+        &agent_context,
+        "agent.message.lease_extended",
+        "agent.message_processing",
+        extended.message_id.to_string(),
+        "agent.message.lease_extended.v1",
+        "agent.message_processing",
+        json!({
+            "organization_id": bootstrap.organization_id,
+            "subscription_id": subscription.subscription_id,
+            "message_id": extended.message_id,
+            "state": "leased",
+        }),
+        extended.occurred_at,
+    );
+    if let Err(defect) = revoke_must_wait_until_audit_commits(
+        &store,
+        &owner_context,
+        delegation_id,
+        extend_tx,
+        extend_audit,
+        extend_outbox,
+        now,
+    )
+    .await
+    {
+        defects.push(format!("lease extension: {defect}"));
+    } else {
+        let (state, expires_at): (String, Option<chrono::DateTime<Utc>>) = sqlx::query_as(
+            "SELECT state, lease_expires_at FROM agent_message_states WHERE organization_id = $1 AND message_id = $2",
+        )
+        .bind(bootstrap.organization_id.as_uuid())
+        .bind(first.message_id)
+        .fetch_one(store.pool())
+        .await
+        .expect("read extended lease");
+        assert_eq!(state, "leased");
+        assert_eq!(expires_at, Some(extended_until));
+        assert_eq!(
+            count_audit_action(
+                &store,
+                bootstrap.organization_id,
+                "agent.message.lease_extended",
+                &first.message_id.to_string(),
+            )
+            .await,
+            1
+        );
+        let mut follow_up = store
+            .begin_authorized(&agent_context)
+            .await
+            .expect("begin follow-up lease extension");
+        assert!(
+            follow_up
+                .transition_agent_message(&AgentMessageTransitionWrite {
+                    organization_id: bootstrap.organization_id,
+                    principal_id: agent.principal_id,
+                    subscription_id: subscription.subscription_id,
+                    message_id: first.message_id,
+                    lease_id: first.lease_id,
+                    operation: AgentMessageProcessingOperation::LeaseExtended,
+                    idempotency_key_sha256: digest_key(&format!(
+                        "extend-after-{}",
+                        Uuid::new_v4().simple()
+                    )),
+                    request_sha256: digest_key(&format!(
+                        "extend-after-request-{}",
+                        Uuid::new_v4().simple()
+                    )),
+                    lease_expires_at: Some(extended_until + chrono::Duration::hours(1)),
+                    reason_code: None,
+                    max_attempts: 5,
+                    now: extend_now + chrono::Duration::seconds(1),
+                })
+                .await
+                .expect("run lease extension after revocation")
+                .is_none(),
+            "a lease extension after revocation must not land"
+        );
+        drop(follow_up);
+    }
+
+    delegation_id = grant_processing_delegation(
+        &store,
+        &owner_context,
+        mailbox.mailbox_id,
+        agent.principal_id,
+        [MailboxCapability::Read],
+        "Read access for the nack window",
+        now,
+    )
+    .await;
+    let nack_now = claim_now + chrono::Duration::seconds(30);
+    let mut nack_tx = store
+        .begin_authorized(&agent_context)
+        .await
+        .expect("begin nack transaction");
+    let nacked = nack_tx
+        .transition_agent_message(&AgentMessageTransitionWrite {
+            organization_id: bootstrap.organization_id,
+            principal_id: agent.principal_id,
+            subscription_id: subscription.subscription_id,
+            message_id: second.message_id,
+            lease_id: second.lease_id,
+            operation: AgentMessageProcessingOperation::Nacked,
+            idempotency_key_sha256: digest_key(&format!("nack-window-{}", Uuid::new_v4().simple())),
+            request_sha256: digest_key(&format!("nack-request-{}", Uuid::new_v4().simple())),
+            lease_expires_at: None,
+            reason_code: Some("temporary.upstream_failure".into()),
+            max_attempts: 5,
+            now: nack_now,
+        })
+        .await
+        .expect("run the nack statement")
+        .expect("the leased message can be nacked before revocation");
+    let (nack_audit, nack_outbox) = delegation_audit(
+        &agent_context,
+        "agent.message.nacked",
+        "agent.message_processing",
+        nacked.message_id.to_string(),
+        "agent.message.nacked.v1",
+        "agent.message_processing",
+        json!({
+            "organization_id": bootstrap.organization_id,
+            "subscription_id": subscription.subscription_id,
+            "message_id": nacked.message_id,
+            "state": "pending",
+        }),
+        nacked.occurred_at,
+    );
+    if let Err(defect) = revoke_must_wait_until_audit_commits(
+        &store,
+        &owner_context,
+        delegation_id,
+        nack_tx,
+        nack_audit,
+        nack_outbox,
+        now,
+    )
+    .await
+    {
+        defects.push(format!("nack: {defect}"));
+    } else {
+        let state: String = sqlx::query_scalar(
+            "SELECT state FROM agent_message_states WHERE organization_id = $1 AND message_id = $2",
+        )
+        .bind(bootstrap.organization_id.as_uuid())
+        .bind(second.message_id)
+        .fetch_one(store.pool())
+        .await
+        .expect("read nacked message state");
+        assert_eq!(state, "pending");
+        assert_eq!(
+            count_audit_action(
+                &store,
+                bootstrap.organization_id,
+                "agent.message.nacked",
+                &second.message_id.to_string(),
+            )
+            .await,
+            1
+        );
+        let mut follow_up = store
+            .begin_authorized(&agent_context)
+            .await
+            .expect("begin follow-up nack");
+        assert!(
+            follow_up
+                .transition_agent_message(&AgentMessageTransitionWrite {
+                    organization_id: bootstrap.organization_id,
+                    principal_id: agent.principal_id,
+                    subscription_id: subscription.subscription_id,
+                    message_id: third.message_id,
+                    lease_id: third.lease_id,
+                    operation: AgentMessageProcessingOperation::Nacked,
+                    idempotency_key_sha256: digest_key(&format!(
+                        "nack-after-{}",
+                        Uuid::new_v4().simple()
+                    )),
+                    request_sha256: digest_key(&format!(
+                        "nack-after-request-{}",
+                        Uuid::new_v4().simple()
+                    )),
+                    lease_expires_at: None,
+                    reason_code: Some("temporary.upstream_failure".into()),
+                    max_attempts: 5,
+                    now: nack_now,
+                })
+                .await
+                .expect("run nack after revocation")
+                .is_none(),
+            "a nack after revocation must not land"
+        );
+        drop(follow_up);
+        let third_state: String = sqlx::query_scalar(
+            "SELECT state FROM agent_message_states WHERE organization_id = $1 AND message_id = $2",
+        )
+        .bind(bootstrap.organization_id.as_uuid())
+        .bind(third.message_id)
+        .fetch_one(store.pool())
+        .await
+        .expect("read the message that nack must not change");
+        assert_eq!(third_state, "leased");
+        assert_eq!(
+            count_audit_action(
+                &store,
+                bootstrap.organization_id,
+                "agent.message.nacked",
+                &third.message_id.to_string(),
+            )
+            .await,
+            0
+        );
+    }
+
+    let delegate_id = insert_approval_test_owner(
+        &store,
+        bootstrap.organization_id,
+        owner.principal_id,
+        now - chrono::Duration::seconds(30),
+    )
+    .await;
+    let delegate_context = store
+        .resolve_authorization(delegate_id, now)
+        .await
+        .expect("resolve human delegate")
+        .expect("human delegate is active");
+    let human_mailbox = MailboxManagementService::new(store.clone())
+        .create_authorized(
+            &owner_context,
+            CreateMailboxCommand {
+                organization_id: bootstrap.organization_id,
+                kind: MailboxKind::Shared,
+                primary_address: format!("human-rest-{}@example.test", Uuid::new_v4().simple()),
+                trace_id: Uuid::now_v7().to_string(),
+                now,
+            },
+        )
+        .await
+        .expect("create human remaining-window mailbox");
+    let human_account_ref = random_numeric_engine_ref();
+    MailEngineMailboxBindingService::try_new(
+        store.clone(),
+        legacy_mail_data_plane_id(),
+        "stalwart",
+    )
+    .expect("construct human remaining-window binding")
+    .bind_authorized(
+        &owner_context,
+        BindMailEngineMailboxCommand {
+            organization_id: bootstrap.organization_id,
+            mailbox_id: human_mailbox.mailbox_id,
+            account_ref: human_account_ref.clone(),
+            expected_version: 0,
+            trace_id: Uuid::now_v7().to_string(),
+            now,
+        },
+    )
+    .await
+    .expect("bind human remaining-window mailbox");
+    let sent_delegation = grant_processing_delegation(
+        &store,
+        &owner_context,
+        human_mailbox.mailbox_id,
+        delegate_id,
+        [MailboxCapability::Read, MailboxCapability::Send],
+        "Human read and send for the sent-list window",
+        now,
+    )
+    .await;
+    let sent_proof = HumanSentListRecheck {
+        organization_id: bootstrap.organization_id,
+        principal_id: delegate_id,
+        mailbox_id: human_mailbox.mailbox_id,
+        expected_submissions: Vec::new(),
+    };
+    let mut sent_tx = store
+        .begin_authorized(&delegate_context)
+        .await
+        .expect("begin human sent-list transaction");
+    assert!(
+        sent_tx
+            .human_sent_list_still_authorized(&sent_proof)
+            .await
+            .expect("run the human sent-list recheck"),
+        "an empty sent page still rechecks delegation before its audit commit"
+    );
+    let (sent_audit, sent_outbox) = delegation_audit(
+        &delegate_context,
+        "mail.submissions.queried",
+        "mailbox",
+        human_mailbox.mailbox_id.to_string(),
+        "mail.submissions.queried.v1",
+        "mailbox",
+        json!({
+            "page_size": 1,
+            "result_count": 0,
+            "has_more": false,
+        }),
+        now,
+    );
+    if let Err(defect) = revoke_must_wait_until_audit_commits(
+        &store,
+        &owner_context,
+        sent_delegation,
+        sent_tx,
+        sent_audit,
+        sent_outbox,
+        now,
+    )
+    .await
+    {
+        defects.push(format!("human sent list: {defect}"));
+    } else {
+        assert_eq!(
+            count_audit_action(
+                &store,
+                bootstrap.organization_id,
+                "mail.submissions.queried",
+                &human_mailbox.mailbox_id.to_string(),
+            )
+            .await,
+            1
+        );
+        let mut follow_up = store.begin().await.expect("begin follow-up sent recheck");
+        assert!(
+            !follow_up
+                .human_sent_list_still_authorized(&sent_proof)
+                .await
+                .expect("recheck sent list after revocation"),
+            "a new sent-list disclosure after revocation must not stay authorized"
+        );
+        drop(follow_up);
+    }
+
+    let read_delegation = grant_processing_delegation(
+        &store,
+        &owner_context,
+        human_mailbox.mailbox_id,
+        delegate_id,
+        [MailboxCapability::Read, MailboxCapability::Send],
+        "Human read and send for the draft-read window",
+        now,
+    )
+    .await;
+    let saved = DraftService::new(
+        store.clone(),
+        Arc::new(IntegrationHumanDraftAdapter::default()),
+    )
+    .save(
+        &delegate_context,
+        SaveTextDraftCommand {
+            mailbox_id: human_mailbox.mailbox_id,
+            draft_id: None,
+            expected_version: None,
+            reply_to_message_id: None,
+            to: vec!["reader@example.test".into()],
+            cc: Vec::new(),
+            bcc: Vec::new(),
+            subject: "Draft read window".into(),
+            text_body: "Draft read window body".into(),
+            now,
+        },
+    )
+    .await
+    .expect("save the delegate's active draft");
+    let target = store
+        .resolve_human_draft_restore_target(&HumanDraftRestoreQuery {
+            organization_id: bootstrap.organization_id,
+            principal_id: delegate_id,
+            mailbox_id: human_mailbox.mailbox_id,
+            draft_id: saved.draft_id,
+            expected_data_plane_id: legacy_mail_data_plane_id(),
+            now,
+        })
+        .await
+        .expect("resolve the delegate draft")
+        .target
+        .expect("the delegate draft is active before revocation");
+    let read_proof = HumanDraftReadRecheck {
+        organization_id: bootstrap.organization_id,
+        principal_id: delegate_id,
+        mailbox_id: human_mailbox.mailbox_id,
+        draft_id: target.draft.draft_id,
+        expected_version: target.draft.version,
+        expected_data_plane_id: target.draft.data_plane_id,
+        expected_engine_account_ref: target.binding.account_ref,
+        expected_engine_email_ref: target.draft.engine_email_ref,
+        expected_engine_thread_ref: target.draft.engine_thread_ref,
+        expected_primary_address: target.mailbox.primary_address,
+        expected_body_ref: target.draft.body_ref,
+        expected_content_sha256: target.draft.content_sha256,
+        expected_recipients: target.draft.recipients,
+        expected_reply_to_message_id: target.draft.reply_to_message_id,
+    };
+    let mut read_tx = store
+        .begin_authorized(&delegate_context)
+        .await
+        .expect("begin human draft-read transaction");
+    assert!(
+        read_tx
+            .human_draft_read_still_authorized(&read_proof)
+            .await
+            .expect("run the human draft-read recheck"),
+        "the delegate passes the draft-read recheck before revocation"
+    );
+    let (read_audit, read_outbox) = delegation_audit(
+        &delegate_context,
+        "mail.draft.read",
+        "mail.draft",
+        saved.draft_id.to_string(),
+        "mail.draft.read.v1",
+        "mail.draft",
+        json!({
+            "mailbox_id": human_mailbox.mailbox_id,
+            "draft_id": saved.draft_id,
+            "draft_version": saved.version,
+            "text_body_bytes": 22,
+            "recipient_count": 1,
+            "is_reply": false,
+        }),
+        now,
+    );
+    if let Err(defect) = revoke_must_wait_until_audit_commits(
+        &store,
+        &owner_context,
+        read_delegation,
+        read_tx,
+        read_audit,
+        read_outbox,
+        now,
+    )
+    .await
+    {
+        defects.push(format!("human draft read: {defect}"));
+    } else {
+        assert_eq!(
+            count_audit_action(
+                &store,
+                bootstrap.organization_id,
+                "mail.draft.read",
+                &saved.draft_id.to_string(),
+            )
+            .await,
+            1
+        );
+        let mut follow_up = store
+            .begin()
+            .await
+            .expect("begin follow-up draft-read recheck");
+        assert!(
+            !follow_up
+                .human_draft_read_still_authorized(&read_proof)
+                .await
+                .expect("recheck draft read after revocation"),
+            "a new draft read after revocation must not stay authorized"
+        );
+        drop(follow_up);
+    }
+
+    assert!(
+        defects.is_empty(),
+        "revocation committed after the delegation check returned and before audit commit:\n{}",
+        defects.join("\n")
+    );
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 #[ignore = "requires a disposable PostgreSQL database"]
 async fn approval_decisions_are_mutually_exclusive_under_concurrency() {
@@ -7337,6 +8030,103 @@ impl MailSubmissionAdapter for IntegrationHumanSentSubmissionAdapter {
     }
 }
 
+const ACCEPTANCE_TIMESTAMP_SURGERY: &str = r#"
+    UPDATE mail_submission_intents
+       SET accepted_at = (
+           SELECT min(accepted_at)
+             FROM mail_submission_intents
+            WHERE organization_id = $1 AND id IN ($2, $3)
+       )
+     WHERE organization_id = $1
+       AND id IN ($2, $3)
+"#;
+
+/// A version-shaped rewrite. The trigger checks the version transition before
+/// the terminal-status branch, so an `accepted_at`-only update is `23514`.
+/// This probe reaches the immutability exception (`55000`).
+const ACCEPTANCE_TIMESTAMP_PROBE: &str = r#"
+    UPDATE mail_submission_intents
+       SET accepted_at = (
+               SELECT min(accepted_at)
+                 FROM mail_submission_intents
+                WHERE organization_id = $1 AND id IN ($2, $3)
+           ),
+           state_version = state_version + 1,
+           updated_at = GREATEST(updated_at, clock_timestamp())
+     WHERE organization_id = $1
+       AND id IN ($2, $3)
+"#;
+
+async fn share_acceptance_timestamp(
+    organization_id: OrganizationId,
+    older_id: Uuid,
+    newer_id: Uuid,
+) {
+    let surgery_pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&support::database_url())
+        .await
+        .expect("open fixture-surgery connection");
+    let blocked = sqlx::query(ACCEPTANCE_TIMESTAMP_PROBE)
+        .bind(organization_id.as_uuid())
+        .bind(older_id)
+        .bind(newer_id)
+        .execute(&surgery_pool)
+        .await;
+    assert_eq!(
+        blocked
+            .expect_err("terminal acceptance timestamps stay immutable")
+            .as_database_error()
+            .and_then(|error| error.code()),
+        Some(std::borrow::Cow::Borrowed("55000")),
+        "the immutability trigger must reject a version-shaped accepted_at rewrite"
+    );
+    let mut tx = surgery_pool
+        .begin()
+        .await
+        .expect("begin acceptance-timestamp surgery");
+    sqlx::query(
+        "ALTER TABLE mail_submission_intents DISABLE TRIGGER mail_submission_intents_validate_update",
+    )
+    .execute(&mut *tx)
+    .await
+    .expect("table owner disables only the immutability trigger for this fixture");
+    let updated = sqlx::query(ACCEPTANCE_TIMESTAMP_SURGERY)
+        .bind(organization_id.as_uuid())
+        .bind(older_id)
+        .bind(newer_id)
+        .execute(&mut *tx)
+        .await
+        .expect("share one acceptance timestamp across the fixture");
+    assert_eq!(updated.rows_affected(), 2);
+    sqlx::query(
+        "ALTER TABLE mail_submission_intents ENABLE TRIGGER mail_submission_intents_validate_update",
+    )
+    .execute(&mut *tx)
+    .await
+    .expect("re-enable the immutability trigger before commit");
+    tx.commit()
+        .await
+        .expect("commit acceptance-timestamp surgery");
+    let enabled: String = sqlx::query_scalar(
+        r#"
+        SELECT tgenabled::text
+          FROM pg_trigger
+         WHERE tgrelid = 'mail_submission_intents'::regclass
+           AND tgname = 'mail_submission_intents_validate_update'
+           AND NOT tgisinternal
+        "#,
+    )
+    .fetch_one(&surgery_pool)
+    .await
+    .expect("read immutability trigger state");
+    assert_eq!(
+        enabled, "O",
+        "the immutability trigger stays enabled after the fixture"
+    );
+    surgery_pool.close().await;
+}
+
 async fn create_human_sent_directory_submission(
     store: &PgControlPlaneStore,
     drafts: &DraftService<PgControlPlaneStore>,
@@ -7549,8 +8339,8 @@ async fn human_sent_directory_is_private_cursor_safe_audited_and_finally_recheck
     // The finalization SQL stamps `accepted_at` with the database-owned
     // `clock_timestamp()`, and terminal intents are immutable afterwards. To
     // exercise the UUID tie-breaker deterministically, the two accepts are
-    // normalized to one shared timestamp through a dedicated replication-role
-    // connection; the shared pool never sees the relaxed session.
+    // normalized to one shared timestamp. The immutability trigger stays on
+    // for every other connection.
     let accepted_at = now + chrono::Duration::minutes(5);
     for (intent, executed_at) in [
         (&older, accepted_at),
@@ -7571,38 +8361,16 @@ async fn human_sent_directory_is_private_cursor_safe_audited_and_finally_recheck
             MailSubmissionExecutionResult::Accepted
         );
     }
-    {
-        // A single-connection pool guarantees the relaxed session setting and
-        // the fixture UPDATE share one session and are discarded together.
-        let surgery_pool = sqlx::postgres::PgPoolOptions::new()
-            .max_connections(1)
-            .connect(&support::database_url())
-            .await
-            .expect("open fixture-surgery connection");
-        sqlx::query("SET session_replication_role = 'replica'")
-            .execute(&surgery_pool)
-            .await
-            .expect("enable fixture-surgery role");
-        sqlx::query(
-            r#"
-            UPDATE mail_submission_intents
-               SET accepted_at = (
-                   SELECT min(accepted_at)
-                     FROM mail_submission_intents
-                    WHERE organization_id = $1 AND id IN ($2, $3)
-               )
-             WHERE organization_id = $1
-               AND id IN ($2, $3)
-            "#,
-        )
-        .bind(bootstrap.organization_id.as_uuid())
-        .bind(older.submission_id.as_uuid())
-        .bind(newer.submission_id.as_uuid())
-        .execute(&surgery_pool)
-        .await
-        .expect("share one acceptance timestamp across the fixture");
-        surgery_pool.close().await;
-    }
+    // Terminal rows refuse this rewrite. The migration role owns the table, so
+    // it can disable that one trigger inside a transaction, share the earlier
+    // database timestamp, and re-enable the trigger before commit. A crash
+    // rolls the disable back. This does not need session_replication_role.
+    share_acceptance_timestamp(
+        bootstrap.organization_id,
+        older.submission_id.as_uuid(),
+        newer.submission_id.as_uuid(),
+    )
+    .await;
     let pending_lifecycle: (String, String) = sqlx::query_as(
         r#"
         SELECT

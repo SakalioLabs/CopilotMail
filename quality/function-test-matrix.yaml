@@ -1597,7 +1597,8 @@
         "concurrency": [
           "outbox",
           "disconnect",
-          "revoke_gap"
+          "revoke_gap",
+          "revoke_rest"
         ]
       },
       "test_refs": {
@@ -1625,11 +1626,16 @@
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "delegation_revoke_cannot_land_between_statement_and_audit_commit",
           "execution": "passed"
+        },
+        "revoke_rest": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "delegation_revoke_waits_for_lease_nack_sent_list_and_draft_read",
+          "execution": "passed"
         }
       },
-      "environment": "Earlier outbox and lease refs keep their prior passed result. On 2026-10-12 a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, passed outbox_backend_disconnect_rolls_back_uncommitted_work_and_reclaims_by_lease_rule twice on the same database (0.86s, then 0.81s). The test terminates the holding backend with pg_terminate_backend. It does not kill an operating-system worker process. The same class of database later proved a revoke could commit after agent claim, acknowledge, and subscription rechecks returned and before audit commit. Those EXISTS clauses, plus lease extension and nack, now take FOR SHARE OF delegation until commit. The interleaving test covers claim, acknowledge, and subscription; extension and nack share that lock without a separate interleaving case. After the lock, the test passed three times (0.79s, 0.83s, 0.92s). Both later dirty-database ignored suite runs passed it. Local, non-CI. No published migration changed.",
+      "environment": "Earlier outbox and lease refs keep their prior passed result. On 2026-10-12 a local disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, passed outbox_backend_disconnect_rolls_back_uncommitted_work_and_reclaims_by_lease_rule twice on the same database (0.86s, then 0.81s). The test terminates the holding backend with pg_terminate_backend. It does not kill an operating-system worker process. The same class of database later proved a revoke could commit after agent claim, acknowledge, and subscription rechecks returned and before audit commit. Those EXISTS clauses, plus lease extension and nack, take FOR SHARE OF delegation until commit. delegation_revoke_cannot_land_between_statement_and_audit_commit covers claim, acknowledge, and subscription and passed three times after the lock (0.79s, 0.83s, 0.92s). On the same day, delegation_revoke_waits_for_lease_nack_sent_list_and_draft_read proved lease extension and nack on that database: with FOR SHARE removed only from those two statements, revoke finished Ok(()) before audit commit and the open transaction's audit, outbox, and commit were also Ok(()). That unlocked edit was not committed. After restoring the lock, the same ignored test passed in 0.74s (an earlier locked run was 0.82s). A follow-up extend or nack after revoke does not land. Local, non-CI. No published migration changed.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "local-pg17-batch9-2026-10-12",
+      "candidate_revision": "local-pg17-batch10-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -2346,7 +2352,8 @@
         ],
         "authorization": [
           "rbac",
-          "revoke_gap"
+          "revoke_gap",
+          "revoke_read"
         ],
         "transaction": [
           "restore"
@@ -2387,11 +2394,16 @@
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "delegation_revoke_cannot_land_between_statement_and_audit_commit",
           "execution": "passed"
+        },
+        "revoke_read": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "delegation_revoke_waits_for_lease_nack_sent_list_and_draft_read",
+          "execution": "passed"
         }
       },
-      "environment": "Earlier disposable PostgreSQL evidence stays passed. On 2026-10-12 a local non-CI PostgreSQL 17.11 database named copilotmail_test_<suffix> reran human_drafts_are_private_authorized_binding_safe_and_finally_rechecked after draft metadata began holding the send grant until commit. That test passed. The same database later showed a revoke could commit after the draft-list delegation recheck returned and before audit commit. Draft list, sent list, and draft read now take FOR SHARE OF delegation until commit. The interleaving test covers draft list only. Sent list and draft read share that lock without a separate interleaving case. After the lock, the window test passed three times (0.79s, 0.83s, 0.92s), and both dirty-database ignored suite runs passed the draft-list test and the window test. Local, non-CI.",
+      "environment": "Earlier disposable PostgreSQL evidence stays passed. On 2026-10-12 a local non-CI PostgreSQL 17.11 database named copilotmail_test_<suffix> reran human_drafts_are_private_authorized_binding_safe_and_finally_rechecked after draft metadata began holding the send grant until commit. That test passed. The same database later showed a revoke could commit after the draft-list delegation recheck returned and before audit commit. Draft list, sent list, and draft read take FOR SHARE OF delegation until commit. delegation_revoke_cannot_land_between_statement_and_audit_commit covers draft list and passed three times after the lock (0.79s, 0.83s, 0.92s); both later dirty-database ignored suite runs passed that test and the draft-list test. On the same day, delegation_revoke_waits_for_lease_nack_sent_list_and_draft_read proved the draft-read recheck: with FOR SHARE removed only from that recheck, revoke finished Ok(()) before audit commit and the open transaction's audit, outbox, and commit were also Ok(()). That unlocked edit was not committed. After restoring the lock, the same ignored test passed in 0.74s. A new draft-read recheck after revoke is not authorized. The test does not disclose a body. Local, non-CI.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "local-pg17-batch9-2026-10-12",
+      "candidate_revision": "local-pg17-batch10-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -2477,7 +2489,8 @@
           "malformed"
         ],
         "authorization": [
-          "cursor"
+          "cursor",
+          "revoke_gap"
         ],
         "transaction": [
           "order"
@@ -2503,11 +2516,16 @@
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "human_sent_directory_is_private_cursor_safe_audited_and_finally_rechecked",
           "execution": "passed"
+        },
+        "revoke_gap": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "delegation_revoke_waits_for_lease_nack_sent_list_and_draft_read",
+          "execution": "passed"
         }
       },
-      "environment": "Earlier disposable PostgreSQL evidence stays passed. On 2026-10-12 a local non-CI PostgreSQL 17.11 database named copilotmail_test_<suffix> returned SQLSTATE 42501 for SET session_replication_role until the non-superuser role received GRANT SET ON PARAMETER session_replication_role. That single test then passed in 0.59s and the grant was revoked. After the send recheck, the same test again returned 42501 without that grant. A temporary GRANT SET ON PARAMETER session_replication_role made it pass in 0.80s, and the grant was revoked. Sent-list delegation rechecks now take FOR SHARE until commit, matching the draft-list interleaving proof; this test is not that interleaving case. A later single run with the same temporary grant passed in 0.63s and the grant was revoked. Both subsequent dirty-database ignored suite runs passed this test while that grant was held for the suite, then the grant was revoked. Local, non-CI.",
+      "environment": "Earlier disposable PostgreSQL evidence stays passed. On 2026-10-12 a local non-CI PostgreSQL 17.11 database named copilotmail_test_<suffix> previously needed GRANT SET ON PARAMETER session_replication_role because the fixture ran SET session_replication_role = replica and the non-superuser role received SQLSTATE 42501. That grant path is gone. The fixture now probes a version-shaped accepted_at rewrite and requires SQLSTATE 55000 from mail_submission_intents_validate_update, then disables that one trigger inside a transaction, shares the earlier acceptance timestamp, re-enables the trigger, and commits. After commit, pg_trigger.tgenabled for that trigger is O. No session_replication_role grant is used. The same ignored test then passed in 0.92s. Sent-list delegation rechecks take FOR SHARE OF delegation until commit. delegation_revoke_waits_for_lease_nack_sent_list_and_draft_read proved the empty sent page: with FOR SHARE removed only from that recheck, revoke finished Ok(()) before audit commit and the open transaction's audit, outbox, and commit were also Ok(()). That unlocked edit was not committed. After restoring the lock, the same ignored test passed in 0.74s. A new sent-list recheck after revoke is not authorized. The same dirty database later ran the full ignored postgres_integration suite with --test-threads=1 and no session_replication_role grant: 46 passed, 0 failed, 1 filtered out, 99.64s, exit 0. This sent-directory test was in that run. Local, non-CI.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "local-pg17-batch9-2026-10-12",
+      "candidate_revision": "local-pg17-batch10-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
