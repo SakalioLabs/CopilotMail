@@ -148,7 +148,9 @@ Secrets Manager 或编排器提供，轮换需使所有 BFF 实例原子切换�
 ## 当前边界
 
 - 本控制面的全设备注销已经接入，仍不实现 IdP Back-Channel Logout 或安全事件
-  接收。本人 `POST /api/v2/auth/{client}/logout-all` 同时撤销 Admin 与 Mail
+  接收（2026-10-12 决定：缺 IdP 端点与安全事件契约，本控制面会话撤销为唯一
+  撤销路径，见 [决定记录](DECISIONS_2026-10-12.zh-CN.md)）。本人 `POST
+  /api/v2/auth/{client}/logout-all` 同时撤销 Admin 与 Mail
   客户端的未过期会话，原因是 `logout`；请求省略 `retain_current_session` 或
   将其设为 false 时连当前会话一起撤销并清除当前 Cookie，显式 true 才保留当前
   会话。Organization Owner 以 `session.revoke_others` 和精确双人审批撤销指定
@@ -166,6 +168,12 @@ Secrets Manager 或编排器提供，轮换需使所有 BFF 实例原子切换�
   结束，提交前复查不再要求 Principal 为 active，否则停用令牌 Actor 的同一笔
   事务无法提交；下一笔调用在绑定处失败。Human 会话和 Agent 凭据的复查仍要求
   Principal 为 active。设备列表仍未实现。
+- 安全方法（GET/HEAD/OPTIONS）的 CSRF 检查只要求会话允许列表成员，不比较
+  Origin；OIDC relying party 只服务于非安全方法的精确 Origin 比对。生产模式
+  下 `ControlPlaneSettings::from_env` 强制会话允许列表（`COPILOTMAIL_*_OIDC_CLIENT_ID`
+  与 `COPILOTMAIL_*_PUBLIC_ORIGIN`）和企业 OIDC（`COPILOTMAIL_OIDC_ISSUER`/
+  `AUDIENCE`）必须同时配置，否则启动失败；development/testing 保留仅允许列表
+  的测试运行时。
 - 尚未把已验证的 `acr`、`amr`、`auth_time` 写入 Session 并对高危操作执行
   Step-up；企业 Pilot 前不能宣称达到公司指定 AAL。
 - 匿名失败登录的独立安全账本和设备列表仍待后续增量；不得把原始 OAuth 参数

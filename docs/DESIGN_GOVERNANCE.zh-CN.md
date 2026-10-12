@@ -23,9 +23,10 @@ CI 在 Web 类型检查、测试和构建之前执行静态门禁。设计治理
 边界、V2 共享字体/间距/字号/动效/触点/层级 token 的存在性、关键 token 对比度与减少动画
 契约、素材清单解析、`EmptyState` Alt 属性、原生浏览器 Dialog 和翻译文案中的伪图标检测，以及生成的
 `test-results`、`playwright-report`、`blob-report` 不得被误扫的目录边界，随后才检查仓库；构建
-完成后，独立 Windows CI 安装固定 Playwright 版本对应的 Chromium，并在与当前 PNG
-基线相同的操作系统族中运行浏览器回归；Linux CI 继续独立执行类型检查、Vitest 与生产
-构建。失败时上传 `playwright-report` 与 `test-results` 诊断文件。
+完成后，独立 Windows CI 安装固定 Playwright 版本对应的 Chromium，并在与 `-win32` PNG
+基线相同的操作系统族中运行浏览器回归；Linux 开发机使用独立的 `-linux` 基线（
+`snapshotPathTemplate` 含 `{platform}`，2026-10-12 起）。Linux CI 继续独立执行类型检查、
+Vitest 与生产构建。失败时上传 `playwright-report` 与 `test-results` 诊断文件。
 
 ## 浏览器级回归基线
 
@@ -90,7 +91,9 @@ Mail 与 Admin 的中文场景都通过产品内真实语言控件进入 `zh-CN`
 - 多个代表性 Mail/Admin 页面与关键状态执行严格的 Axe A/AA 自动扫描；这些扫描是固定夹具
   下的回归证据，不构成完整 WCAG 2.2 AA 验收。
 
-基线只能通过 `npm run e2e:update` 显式更新。更新后必须人工查看 103 张 Windows PNG：
+基线只能通过 `npm run e2e:update` 显式更新，且每个平台各有一份：`{arg}-win32.png` 供
+Windows CI、本机人工审图的 `*-linux.png` 供 Linux 开发机；更新任一侧都必须人工查看对应
+平台的 103 张 PNG（Admin 40、Mail 63）：
 Admin 40 张，覆盖英文/简体中文五档布局、分组导航、域名治理、P2 调查/受控观察与治理列表—详情状态；Mail 63 张，除既有响应式、
 搜索无结果、详情错误与草稿 CAS 冲突外，还覆盖真实 `manual_review` 全页状态及严格 footer
 局部基线、D4A 390px 移动 Scope 披露基线、D4B Queue 1440/1008/390px 和 768px Scope
