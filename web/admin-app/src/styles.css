@@ -58,6 +58,7 @@ code, .mono { font-family: var(--cm-font-mono); overflow-wrap: anywhere; }
 .sidebar__footer .button { width: 100%; color: var(--cm-muted-strong); justify-content: flex-start; }
 .sidebar__footer .button:hover:not(:disabled) { color: var(--cm-ink); }
 .locale-switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: inherit; font-size: 0.74rem; }
+.locale-switch > span { flex: 0 0 auto; white-space: nowrap; }
 /* The control chrome (border, chevron, states) comes from the shared
    .control class; the switch only constrains width inside the footer. */
 .locale-switch select { max-width: 130px; }
