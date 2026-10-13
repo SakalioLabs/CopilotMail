@@ -324,6 +324,9 @@ body,
   background-color: var(--cm-disabled-container);
 }
 
+.compose:focus-visible,
+.compose-fab:focus-visible { box-shadow: var(--cm-focus-ring); }
+
 .detail-back { display: none; }
 
 .command-trigger {
