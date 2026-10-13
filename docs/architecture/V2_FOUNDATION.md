@@ -122,6 +122,14 @@ and retain old keys for the maximum token lifetime without restarting. See
 [ADR 0009](../adr/0009-hot-reloaded-agent-signing-key-ring.md) and the
 [signing-key rotation runbook](../AGENT_SIGNING_KEY_ROTATION.zh-CN.md).
 
+The Agent MCP channel is a JSON-RPC 2.0 WebSocket adapter mounted at
+`GET /api/v2/mcp` under the `mcp` subprotocol. It reuses the same Agent
+scoped-token authenticator, live authorization resolution, ingress limits,
+application use cases, and error contract as the REST surface; the transport
+contains no business logic. Session establishment records
+`agent.mcp_session.opened` audit and outbox evidence atomically before the
+upgrade is accepted. See the [MCP channel guide](../MCP.zh-CN.md).
+
 ## Transaction invariant
 
 Privileged state changes are complete only when all three writes commit in one

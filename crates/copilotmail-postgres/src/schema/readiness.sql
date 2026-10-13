@@ -690,6 +690,14 @@ SELECT to_regclass('public.organizations') IS NOT NULL
    AND EXISTS (
        SELECT 1
          FROM audit_event_catalog
+        WHERE action = 'agent.mcp_session.opened'
+          AND resource_type = 'agent.mcp_session'
+          AND risk = 'medium'
+          AND privileged
+   )
+   AND EXISTS (
+       SELECT 1
+         FROM audit_event_catalog
         WHERE action = 'audit.events.queried'
           AND resource_type = 'audit.query'
           AND risk = 'high'

@@ -11,6 +11,7 @@ mod agent_mail_policy;
 mod agent_mail_policy_query;
 mod agent_mail_sandbox;
 mod agent_mail_submission_evidence;
+mod agent_mcp;
 mod agent_processing;
 mod approval;
 mod audit_archive;
@@ -82,6 +83,7 @@ pub use agent_mail_submission_evidence::{
     AgentMailSubmissionEvidenceError, AgentMailSubmissionEvidenceService,
     AgentMailSubmissionStatusEvidence, GetAgentMailSubmissionEvidenceCommand,
 };
+pub use agent_mcp::{AgentMcpSessionError, AgentMcpSessionService, OpenAgentMcpSessionCommand};
 pub use agent_processing::{
     AcknowledgeAgentMessageCommand, AgentProcessingDeadLetterPage, AgentProcessingError,
     AgentProcessingService, ChangeAgentProcessingSubscriptionCommand, ClaimAgentMessageCommand,

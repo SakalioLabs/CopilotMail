@@ -87,6 +87,7 @@
 | `agent.webhook_delivery.replayed` | `agent.webhook_delivery` | Critical | 是 |
 | `agent.event_cursor.read` | `agent.event_cursor` | Medium | 是 |
 | `agent.event_stream.opened` | `agent.event_stream` | Medium | 是 |
+| `agent.mcp_session.opened` | `agent.mcp_session` | Medium | 是 |
 | `compliance.case.created` | `compliance.case` | High | 是 |
 | `compliance.case.closed` | `compliance.case` | High | 是 |
 | `compliance.case.queried` | `compliance.case_query` | High | 是 |

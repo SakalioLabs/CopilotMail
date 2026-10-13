@@ -19,6 +19,7 @@ Browser/Agent :8080 -> api.rs -----+-> outbound.rs -> DNS MX -> remote SMTP :25
 - `events.rs`: bounded Tokio broadcast channel. API WebSockets filter events by authenticated mailbox ID.
 - `web/`: browser client that calls only the public HTTP and WebSocket APIs.
 - `skills/copilotmail/`: distributable Agent Skill, API reference, and deterministic standard-library client.
+- `apps/copilotmail-control/`: the V2 control application exposes the Agent REST surface and an MCP JSON-RPC 2.0 channel over WebSocket at `GET /api/v2/mcp` (subprotocol `mcp`). See `docs/architecture/V2_FOUNDATION.md` and `docs/MCP.zh-CN.md`.
 
 ## Trust boundaries
 

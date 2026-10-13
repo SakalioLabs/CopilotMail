@@ -374,6 +374,12 @@ audit_events!(
         Medium,
         true
     ),
+    (
+        "agent.mcp_session.opened",
+        "agent.mcp_session",
+        Medium,
+        true
+    ),
     ("audit.events.queried", "audit.query", High, true),
     (
         "audit.checkpoint.created",

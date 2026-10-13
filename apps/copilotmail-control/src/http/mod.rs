@@ -31,5 +31,7 @@ mod webhook_subscriptions;
 pub(crate) use webhook_subscriptions::*;
 mod agent_events;
 pub(crate) use agent_events::*;
+mod agent_mcp;
+pub(crate) use agent_mcp::*;
 mod audit_events;
 pub(crate) use audit_events::*;

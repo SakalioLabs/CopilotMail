@@ -232,6 +232,7 @@ pub(crate) fn router_with_state(state: AppState, scim_identity_provider: Option<
             axum::routing::post(nack_agent_message),
         )
         .route("/api/v2/agent/mail-policy", get(get_own_agent_mail_policy))
+        .route("/api/v2/mcp", get(agent_mcp_websocket))
         .route(
             "/api/v2/webhook-subscriptions/{subscription_id}/dead-letters/{event_id}/replay",
             axum::routing::post(replay_webhook_dead_letter),

@@ -249,6 +249,11 @@ private schema.
   code-only change. A later local disposable PostgreSQL 17.11 run, database
   name `copilotmail_test_<suffix>`, not CI and not a deployment, applied
   this file.
+- `0064_agent_mcp_session.sql` registers `agent.mcp_session.opened` so the
+  MCP-over-WebSocket agent channel records the same governed
+  connection-opened evidence as the SSE event stream. The session row lives
+  only in audit and outbox evidence; no token, Origin, or transport payload
+  is stored. This migration has not been applied in this code-only change.
 
 Offline SQL and PL/pgSQL grammar checks use the pinned PostgreSQL 17 parser in
 `scripts/requirements-quality.txt`: run

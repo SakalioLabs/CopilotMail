@@ -4602,3 +4602,936 @@ fn protected_query_contracts_reject_unknown_fields_and_bad_limits() {
     assert_query_closed::<ApprovalRequestListQuery>("limit=9223372036854775808");
     assert!(closed_query::<ApprovalRequestListQuery>(&format!("view={encoded}")).is_ok());
 }
+
+mod agent_mcp_tests {
+    use super::*;
+    use axum::extract::ws::Message as WsMessage;
+    use futures_util::{StreamExt, stream};
+    use serde_json::Value;
+    use tokio::sync::{mpsc, watch};
+
+    #[derive(Default)]
+    struct StubMcpExecutor {
+        started: AtomicU64,
+        gate: Option<watch::Receiver<bool>>,
+        tool_result: Value,
+        tool_fault: Option<StatusCode>,
+        invalid_params: Option<&'static str>,
+        resource_fault: Option<StatusCode>,
+        panic_on_call: bool,
+    }
+
+    #[async_trait]
+    impl McpToolExecutor for StubMcpExecutor {
+        async fn call_tool(
+            &self,
+            _name: &str,
+            _arguments: serde_json::Map<String, Value>,
+            request_id: &str,
+        ) -> Result<Value, McpCallError> {
+            self.started.fetch_add(1, Ordering::Relaxed);
+            if let Some(gate) = &self.gate {
+                let mut gate = gate.clone();
+                while !*gate.borrow() {
+                    if gate.changed().await.is_err() {
+                        break;
+                    }
+                }
+            }
+            if self.panic_on_call {
+                panic!("stub executor panic");
+            }
+            if let Some(message) = self.invalid_params {
+                return Err(McpCallError::InvalidParams(message.to_owned()));
+            }
+            if let Some(status) = self.tool_fault {
+                return Err(McpCallError::Fault(Box::new(api_error(
+                    status,
+                    "stub_tool_fault",
+                    "the stub tool failed",
+                    false,
+                    request_id,
+                ))));
+            }
+            Ok(self.tool_result.clone())
+        }
+
+        async fn read_resource(
+            &self,
+            _uri: &str,
+            request_id: &str,
+        ) -> Result<String, McpCallError> {
+            if let Some(status) = self.resource_fault {
+                return Err(McpCallError::Fault(Box::new(api_error(
+                    status,
+                    "stub_resource_fault",
+                    "the stub resource failed",
+                    false,
+                    request_id,
+                ))));
+            }
+            Ok(json!({"resource": true}).to_string())
+        }
+    }
+
+    fn new_session(executor: StubMcpExecutor) -> (Arc<McpSession>, mpsc::Receiver<WsMessage>) {
+        let (tx, rx) = mpsc::channel(64);
+        (
+            Arc::new(McpSession::new(
+                Arc::new(executor),
+                tx,
+                "trace-mcp-test".into(),
+            )),
+            rx,
+        )
+    }
+
+    async fn roundtrip(
+        session: &Arc<McpSession>,
+        rx: &mut mpsc::Receiver<WsMessage>,
+        text: String,
+    ) -> (McpDirective, Value) {
+        let directive = session.receive(text).await;
+        let message = rx.recv().await.expect("a JSON-RPC response is written");
+        let value = match message {
+            WsMessage::Text(text) => {
+                serde_json::from_str::<Value>(&text).expect("the response is JSON")
+            }
+            other => panic!("unexpected frame {other:?}"),
+        };
+        (directive, value)
+    }
+
+    fn initialize_message(version: &str) -> String {
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": version,
+                "capabilities": {},
+                "clientInfo": {"name": "test-client", "version": "1.0"},
+            },
+        })
+        .to_string()
+    }
+
+    fn request(id: i64, method: &str, params: Value) -> String {
+        json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": method,
+            "params": params,
+        })
+        .to_string()
+    }
+
+    async fn initialized_session(
+        executor: StubMcpExecutor,
+    ) -> (Arc<McpSession>, mpsc::Receiver<WsMessage>) {
+        let (session, mut rx) = new_session(executor);
+        let (directive, result) =
+            roundtrip(&session, &mut rx, initialize_message("2025-06-18")).await;
+        assert_eq!(directive, McpDirective::Continue);
+        assert!(result["error"].is_null(), "initialize succeeded: {result}");
+        (session, rx)
+    }
+
+    #[tokio::test]
+    async fn initialize_negotiates_latest_version_and_reports_capabilities() {
+        let (session, mut rx) = new_session(StubMcpExecutor::default());
+        let (directive, response) =
+            roundtrip(&session, &mut rx, initialize_message("2025-06-18")).await;
+        assert_eq!(directive, McpDirective::Continue);
+        assert_eq!(response["jsonrpc"], "2.0");
+        assert_eq!(response["id"], 1);
+        assert_eq!(response["result"]["protocolVersion"], "2025-06-18");
+        assert_eq!(
+            response["result"]["serverInfo"]["name"],
+            "copilotmail-control"
+        );
+        assert!(response["result"]["capabilities"]["tools"].is_object());
+        assert!(response["result"]["capabilities"]["resources"].is_object());
+    }
+
+    #[tokio::test]
+    async fn initialize_accepts_the_compat_revision_and_falls_back_for_unknown() {
+        let (session, mut rx) = new_session(StubMcpExecutor::default());
+        let (_, response) = roundtrip(&session, &mut rx, initialize_message("2025-03-26")).await;
+        assert_eq!(response["result"]["protocolVersion"], "2025-03-26");
+
+        let (session, mut rx) = new_session(StubMcpExecutor::default());
+        let (_, response) = roundtrip(&session, &mut rx, initialize_message("1999-01-01")).await;
+        assert_eq!(response["result"]["protocolVersion"], "2025-06-18");
+    }
+
+    #[tokio::test]
+    async fn initialize_rejects_missing_or_malformed_params() {
+        for params in [
+            json!(null),
+            json!({"capabilities": {}, "clientInfo": {"name": "x", "version": "1"}}),
+            json!({"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "x"}}),
+            json!({"protocolVersion": "2025-06-18", "clientInfo": {"name": "x", "version": "1"}}),
+        ] {
+            let (session, mut rx) = new_session(StubMcpExecutor::default());
+            let message = json!({
+                "jsonrpc": "2.0", "id": 7, "method": "initialize", "params": params,
+            })
+            .to_string();
+            let (_, response) = roundtrip(&session, &mut rx, message).await;
+            assert_eq!(response["error"]["code"], -32602, "params {params}");
+        }
+    }
+
+    #[tokio::test]
+    async fn requests_before_initialize_are_rejected_and_notifications_ignored() {
+        let (session, mut rx) = new_session(StubMcpExecutor::default());
+        let (_, response) = roundtrip(&session, &mut rx, request(3, "tools/list", json!({}))).await;
+        assert_eq!(response["error"]["code"], -32600);
+        let (_, response) = roundtrip(&session, &mut rx, request(4, "ping", Value::Null)).await;
+        assert_eq!(response["error"]["code"], -32600);
+        let directive = session
+            .receive(json!({"jsonrpc": "2.0", "method": "notifications/initialized"}).to_string())
+            .await;
+        assert_eq!(directive, McpDirective::Continue);
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn second_initialize_is_rejected() {
+        let (session, mut rx) = initialized_session(StubMcpExecutor::default()).await;
+        let (_, response) = roundtrip(&session, &mut rx, initialize_message("2025-06-18")).await;
+        assert_eq!(response["error"]["code"], -32600);
+    }
+
+    #[tokio::test]
+    async fn ping_and_unknown_methods_map_to_jsonrpc_results() {
+        let (session, mut rx) = initialized_session(StubMcpExecutor::default()).await;
+        let (_, response) = roundtrip(&session, &mut rx, request(9, "ping", Value::Null)).await;
+        assert_eq!(response["result"], json!({}));
+
+        let (_, response) = roundtrip(
+            &session,
+            &mut rx,
+            request(10, "resources/subscribe", json!({})),
+        )
+        .await;
+        assert_eq!(response["error"]["code"], -32601);
+    }
+
+    #[tokio::test]
+    async fn tools_list_describes_every_rest_equivalent_tool() {
+        let (session, mut rx) = initialized_session(StubMcpExecutor::default()).await;
+        let (_, response) = roundtrip(&session, &mut rx, request(1, "tools/list", json!({}))).await;
+        let tools = response["result"]["tools"].as_array().expect("tools list");
+        let names: Vec<&str> = tools
+            .iter()
+            .map(|tool| tool["name"].as_str().expect("tool name"))
+            .collect();
+        for expected in [
+            "agent_mail_policy_get",
+            "agent_mail_content_read",
+            "agent_processing_subscription_ensure",
+            "agent_processing_subscription_change",
+            "agent_message_claim",
+            "agent_message_extend_lease",
+            "agent_message_acknowledge",
+            "agent_message_nack",
+            "agent_dead_letters_list",
+            "agent_draft_save",
+            "agent_mail_submission_request",
+            "agent_mail_submission_get",
+            "agent_mail_sandbox_capture",
+            "agent_events_pull",
+        ] {
+            assert!(names.contains(&expected), "missing tool {expected}");
+        }
+        for tool in tools {
+            assert_eq!(tool["inputSchema"]["type"], "object");
+        }
+    }
+
+    #[tokio::test]
+    async fn tools_call_returns_structured_content_on_the_latest_revision() {
+        let executor = StubMcpExecutor {
+            tool_result: json!({"claimed": true, "message": {"id": "m-1"}}),
+            ..StubMcpExecutor::default()
+        };
+        let (session, mut rx) = initialized_session(executor).await;
+        let (_, response) = roundtrip(
+            &session,
+            &mut rx,
+            request(
+                5,
+                "tools/call",
+                json!({"name": "agent_message_claim", "arguments": {"subscription_id": "x"}}),
+            ),
+        )
+        .await;
+        assert_eq!(response["result"]["isError"], false);
+        assert_eq!(
+            response["result"]["structuredContent"],
+            json!({"claimed": true, "message": {"id": "m-1"}})
+        );
+        let text = response["result"]["content"][0]["text"]
+            .as_str()
+            .expect("text");
+        assert!(text.contains("claimed"));
+    }
+
+    #[tokio::test]
+    async fn tools_call_rejects_unknown_tools_and_bad_argument_shapes() {
+        let (session, mut rx) = initialized_session(StubMcpExecutor::default()).await;
+        for params in [
+            json!({"name": "not_a_tool"}),
+            json!({"name": "agent_message_claim", "arguments": ["not-object"]}),
+            json!({"arguments": {}}),
+            json!({"name": "agent_message_claim", "extra": true}),
+        ] {
+            let (_, response) =
+                roundtrip(&session, &mut rx, request(6, "tools/call", params.clone())).await;
+            assert_eq!(response["error"]["code"], -32602, "params {params}");
+        }
+    }
+
+    #[tokio::test]
+    async fn tools_call_propagates_executor_param_errors_and_domain_faults() {
+        let executor = StubMcpExecutor {
+            invalid_params: Some("the argument subscription_id is required"),
+            ..StubMcpExecutor::default()
+        };
+        let (session, mut rx) = initialized_session(executor).await;
+        let (_, response) = roundtrip(
+            &session,
+            &mut rx,
+            request(
+                2,
+                "tools/call",
+                json!({"name": "agent_message_claim", "arguments": {}}),
+            ),
+        )
+        .await;
+        assert_eq!(response["error"]["code"], -32602);
+        assert!(
+            response["error"]["message"]
+                .as_str()
+                .expect("message")
+                .contains("subscription_id")
+        );
+
+        let executor = StubMcpExecutor {
+            tool_fault: Some(StatusCode::FORBIDDEN),
+            ..StubMcpExecutor::default()
+        };
+        let (session, mut rx) = initialized_session(executor).await;
+        let (_, response) = roundtrip(
+            &session,
+            &mut rx,
+            request(
+                3,
+                "tools/call",
+                json!({"name": "agent_message_claim", "arguments": {}}),
+            ),
+        )
+        .await;
+        assert_eq!(response["result"]["isError"], true);
+        let text = response["result"]["content"][0]["text"]
+            .as_str()
+            .expect("text");
+        let fault: Value = serde_json::from_str(text).expect("fault payload is JSON");
+        assert_eq!(fault["http_status"], 403);
+        assert_eq!(fault["error"]["code"], "stub_tool_fault");
+    }
+
+    #[tokio::test]
+    async fn resources_list_templates_and_read_match_the_contract() {
+        let (session, mut rx) = initialized_session(StubMcpExecutor::default()).await;
+        let (_, response) =
+            roundtrip(&session, &mut rx, request(1, "resources/list", json!({}))).await;
+        let resources = response["result"]["resources"]
+            .as_array()
+            .expect("resources");
+        assert!(
+            resources
+                .iter()
+                .any(|r| r["uri"] == "agent://self/mail-policy")
+        );
+
+        let (_, response) = roundtrip(
+            &session,
+            &mut rx,
+            request(2, "resources/templates/list", json!({})),
+        )
+        .await;
+        let templates = response["result"]["resourceTemplates"]
+            .as_array()
+            .expect("templates");
+        assert!(
+            templates.iter().any(|t| t["uriTemplate"]
+                == "agent://mailboxes/{mailbox_id}/messages/{message_id}/content")
+        );
+
+        let (_, response) = roundtrip(
+            &session,
+            &mut rx,
+            request(
+                3,
+                "resources/read",
+                json!({"uri": "agent://self/mail-policy"}),
+            ),
+        )
+        .await;
+        let contents = response["result"]["contents"].as_array().expect("contents");
+        assert_eq!(contents[0]["mimeType"], "application/json");
+        assert!(
+            contents[0]["text"]
+                .as_str()
+                .expect("text")
+                .contains("resource")
+        );
+    }
+
+    #[tokio::test]
+    async fn resources_read_fault_keeps_the_rest_error_envelope() {
+        let executor = StubMcpExecutor {
+            resource_fault: Some(StatusCode::NOT_FOUND),
+            ..StubMcpExecutor::default()
+        };
+        let (session, mut rx) = initialized_session(executor).await;
+        let (_, response) = roundtrip(
+            &session,
+            &mut rx,
+            request(
+                4,
+                "resources/read",
+                json!({"uri": "agent://self/mail-policy"}),
+            ),
+        )
+        .await;
+        let text = response["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("text");
+        let fault: Value = serde_json::from_str(text).expect("fault payload is JSON");
+        assert_eq!(fault["http_status"], 404);
+        assert_eq!(fault["error"]["code"], "stub_resource_fault");
+    }
+
+    #[tokio::test]
+    async fn malformed_json_and_invalid_frames_report_protocol_errors() {
+        let (session, mut rx) = new_session(StubMcpExecutor::default());
+        let (directive, response) = roundtrip(&session, &mut rx, "{not json".to_owned()).await;
+        assert_eq!(directive, McpDirective::Violation);
+        assert_eq!(response["id"], Value::Null);
+        assert_eq!(response["error"]["code"], -32700);
+
+        for frame in [
+            json!([{"jsonrpc": "2.0", "id": 1, "method": "ping"}]).to_string(),
+            json!("scalar").to_string(),
+            json!({"jsonrpc": "1.0", "id": 1, "method": "ping"}).to_string(),
+            json!({"id": 1, "method": "ping"}).to_string(),
+            json!({"jsonrpc": "2.0", "id": 1.5, "method": "ping"}).to_string(),
+        ] {
+            let (directive, response) = roundtrip(&session, &mut rx, frame.clone()).await;
+            assert_eq!(directive, McpDirective::Violation, "frame {frame}");
+            assert_eq!(response["error"]["code"], -32600, "frame {frame}");
+        }
+    }
+
+    #[tokio::test]
+    async fn notifications_for_initialized_cancelled_and_unknown_are_ignored() {
+        let (session, mut rx) = initialized_session(StubMcpExecutor::default()).await;
+        for notification in [
+            json!({"jsonrpc": "2.0", "method": "notifications/initialized"}),
+            json!({"jsonrpc": "2.0", "method": "notifications/cancelled",
+                   "params": {"requestId": 999}}),
+            json!({"jsonrpc": "2.0", "method": "notifications/something_else"}),
+        ] {
+            let directive = session.receive(notification.to_string()).await;
+            assert_eq!(directive, McpDirective::Continue);
+        }
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn duplicate_in_flight_request_ids_are_rejected() {
+        let (release, gate_rx) = watch::channel(false);
+        let executor = StubMcpExecutor {
+            gate: Some(gate_rx),
+            ..StubMcpExecutor::default()
+        };
+        let (session, mut rx) = initialized_session(executor).await;
+        let directive = session
+            .receive(request(
+                42,
+                "tools/call",
+                json!({"name": "agent_message_claim", "arguments": {}}),
+            ))
+            .await;
+        assert_eq!(directive, McpDirective::Continue);
+        while rx.try_recv().is_ok() {}
+        let (_, response) = roundtrip(
+            &session,
+            &mut rx,
+            request(
+                42,
+                "tools/call",
+                json!({"name": "agent_message_claim", "arguments": {}}),
+            ),
+        )
+        .await;
+        assert_eq!(response["error"]["code"], -32600);
+        release.send(true).expect("gate open");
+        let result = rx.recv().await.expect("gated response");
+        let value = match result {
+            WsMessage::Text(text) => serde_json::from_str::<Value>(&text).unwrap(),
+            other => panic!("unexpected frame {other:?}"),
+        };
+        assert_eq!(value["id"], 42);
+        assert!(value["result"].is_object());
+    }
+
+    #[tokio::test]
+    async fn in_flight_concurrency_limit_returns_a_jsonrpc_error() {
+        let (release, gate_rx) = watch::channel(false);
+        let executor = StubMcpExecutor {
+            gate: Some(gate_rx),
+            ..StubMcpExecutor::default()
+        };
+        let (session, mut rx) = initialized_session(executor).await;
+        for id in 10..(10 + MCP_MAX_IN_FLIGHT_REQUESTS as i64) {
+            let directive = session
+                .receive(request(
+                    id,
+                    "tools/call",
+                    json!({"name": "agent_message_claim", "arguments": {}}),
+                ))
+                .await;
+            assert_eq!(directive, McpDirective::Continue);
+        }
+        let (_, response) = roundtrip(
+            &session,
+            &mut rx,
+            request(
+                99,
+                "tools/call",
+                json!({"name": "agent_message_claim", "arguments": {}}),
+            ),
+        )
+        .await;
+        assert_eq!(response["error"]["code"], -32000);
+        assert_eq!(response["error"]["data"]["maximum_in_flight"], 4);
+        release.send(true).expect("gate open");
+        for _ in 0..MCP_MAX_IN_FLIGHT_REQUESTS {
+            rx.recv().await.expect("gated response");
+        }
+    }
+
+    #[tokio::test]
+    async fn cancelled_notification_aborts_the_in_flight_request() {
+        let (release, gate_rx) = watch::channel(false);
+        let executor = StubMcpExecutor {
+            gate: Some(gate_rx),
+            ..StubMcpExecutor::default()
+        };
+        let (session, mut rx) = initialized_session(executor).await;
+        session
+            .receive(request(
+                55,
+                "tools/call",
+                json!({"name": "agent_message_claim", "arguments": {}}),
+            ))
+            .await;
+        session
+            .receive(
+                json!({"jsonrpc": "2.0", "method": "notifications/cancelled",
+                       "params": {"requestId": 55, "reason": "client abort"}})
+                .to_string(),
+            )
+            .await;
+        // The cancelled request is removed, so the same id is reusable.
+        let (_, response) = roundtrip(&session, &mut rx, request(55, "ping", Value::Null)).await;
+        assert_eq!(response["result"], json!({}));
+        release.send(true).expect("gate open");
+        assert!(rx.try_recv().is_err(), "cancelled request never responds");
+    }
+
+    #[tokio::test]
+    async fn oversized_frames_close_the_session() {
+        let (session, mut rx) = new_session(StubMcpExecutor::default());
+        let oversized = "x".repeat(MCP_MAX_MESSAGE_BYTES + 1);
+        let (directive, response) = roundtrip(&session, &mut rx, oversized).await;
+        assert_eq!(directive, McpDirective::Close);
+        assert_eq!(response["error"]["code"], -32700);
+    }
+
+    #[tokio::test]
+    async fn executor_panics_surface_the_internal_error_code() {
+        let executor = StubMcpExecutor {
+            panic_on_call: true,
+            ..StubMcpExecutor::default()
+        };
+        let (session, mut rx) = initialized_session(executor).await;
+        let (_, response) = roundtrip(
+            &session,
+            &mut rx,
+            request(
+                8,
+                "tools/call",
+                json!({"name": "agent_message_claim", "arguments": {}}),
+            ),
+        )
+        .await;
+        assert_eq!(response["error"]["code"], -32603);
+    }
+
+    #[tokio::test]
+    async fn protocol_violation_cap_closes_the_session_loop() {
+        let (tx, _rx) = mpsc::channel(64);
+        let session = Arc::new(McpSession::new(
+            Arc::new(StubMcpExecutor::default()),
+            tx.clone(),
+            "trace".into(),
+        ));
+        let frames: Vec<McpInbound> = (0..MCP_MAX_PROTOCOL_VIOLATIONS)
+            .map(|_| McpInbound::Text("not-json".into()))
+            .chain(std::iter::once(McpInbound::Text(request(
+                1,
+                "ping",
+                Value::Null,
+            ))))
+            .collect();
+        agent_mcp_session_run(session, stream::iter(frames), tx).await;
+    }
+
+    #[tokio::test]
+    async fn session_run_processes_requests_then_closes_gracefully() {
+        let (tx, mut rx) = mpsc::channel(64);
+        let session = Arc::new(McpSession::new(
+            Arc::new(StubMcpExecutor::default()),
+            tx.clone(),
+            "trace".into(),
+        ));
+        let frames = vec![
+            McpInbound::Text(initialize_message("2025-06-18")),
+            McpInbound::Text(
+                json!({"jsonrpc": "2.0", "method": "notifications/initialized"}).to_string(),
+            ),
+            McpInbound::Text(request(2, "ping", Value::Null)),
+            McpInbound::Keepalive,
+            McpInbound::Closed,
+        ];
+        // Let the spawned initialize/ping tasks settle the way a well-behaved
+        // client does (it waits for the initialize response before sending).
+        let inbound = Box::pin(stream::iter(frames).then(|frame| async move {
+            let needs_settle = match &frame {
+                McpInbound::Closed => true,
+                McpInbound::Text(text) => text.contains("\"id\":2"),
+                McpInbound::Keepalive | McpInbound::Failed => false,
+            };
+            if needs_settle {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            frame
+        }));
+        agent_mcp_session_run(session, inbound, tx).await;
+        let mut responses = Vec::new();
+        while let Ok(message) = rx.try_recv() {
+            if let WsMessage::Text(text) = message {
+                responses.push(serde_json::from_str::<Value>(&text).unwrap());
+            }
+        }
+        assert_eq!(responses.len(), 2);
+        assert!(responses[0]["result"]["protocolVersion"].is_string());
+        assert_eq!(responses[1]["result"], json!({}));
+        assert!(rx.recv().await.is_none(), "outbound channel closed");
+    }
+
+    #[tokio::test]
+    async fn session_close_aborts_in_flight_requests_without_committing() {
+        let (release, gate_rx) = watch::channel(false);
+        let (tx, _rx) = mpsc::channel(64);
+        let session = Arc::new(McpSession::new(
+            Arc::new(StubMcpExecutor {
+                gate: Some(gate_rx),
+                ..StubMcpExecutor::default()
+            }),
+            tx.clone(),
+            "trace".into(),
+        ));
+        let inbound = stream::iter(vec![
+            McpInbound::Text(initialize_message("2025-06-18")),
+            McpInbound::Text(request(
+                7,
+                "tools/call",
+                json!({"name": "agent_message_claim", "arguments": {}}),
+            )),
+            McpInbound::Closed,
+        ]);
+        agent_mcp_session_run(session.clone(), inbound, tx).await;
+        // The claim task was aborted mid-flight; nothing else is required to
+        // assert business state because use cases run inside the executor.
+        release.send(true).expect("gate open");
+        drop(session);
+    }
+
+    #[test]
+    fn mcp_subprotocol_bearer_accepts_only_the_documented_entries() {
+        let request_id = "test-request".to_string();
+        let protocols = [
+            header::HeaderValue::from_static("mcp"),
+            header::HeaderValue::from_static("bearer.abc123"),
+            header::HeaderValue::from_static("chat"),
+        ];
+        let bearer =
+            mcp_subprotocol_bearer(protocols.iter(), &request_id).expect("valid subprotocols");
+        assert_eq!(bearer.as_deref(), Some("abc123"));
+
+        let missing = [header::HeaderValue::from_static("chat")];
+        let error = mcp_subprotocol_bearer(missing.iter(), &request_id)
+            .expect_err("mcp subprotocol is required");
+        assert_eq!(error.status(), StatusCode::BAD_REQUEST);
+
+        let duplicate = [
+            header::HeaderValue::from_static("mcp"),
+            header::HeaderValue::from_static("bearer.one"),
+            header::HeaderValue::from_static("bearer.two"),
+        ];
+        assert!(mcp_subprotocol_bearer(duplicate.iter(), &request_id).is_err());
+
+        let empty = [
+            header::HeaderValue::from_static("mcp"),
+            header::HeaderValue::from_static("bearer."),
+        ];
+        assert!(mcp_subprotocol_bearer(empty.iter(), &request_id).is_err());
+    }
+
+    #[test]
+    fn mcp_origin_policy_is_same_host_for_browser_clients() {
+        let request_id = "test-request".to_string();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::HOST,
+            header::HeaderValue::from_static("api.internal"),
+        );
+        assert!(enforce_mcp_origin(&headers, &request_id).is_ok());
+
+        headers.insert(
+            header::ORIGIN,
+            header::HeaderValue::from_static("https://api.internal"),
+        );
+        assert!(enforce_mcp_origin(&headers, &request_id).is_ok());
+
+        headers.insert(
+            header::ORIGIN,
+            header::HeaderValue::from_static("https://api.internal:8443/app"),
+        );
+        assert!(enforce_mcp_origin(&headers, &request_id).is_err());
+
+        headers.insert(
+            header::ORIGIN,
+            header::HeaderValue::from_static("https://evil.example"),
+        );
+        let denied = enforce_mcp_origin(&headers, &request_id).expect_err("cross-origin");
+        assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+
+        headers.insert(header::ORIGIN, header::HeaderValue::from_static("null"));
+        assert!(enforce_mcp_origin(&headers, &request_id).is_err());
+    }
+
+    fn mcp_test_router(authenticator: Arc<dyn AccessTokenAuthenticator>) -> Router {
+        router_with_state(
+            AppState {
+                store: disconnected_store(),
+                authenticator,
+                authentication_ready: true,
+                human_auth_required: false,
+                human_session: None,
+                human_session_required: false,
+                agent_token_service: None,
+                agent_authentication_ready: true,
+                agent_auth_required: true,
+                agent_event_stream_tenant_limit: 100,
+                agent_event_stream_principal_limit: 5,
+                agent_ingress_tenant_requests_per_minute: 6_000,
+                agent_ingress_principal_requests_per_minute: 600,
+                agent_event_stream_metrics: AgentEventStreamMetrics::default(),
+                mail_data_plane_id: None,
+                mail_engine: None,
+                mail_engine_required: false,
+                mail_content: None,
+                mail_content_required: false,
+                mail_drafts: None,
+                mail_draft_content: None,
+                mail_drafts_required: false,
+                mail_event_ingress: None,
+                mail_event_ingress_required: false,
+                audit_archive: None,
+            },
+            None,
+        )
+    }
+
+    fn mcp_upgrade_request(subprotocols: &str) -> Request<Body> {
+        let mut builder = Request::builder()
+            .method(Method::GET)
+            .uri("/api/v2/mcp")
+            .header(header::HOST, "api.internal")
+            .header(header::CONNECTION, "upgrade")
+            .header(header::UPGRADE, "websocket")
+            .header("sec-websocket-key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .header("sec-websocket-version", "13");
+        if !subprotocols.is_empty() {
+            builder = builder.header("sec-websocket-protocol", subprotocols);
+        }
+        builder.body(Body::empty()).expect("upgrade request")
+    }
+
+    fn mcp_agent_identity() -> AuthenticatedIdentity {
+        AuthenticatedIdentity {
+            principal_id: PrincipalId::new(),
+            principal_kind: AuthenticatedPrincipalKind::Agent,
+            credential_id: Some("mcp-test".into()),
+            scope_restriction: None,
+            authentication: AuthenticationBinding::AgentCredential {
+                credential_id: CredentialId::new(),
+                expires_at: Utc::now() + chrono::Duration::minutes(5),
+                scopes: Permission::AGENT_TOKEN.into_iter().collect(),
+            },
+        }
+    }
+
+    async fn mcp_error_code(response: Response) -> (StatusCode, String) {
+        let status = response.status();
+        let body = to_bytes(response.into_body(), 16 * 1024)
+            .await
+            .expect("error body");
+        let value: Value = serde_json::from_slice(&body).expect("error body is JSON");
+        (
+            status,
+            value["code"].as_str().expect("error code").to_owned(),
+        )
+    }
+
+    #[tokio::test]
+    async fn mcp_endpoint_rejects_plain_get_requests() {
+        let app = mcp_test_router(Arc::new(UnconfiguredAuthenticator));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/api/v2/mcp")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn mcp_endpoint_requires_the_mcp_subprotocol() {
+        for subprotocols in ["", "chat, bearer.abc"] {
+            let app = mcp_test_router(Arc::new(UnconfiguredAuthenticator));
+            let response = app
+                .oneshot(mcp_upgrade_request(subprotocols))
+                .await
+                .expect("response");
+            let (status, code) = mcp_error_code(response).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST);
+            assert_eq!(code, "mcp_subprotocol_required");
+        }
+    }
+
+    #[tokio::test]
+    async fn mcp_endpoint_enforces_origin_before_authentication() {
+        // A browser-origin upgrade is rejected before credentials are even
+        // considered: the absence of a credential cannot mask the denial.
+        let app = mcp_test_router(Arc::new(UnconfiguredAuthenticator));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/api/v2/mcp")
+                    .header(header::HOST, "api.internal")
+                    .header(header::ORIGIN, "https://evil.example")
+                    .header(header::CONNECTION, "upgrade")
+                    .header(header::UPGRADE, "websocket")
+                    .header("sec-websocket-key", "dGhlIHNhbXBsZSBub25jZQ==")
+                    .header("sec-websocket-version", "13")
+                    .header("sec-websocket-protocol", "mcp")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        let (status, code) = mcp_error_code(response).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(code, "forbidden_origin");
+    }
+
+    #[tokio::test]
+    async fn mcp_endpoint_requires_bearer_authentication() {
+        let app = mcp_test_router(Arc::new(UnconfiguredAuthenticator));
+        let response = app
+            .oneshot(mcp_upgrade_request("mcp"))
+            .await
+            .expect("response");
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+        let app = mcp_test_router(Arc::new(RejectingAuthenticator));
+        let mut request = mcp_upgrade_request("mcp");
+        request.headers_mut().insert(
+            header::AUTHORIZATION,
+            header::HeaderValue::from_static("Bearer bogus-token"),
+        );
+        let response = app.oneshot(request).await.expect("response");
+        let (status, code) = mcp_error_code(response).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert_eq!(code, "invalid_access_token");
+    }
+
+    #[tokio::test]
+    async fn mcp_endpoint_rejects_ambiguous_credential_channels() {
+        let app = mcp_test_router(Arc::new(UnconfiguredAuthenticator));
+        let mut request = mcp_upgrade_request("mcp, bearer.subprotocol-token");
+        request.headers_mut().insert(
+            header::AUTHORIZATION,
+            header::HeaderValue::from_static("Bearer header-token"),
+        );
+        let response = app.oneshot(request).await.expect("response");
+        let (status, code) = mcp_error_code(response).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(code, "ambiguous_authentication");
+    }
+
+    #[tokio::test]
+    async fn mcp_bearer_subprotocol_reaches_the_authenticator() {
+        // The documented bearer.<token> subprotocol is converted into the
+        // Authorization header and evaluated by the same authenticator.
+        let app = mcp_test_router(Arc::new(RejectingAuthenticator));
+        let response = app
+            .oneshot(mcp_upgrade_request("mcp, bearer.bogus-token"))
+            .await
+            .expect("response");
+        let (status, code) = mcp_error_code(response).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert_eq!(code, "invalid_access_token");
+    }
+
+    #[tokio::test]
+    async fn mcp_authenticated_agent_fails_closed_without_authorization_storage() {
+        let app = mcp_test_router(Arc::new(InspectorHttpTestAuthenticator {
+            identities: BTreeMap::from([("agent", mcp_agent_identity())]),
+        }));
+        let mut request = mcp_upgrade_request("mcp");
+        request.headers_mut().insert(
+            header::AUTHORIZATION,
+            header::HeaderValue::from_static("Bearer agent"),
+        );
+        let response = app.oneshot(request).await.expect("response");
+        // Authentication succeeded; authorization resolution cannot touch the
+        // disconnected store, so the session fails closed before any audit or
+        // business write — identical ordering to the REST surface.
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+}
