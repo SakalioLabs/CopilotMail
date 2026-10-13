@@ -163,7 +163,10 @@
   }
   .button:enabled:hover { background-image: linear-gradient(var(--_hover), var(--_hover)); box-shadow: var(--_hover-shadow); }
   .button:enabled:active { background-image: linear-gradient(var(--_pressed), var(--_pressed)); box-shadow: none; transform: scale(0.97); }
-  .button:disabled { color: var(--cm-disabled-content); background-color: var(--cm-disabled-container); background-image: none; box-shadow: none; cursor: not-allowed; }
+  /* The focus ring lives in the primitives layer so the hover shadow above can
+     never cover it; layered rules would otherwise lose to reset's ring. */
+  .button:enabled:focus-visible { box-shadow: var(--cm-focus-ring); }
+  .button:disabled { color: var(--cm-disabled-content); background-color: var(--cm-disabled-container); box-shadow: none; cursor: not-allowed; }
   .button > svg,
   .app-nav-item > svg { width: var(--cm-icon-size); height: var(--cm-icon-size); flex: 0 0 auto; }
   .button--secondary { --_hover: var(--cm-info-hover); --_pressed: var(--cm-info-pressed); --_hover-shadow: none; border-color: var(--cm-line-strong); color: var(--cm-info); background-color: var(--cm-surface); }

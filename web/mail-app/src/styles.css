@@ -326,8 +326,12 @@ body,
   background-color: var(--cm-disabled-container);
 }
 
+/* transition-property limits animation to transform while focused so the ring
+   paints on the same style recalc instead of interpolating from the resting
+   shadow (box-shadow otherwise resolves to its start value until a frame
+   ticks, which made the keyboard-focus assertion read stale shadow-1). */
 .compose:focus-visible,
-.compose-fab:focus-visible { box-shadow: var(--cm-focus-ring); }
+.compose-fab:focus-visible { box-shadow: var(--cm-focus-ring); transition-property: transform; }
 
 .detail-back { display: none; }
 

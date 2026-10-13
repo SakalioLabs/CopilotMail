@@ -5799,7 +5799,7 @@ mod agent_mcp_tests {
                 mcp_call_args(&[
                     (
                         "subscription_id",
-                        &first["subscription_id"].as_str().unwrap(),
+                        first["subscription_id"].as_str().unwrap(),
                     ),
                     ("expected_status", "active"),
                     ("status", "paused"),
