@@ -95,13 +95,13 @@
 /* Match the Mail Shell's explicit list-detail stack breakpoint. */
 @media (max-width: 1007px) {
   .reading-actions .icon-button {
-    width: var(--mail-touch-target-size);
-    height: var(--mail-touch-target-size);
+    width: var(--mail-touch);
+    height: var(--mail-touch);
   }
 
   .detail-load-error button,
   .reply-action {
-    min-height: var(--mail-touch-target-size);
+    min-height: var(--mail-touch);
   }
 }
 

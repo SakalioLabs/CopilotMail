@@ -1,7 +1,7 @@
 :root {
   /* Compatibility alias for existing Mail selectors.  Its value stays owned
      by the shared design system, so Mail cannot create a second touch scale. */
-  --mail-touch-target-size: var(--cm-touch-target);
+  --mail-touch: var(--cm-touch-target);
   color: var(--cm-ink);
   background: var(--cm-canvas);
   font-family: var(--cm-font-sans);
@@ -244,7 +244,8 @@ body,
 }
 
 .mailbox-identity .context-bar__header { gap: 8px; }
-.mailbox-identity .context-bar__title { font-size: 0.82rem; }
+.mailbox-identity .context-bar__title,
+.composer-evidence__manual-review strong { font-size: 0.82rem; }
 .mailbox-identity .context-bar__status { max-width: 100%; }
 .mailbox-identity .context-bar__facts {
   grid-template-columns: minmax(0, 1fr);
@@ -290,7 +291,8 @@ body,
 /* Picker selects use the shared .control chrome; load-more actions use the
    shared .button--secondary chrome. Mail keeps only the in-flight cursor. */
 .mailbox-load-more:disabled,
-.load-more:disabled {
+.load-more:disabled,
+.error--actionable button:disabled {
   cursor: wait;
 }
 
@@ -393,7 +395,7 @@ body,
   background-color: var(--cm-info-soft);
   box-shadow: var(--cm-shadow-2);
   cursor: pointer;
-  transition: var(--cm-motion-interactive);
+  transition: var(--cm-motion-interactive), transform var(--cm-motion-spring-snappy);
 }
 
 .compose-fab:hover:not(:disabled) {
@@ -404,6 +406,7 @@ body,
 .compose-fab:active:not(:disabled) {
   background-image: linear-gradient(var(--cm-info-pressed), var(--cm-info-pressed));
   box-shadow: var(--cm-shadow-1);
+  transform: scale(0.92);
 }
 
 .compose-fab:disabled {
@@ -471,7 +474,7 @@ body,
 .mobile-mailbox-scope__summary {
   display: grid;
   min-width: 0;
-  min-height: var(--mail-touch-target-size);
+  min-height: var(--mail-touch);
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px 9px;
@@ -486,7 +489,7 @@ body,
 .mobile-mailbox-scope__summary-address { min-width: 0; overflow: hidden; color: var(--cm-muted-strong); font-size: 0.78rem; font-weight: 710; text-overflow: ellipsis; white-space: nowrap; }
 .mobile-mailbox-scope__summary-identity { justify-self: end; }
 .mobile-mailbox-scope__summary-status { min-width: 0; grid-column: 1; font-size: 0.72rem; }
-.mobile-mailbox-scope__summary-indicator { grid-column: 2; grid-row: 2; justify-self: end; color: var(--cm-muted); transition: transform var(--cm-duration-fast) ease; }
+.mobile-mailbox-scope__summary-indicator { grid-column: 2; grid-row: 2; justify-self: end; color: var(--cm-muted); transition: transform var(--cm-motion-spring-snappy); }
 .mobile-mailbox-scope[open] .mobile-mailbox-scope__summary-indicator { transform: rotate(180deg); }
 .mobile-mailbox-scope[open] .mobile-mailbox-scope__summary { border-bottom: 1px solid var(--cm-line); background: var(--cm-surface-subtle); }
 
@@ -505,7 +508,8 @@ body,
 }
 
 .mobile-mailbox-identity .context-bar__header { align-items: center; }
-.mobile-mailbox-identity .context-bar__title { font-size: 0.72rem; }
+.mobile-mailbox-identity .context-bar__title,
+.mobile-mailbox-identity .entity-badge { font-size: 0.72rem; }
 .mobile-mailbox-identity .context-bar__status { max-width: min(58%, 280px); }
 .mobile-mailbox-identity .context-bar__facts {
   grid-template-columns: minmax(0, 1fr) auto;
@@ -514,10 +518,6 @@ body,
 }
 .mobile-mailbox-identity .context-bar__label { font-size: 0.66rem; }
 .mobile-mailbox-identity .context-bar__value { font-size: 0.74rem; }
-.mobile-mailbox-identity .entity-badge {
-  font-size: 0.72rem;
-}
-
 .mobile-mailbox-identity .mailbox-identity__address {
   min-width: 0;
   font-size: 0.72rem;
@@ -529,8 +529,8 @@ body,
 
 .mobile-mailbox-picker { display: grid; margin: 0; }
 .mobile-mailbox-picker label { gap: 5px; }
-.mobile-mailbox-picker select { min-width: var(--mail-touch-target-size); min-height: var(--mail-touch-target-size); }
-.mobile-mailbox-picker .mailbox-load-more { width: fit-content; min-height: var(--mail-touch-target-size); }
+.mobile-mailbox-picker select { min-width: var(--mail-touch); min-height: var(--mail-touch); }
+.mobile-mailbox-picker .mailbox-load-more { width: fit-content; min-height: var(--mail-touch); }
 .mobile-mailbox-picker .mailbox-page-error { margin: 0; }
 
 .mobile-mailbox-scope__session-controls {
@@ -543,15 +543,15 @@ body,
 .mobile-mailbox-scope__session-controls .language-picker { width: 100%; margin: 0; }
 
 .mobile-mailbox-scope__session-controls .language-picker select {
-  min-width: var(--mail-touch-target-size);
-  min-height: var(--mail-touch-target-size);
+  min-width: var(--mail-touch);
+  min-height: var(--mail-touch);
 }
 
 /* The drawer sign-out reuses the shared .topbar-sign-out chrome; the hook
    only guarantees the touch target and ink colour inside the drawer. */
 .mobile-sign-out {
-  min-width: var(--mail-touch-target-size);
-  min-height: var(--mail-touch-target-size);
+  min-width: var(--mail-touch);
+  min-height: var(--mail-touch);
   color: var(--cm-ink);
 }
 
@@ -612,7 +612,7 @@ body,
   align-items: center;
   border-bottom: 1px solid var(--cm-line);
   background: var(--cm-surface);
-  transition: background var(--cm-duration-fast) ease, box-shadow var(--cm-duration-fast) ease;
+  transition: var(--cm-motion-interactive);
 }
 
 .message-row:hover {
@@ -847,7 +847,9 @@ body,
 
 .detail > div { width: min(100%, 760px); }
 
-.reading-header { min-width: 0; }
+.reading-header,
+.error--actionable > span,
+.composer-evidence__manual-review > div { min-width: 0; }
 
 .eyebrow {
   margin: 0 0 8px;
@@ -898,12 +900,8 @@ body,
   gap: var(--cm-space-3);
 }
 
-.error--actionable > span { min-width: 0; }
-.error--actionable button { flex: 0 0 auto; }
-
-.error--actionable button:disabled {
-  cursor: wait;
-}
+.error--actionable button,
+.composer footer button { flex: 0 0 auto; }
 
 .load-more { display: block; margin: var(--cm-space-5) auto var(--cm-space-6); }
 
@@ -935,6 +933,7 @@ body,
   border-radius: var(--cm-radius-panel) var(--cm-radius-panel) 0 0;
   background: var(--cm-surface);
   box-shadow: var(--cm-shadow-2);
+  animation: cm-surface-in var(--cm-motion-spring-gentle);
 }
 
 .dialog-layer > .composer { position: relative; right: auto; bottom: auto; }
@@ -1047,8 +1046,6 @@ body,
   border-radius: var(--cm-radius-control);
 }
 
-.composer-evidence__manual-review > div { min-width: 0; }
-.composer-evidence__manual-review strong { font-size: 0.82rem; }
 .composer-evidence__manual-review p {
   margin: 3px 0 0;
   color: var(--cm-muted-strong);
@@ -1106,20 +1103,6 @@ body,
 
 /* The send action uses the shared primary .button; Mail only keeps its
    placement inside the composer footer. */
-.composer footer button {
-  flex: 0 0 auto;
-}
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
 
 /*
  * Between 1008px and 1279px the same rail stays visible but runs narrower so
@@ -1179,10 +1162,6 @@ body,
     margin: 0 var(--cm-space-3) var(--cm-space-3);
   }
 
-  .mail-shell--directory > .inbox {
-    margin: 0 var(--cm-space-3) var(--cm-space-3);
-  }
-
   .mail-shell > .detail {
     display: none;
     margin: 0 var(--cm-space-3) var(--cm-space-3);
@@ -1193,17 +1172,17 @@ body,
 
   .detail { padding: 22px clamp(18px, 5vw, 40px) 40px; }
   .detail > div { margin-inline: auto; }
-  .detail-back { display: inline-flex; min-width: var(--mail-touch-target-size); min-height: var(--mail-touch-target-size); margin: 0 0 18px; }
+  .detail-back { display: inline-flex; min-width: var(--mail-touch); min-height: var(--mail-touch); margin: 0 0 18px; }
 
   .mail-topbar .icon-button,
   .inbox-header .inbox-refresh,
   .message__flag,
   .composer .dialog__header .icon-button,
   .command-palette__close {
-    width: var(--mail-touch-target-size);
-    min-width: var(--mail-touch-target-size);
-    height: var(--mail-touch-target-size);
-    min-height: var(--mail-touch-target-size);
+    width: var(--mail-touch);
+    min-width: var(--mail-touch);
+    height: var(--mail-touch);
+    min-height: var(--mail-touch);
   }
 
   .mail-access__action,
@@ -1218,31 +1197,31 @@ body,
   .composer footer button,
   .command-palette__search input,
   .command-palette__command {
-    min-height: var(--mail-touch-target-size);
+    min-height: var(--mail-touch);
   }
 
   .mail-topbar .topbar-sign-out {
-    min-width: var(--mail-touch-target-size);
-    min-height: var(--mail-touch-target-size);
+    min-width: var(--mail-touch);
+    min-height: var(--mail-touch);
   }
 
   .mail-topbar .language-picker select {
-    min-height: var(--mail-touch-target-size);
+    min-height: var(--mail-touch);
   }
 
   .composer input {
-    min-height: var(--mail-touch-target-size);
+    min-height: var(--mail-touch);
   }
 
   .composer-recipients summary {
     display: flex;
-    min-height: var(--mail-touch-target-size);
+    min-height: var(--mail-touch);
     align-items: center;
   }
 
   .messages > .message-row > .message,
   .messages > .draft-item {
-    min-height: var(--mail-touch-target-size);
+    min-height: var(--mail-touch);
   }
 
   .directory-hint,
@@ -1266,7 +1245,7 @@ body,
  */
 @media (max-width: 768px) {
   .mail-topbar { padding: 0 var(--cm-space-3) 0 var(--cm-space-2); }
-  .mail-topbar__session { display: none; }
+  .mail-topbar__session,
   .mail-topbar__start .app-wordmark { display: none; }
 }
 
@@ -1338,15 +1317,15 @@ body,
   .detail-back,
   .mobile-sign-out,
   .mail-nav-drawer button {
-    min-height: var(--mail-touch-target-size);
+    min-height: var(--mail-touch);
   }
 
   .mail-shell .mail-search input {
-    min-height: var(--mail-touch-target-size);
+    min-height: var(--mail-touch);
   }
 
   .mobile-mailbox-picker .mailbox-load-more {
-    width: var(--mail-touch-target-size);
-    min-width: var(--mail-touch-target-size);
+    width: var(--mail-touch);
+    min-width: var(--mail-touch);
   }
 }

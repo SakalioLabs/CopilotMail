@@ -63,7 +63,7 @@ afterEach(cleanup);
 
 describe("mobile touch target contract", () => {
   it("defines 44px controls inside the viewport breakpoint, independent of pointer type", () => {
-    expect(mailStyles).toContain("--mail-touch-target-size: var(--cm-touch-target);");
+    expect(mailStyles).toContain("--mail-touch: var(--cm-touch-target);");
 
     const mobileMailStyles = mediaBlock(mailStyles, "(max-width: 1007px)");
     expect(selectorRule(mobileMailStyles, ".mail-topbar__menu")).toContain(
@@ -73,34 +73,34 @@ describe("mobile touch target contract", () => {
     // Drawer scope chrome keeps its 44px floor as base styles because the
     // drawer only ever opens below the mobile breakpoint.
     expect(selectorRule(mailStyles, ".mobile-mailbox-scope__summary")).toContain(
-      "min-height: var(--mail-touch-target-size);",
+      "min-height: var(--mail-touch);",
     );
     expect(selectorRule(mobileMailStyles, ".mail-nav-drawer button")).toContain(
-      "min-height: var(--mail-touch-target-size);",
+      "min-height: var(--mail-touch);",
     );
     expect(selectorRule(mailStyles, ".mobile-mailbox-picker select")).toContain(
-      "min-width: var(--mail-touch-target-size);",
+      "min-width: var(--mail-touch);",
     );
     expect(selectorRule(mailStyles, ".mobile-mailbox-picker select")).toContain(
-      "min-height: var(--mail-touch-target-size);",
+      "min-height: var(--mail-touch);",
     );
     expect(selectorRule(
       mailStyles,
       ".mobile-mailbox-scope__session-controls .language-picker select",
     )).toContain(
-      "min-width: var(--mail-touch-target-size);",
+      "min-width: var(--mail-touch);",
     );
     expect(selectorRule(
       mailStyles,
       ".mobile-mailbox-scope__session-controls .language-picker select",
     )).toContain(
-      "min-height: var(--mail-touch-target-size);",
+      "min-height: var(--mail-touch);",
     );
     expect(selectorRule(mobileMailStyles, ".detail-back")).toContain(
-      "min-width: var(--mail-touch-target-size);",
+      "min-width: var(--mail-touch);",
     );
     expect(selectorRule(mobileMailStyles, ".detail-back")).toContain(
-      "min-height: var(--mail-touch-target-size);",
+      "min-height: var(--mail-touch);",
     );
     for (const selector of [
       ".mail-topbar .icon-button",
@@ -110,10 +110,10 @@ describe("mobile touch target contract", () => {
       ".command-palette__close",
     ]) {
       expect(selectorRule(mobileMailStyles, selector)).toContain(
-        "width: var(--mail-touch-target-size);",
+        "width: var(--mail-touch);",
       );
       expect(selectorRule(mobileMailStyles, selector)).toContain(
-        "height: var(--mail-touch-target-size);",
+        "height: var(--mail-touch);",
       );
     }
     for (const selector of [
@@ -129,48 +129,48 @@ describe("mobile touch target contract", () => {
       ".messages > .draft-item",
     ]) {
       expect(selectorRule(mobileMailStyles, selector)).toContain(
-        "min-height: var(--mail-touch-target-size);",
+        "min-height: var(--mail-touch);",
       );
     }
     expect(selectorRule(mobileMailStyles, ".mail-topbar .topbar-sign-out")).toContain(
-      "min-width: var(--mail-touch-target-size);",
+      "min-width: var(--mail-touch);",
     );
     expect(selectorRule(mobileMailStyles, ".mail-topbar .topbar-sign-out")).toContain(
-      "min-height: var(--mail-touch-target-size);",
+      "min-height: var(--mail-touch);",
     );
     expect(selectorRule(mobileMailStyles, ".mail-topbar .language-picker select")).toContain(
-      "min-height: var(--mail-touch-target-size);",
+      "min-height: var(--mail-touch);",
     );
     expect(selectorRule(mobileMailStyles, ".composer input")).toContain(
-      "min-height: var(--mail-touch-target-size);",
+      "min-height: var(--mail-touch);",
     );
     expect(selectorRule(mobileMailStyles, ".composer-recipients summary")).toContain(
-      "min-height: var(--mail-touch-target-size);",
+      "min-height: var(--mail-touch);",
     );
 
     const mobileSearchStyles = mediaBlock(searchStyles, "(max-width: 1007px)");
     expect(selectorRule(mobileSearchStyles, ".mail-search input")).toContain(
-      "min-height: var(--mail-touch-target-size);",
+      "min-height: var(--mail-touch);",
     );
     expect(selectorRule(mobileSearchStyles, ".mail-search .icon-button")).toContain(
-      "width: var(--mail-touch-target-size);",
+      "width: var(--mail-touch);",
     );
     expect(selectorRule(mobileSearchStyles, ".mail-search .icon-button")).toContain(
-      "height: var(--mail-touch-target-size);",
+      "height: var(--mail-touch);",
     );
 
     const mobileDetailStyles = mediaBlock(detailStyles, "(max-width: 1007px)");
     expect(selectorRule(mobileDetailStyles, ".reading-actions .icon-button")).toContain(
-      "width: var(--mail-touch-target-size);",
+      "width: var(--mail-touch);",
     );
     expect(selectorRule(mobileDetailStyles, ".reading-actions .icon-button")).toContain(
-      "height: var(--mail-touch-target-size);",
+      "height: var(--mail-touch);",
     );
     expect(selectorRule(mobileDetailStyles, ".detail-load-error button")).toContain(
-      "min-height: var(--mail-touch-target-size);",
+      "min-height: var(--mail-touch);",
     );
     expect(selectorRule(mobileDetailStyles, ".reply-action")).toContain(
-      "min-height: var(--mail-touch-target-size);",
+      "min-height: var(--mail-touch);",
     );
   });
 

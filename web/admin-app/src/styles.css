@@ -1,6 +1,6 @@
 #root { min-height: 100vh; }
 
-h1, h2, h3, p { margin-top: 0; }
+h1, h2, h3, p, .retention-evidence, .audit-evidence-detail .evidence-section { margin-top: 0; }
 h1 { margin-bottom: 7px; font-size: clamp(1.7rem, 2.5vw, 2.3rem); letter-spacing: -0.04em; line-height: 1.08; }
 h2 { letter-spacing: -0.025em; }
 p { color: var(--cm-muted); line-height: 1.55; }
@@ -30,7 +30,7 @@ code, .mono { font-family: var(--cm-font-mono); overflow-wrap: anywhere; }
 .admin-topbar__session { display: flex; min-width: 0; flex: 0 0 auto; align-items: center; gap: var(--cm-space-2); }
 .admin-topbar__search { min-width: 140px; margin-inline: var(--cm-space-3) var(--cm-space-2); }
 .admin-topbar__search-icon { flex: 0 0 auto; margin-left: var(--cm-space-3); color: var(--cm-muted); }
-.admin-topbar__session { margin-left: auto; }
+.admin-topbar__session, .toolbar > .button { margin-left: auto; }
 .auth-card__wordmark { margin-bottom: 18px; }
 .sidebar { position: sticky; top: var(--admin-topbar-block, 64px); height: calc(100dvh - var(--admin-topbar-block, 64px)); min-height: 0; padding: var(--cm-space-2) var(--cm-space-2) var(--cm-space-4); display: flex; flex-direction: column; overflow-y: auto; }
 .role-approval-resource small,
@@ -47,7 +47,7 @@ code, .mono { font-family: var(--cm-font-mono); overflow-wrap: anywhere; }
 .adaptive-nav-drawer__session { margin-top: var(--cm-space-5); padding-top: var(--cm-space-4); border-top: 1px solid var(--cm-line); }
 .adaptive-nav-drawer__session .sidebar__footer { margin: 0; padding: 0; border: 0; display: grid; gap: var(--cm-space-3); }
 .sidebar__footer { margin-top: auto; padding: 15px 8px 0; border-top: 1px solid var(--cm-line); display: grid; gap: 9px; color: var(--cm-muted); font-size: 0.74rem; }
-.sidebar__tenant { min-width: 0; }
+
 .sidebar__tenant,
 .admin-navigation__group,
 .approval-context-resource,
@@ -78,7 +78,6 @@ code, .mono { font-family: var(--cm-font-mono); overflow-wrap: anywhere; }
 .page-heading p:not(.eyebrow), .view-heading p:not(.eyebrow) { max-width: 700px; margin-bottom: 0; }
 .toolbar { min-height: 64px; margin-bottom: 14px; padding: var(--cm-space-3); border: 1px solid var(--cm-line); border-radius: var(--cm-radius-panel); display: flex; align-items: end; gap: 10px; background: var(--cm-surface); box-shadow: var(--cm-shadow-1); }
 .toolbar .field { min-width: 172px; }
-.toolbar > .button { margin-left: auto; }
 .filter-chip { min-height: 38px; padding: 0 7px 0 11px; border: 1px solid var(--cm-line-strong); border-radius: var(--cm-radius-control); display: flex; align-items: center; gap: 8px; color: var(--cm-muted-strong); background: var(--cm-surface-subtle); font-size: 0.76rem; }
 .filter-chip button { width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--cm-radius-pill); color: inherit; background: transparent; cursor: pointer; }
 .filter-chip button:hover { color: var(--cm-ink); background: var(--cm-state-pressed); }
@@ -90,7 +89,7 @@ table { width: 100%; border-collapse: collapse; }
 th, td { padding: 12px 14px; border-bottom: 1px solid var(--cm-line); text-align: left; vertical-align: middle; }
 th { color: var(--cm-muted); background: var(--cm-surface-subtle); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; }
 td { max-width: 280px; color: var(--cm-muted-strong); font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-tbody tr { cursor: pointer; transition: background var(--cm-duration-fast) ease; }
+tbody tr { cursor: pointer; transition: var(--cm-motion-interactive); }
 tbody tr:hover { background: var(--cm-state-hover); }
 tbody tr.is-selected { background: var(--cm-info-soft); box-shadow: inset 3px 0 var(--cm-info); }
 tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
@@ -111,7 +110,7 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
 .admin-list-detail__back { display: none; }
 .admin-list-detail__context > :last-child { margin-bottom: 7px; }
 .admin-list-detail__title:focus { border-radius: 4px; outline: 2px solid var(--cm-agent); outline-offset: 4px; }
-.admin-list-detail__trailing { flex: 0 0 auto; }
+.admin-list-detail__trailing, .agent-inspector-error .button { flex: 0 0 auto; }
 
 /* Cases and legal holds keep the same fact → decision → evidence reading
    order. Every value is already present in the selected DTO; this surface
@@ -120,7 +119,8 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
 .case-hold-workspace { display: grid; min-width: 0; gap: 18px; }
 .case-hold-facts,
 .case-hold-decision,
-.agent-inspector-id-field { min-width: 0; }
+.agent-inspector-id-field,
+.sidebar__tenant { min-width: 0; }
 .case-hold-facts h3,
 .case-hold-decision h3,
 .case-hold-confirmation h2 { margin: 0 0 8px; color: var(--cm-ink); font-size: 0.94rem; line-height: 1.35; }
@@ -131,7 +131,7 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
 .case-hold-fact-list dt { margin-top: 10px; }
 .case-hold-fact-list dd { min-width: 0; overflow-wrap: anywhere; }
 .case-hold-confirmation { display: grid; gap: 13px; padding: 13px 14px; border: 1px solid var(--cm-line); border-radius: var(--cm-radius-control); background: var(--cm-surface-subtle); }
-.case-hold-confirmation h2 { margin-bottom: 0; }
+.case-hold-confirmation h2, .overview-heading, .approval-decision-boundary > .approval-section-heading { margin-bottom: 0; }
 .case-hold-confirmation__reason,
 .case-hold-confirmation__impact { margin: 0; color: var(--cm-muted-strong); font-size: 0.82rem; line-height: 1.55; }
 .case-hold-confirmation__reason strong,
@@ -162,7 +162,7 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
    independently readable source facts below it. It is not a generic KPI grid:
    loading, denial, and failure remain visible facts rather than visual zeroes. */
 .overview-workbench { display: grid; gap: var(--cm-space-6); }
-.overview-heading { min-height: 0; margin-bottom: 0; }
+.overview-heading { min-height: 0; }
 .overview-decision { min-width: 0; padding: clamp(24px, 4vw, 48px); border: 1px solid var(--cm-line-strong); border-top: 3px solid var(--cm-agent); background: var(--cm-surface); box-shadow: var(--cm-shadow-1); }
 .overview-decision .eyebrow { margin-bottom: var(--cm-space-3); }
 .overview-decision h2 { max-width: 22ch; margin: 0; color: var(--cm-ink); font-size: clamp(1.35rem, 2.4vw, 2.05rem); letter-spacing: -0.045em; line-height: 1.14; }
@@ -208,7 +208,6 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
 .agent-inspector-lookup .control[aria-invalid="true"] { border-color: var(--cm-critical); }
 .agent-inspector-validation { margin: 7px 0 0; color: var(--cm-critical); font-size: 0.78rem; font-weight: 700; line-height: 1.45; }
 .agent-inspector-error { align-items: flex-start; }
-.agent-inspector-error .button { flex: 0 0 auto; }
 .agent-inspector-last-confirmed { margin: 7px 0 0; color: var(--cm-muted-strong); font-size: 0.79rem; line-height: 1.5; }
 .agent-inspector-context,
 .retention-context,
@@ -257,7 +256,7 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
 .retention-activation-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; }
 .retention-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .retention-submit { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 14px; }
-.retention-evidence { margin-top: 0; }
+
 .retention-evidence-version { display: grid; gap: 9px; padding-top: 13px; border-top: 1px solid var(--cm-line); }
 .retention-evidence-version h3,
 .approval-decision h4,
@@ -332,7 +331,6 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
 .approval-fact-list dd { color: var(--cm-ink); font-size: 0.82rem; line-height: 1.45; }
 .approval-fact-list code,
 .approval-step-facts code { white-space: pre-wrap; overflow-wrap: anywhere; }
-.approval-decision-boundary > .approval-section-heading { margin-bottom: 0; }
 .approval-decision { display: grid; gap: 12px; padding-top: 16px; border-top: 1px solid var(--cm-line); }
 .approval-decision textarea { width: 100%; min-height: 88px; padding: 10px 12px; resize: vertical; border: 1px solid var(--cm-control-border); border-radius: var(--cm-radius-control); color: var(--cm-ink); background: var(--cm-surface); font: inherit; }
 .approval-decision > div { margin-top: 10px; display: flex; justify-content: flex-end; gap: 8px; }
@@ -360,7 +358,32 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
 .role-approval-resource p { margin: 0; color: var(--cm-muted-strong); font-size: 0.74rem; }
 .role-filter { margin-bottom: 16px; display: grid; grid-template-columns: minmax(250px, 1fr) auto auto; gap: 12px; align-items: end; }
 .checkbox-field { min-height: 40px; display: flex; align-items: center; gap: 8px; color: var(--cm-ink); font-size: 0.79rem; }
-.checkbox-field input { width: 16px; height: 16px; accent-color: var(--cm-agent); }
+/* iOS-style switch: the checkbox keeps its native role and name, only the
+   chrome becomes a 44×26 pill track with a spring-loaded thumb. */
+.checkbox-field input {
+  appearance: none;
+  width: 44px;
+  height: 26px;
+  flex: 0 0 auto;
+  margin: 0;
+  border-radius: var(--cm-radius-pill);
+  background: var(--cm-line-strong);
+  transition: var(--cm-motion-interactive);
+}
+.checkbox-field input::before {
+  content: "";
+  display: block;
+  width: 20px;
+  height: 20px;
+  margin: 3px;
+  border-radius: 50%;
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-1);
+  transition: transform var(--cm-motion-spring-snappy);
+}
+.checkbox-field input:checked { background: var(--cm-agent); }
+.checkbox-field input:checked::before { transform: translateX(18px); }
+.checkbox-field input:disabled { opacity: 0.45; cursor: not-allowed; }
 .role-assignment-list { display: grid; gap: 8px; }
 .role-assignment-row { padding: 13px; border: 1px solid var(--cm-line); border-radius: var(--cm-radius-control); display: grid; grid-template-columns: minmax(180px, 0.9fr) minmax(280px, 1.2fr) auto auto; gap: 14px; align-items: center; background: var(--cm-surface); }
 .role-assignment-row strong, .role-assignment-row p { display: block; margin: 0; }
@@ -371,8 +394,8 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
 .audit-filter-heading { margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .audit-filter-heading strong { color: var(--cm-ink); font-size: 0.88rem; }
 .audit-filter-heading p { max-width: 72ch; margin: 4px 0 0; font-size: 0.77rem; }
-.preset-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; }
-.preset-buttons .button { min-height: 32px; padding: 0 10px; font-size: 0.75rem; }
+.preset-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0; padding: 2px; border-radius: var(--cm-radius-pill); background: var(--cm-surface-subtle); }
+.preset-buttons .button { min-height: 30px; padding: 0 12px; border-radius: var(--cm-radius-pill); font-size: 0.75rem; }
 .audit-time-grid { display: grid; grid-template-columns: repeat(2, minmax(190px, 1fr)) minmax(150px, 0.55fr); gap: 12px; }
 .advanced-filters { margin-top: 14px; border-top: 1px solid var(--cm-line); }
 .advanced-filters summary { padding: 12px 0; color: var(--cm-muted-strong); font-size: 0.79rem; font-weight: 750; cursor: pointer; }
@@ -396,7 +419,6 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
 .audit-detail-section-heading { margin-bottom: 13px; }
 .audit-detail-section-heading h3 { margin: 0; color: var(--cm-ink); font-size: 0.9rem; }
 .audit-detail-section-heading p { margin: 5px 0 0; font-size: 0.77rem; }
-.audit-evidence-detail .evidence-section { margin-top: 0; }
 .evidence-section { margin-top: 17px; }
 .evidence-section dl { padding-bottom: 4px; }
 .evidence-section pre { max-height: 320px; margin: 0 0 6px; padding: 13px; overflow: auto; border: 1px solid var(--cm-line); border-radius: var(--cm-radius-control); color: var(--cm-muted-strong); background: var(--cm-surface-subtle); font-size: 0.72rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -406,13 +428,16 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
 .notice--error { margin-bottom: 16px; border-color: var(--cm-critical); color: var(--cm-critical); background: var(--cm-critical-soft); }
 .notice--error :is(strong, p, small) { margin-bottom: 4px; }
 .form-grid .notice--error { margin: 0; }
-.toast { position: fixed; right: var(--cm-space-5); bottom: var(--cm-space-5); z-index: var(--cm-z-toast); max-width: min(430px, calc(100vw - var(--cm-space-10))); padding: var(--cm-space-3) var(--cm-space-4); border-radius: var(--cm-radius-control); display: flex; align-items: center; gap: 8px; color: var(--cm-surface); background: var(--cm-ink); box-shadow: var(--cm-shadow-2); font-size: 0.83rem; font-weight: 700; }
+.toast { position: fixed; right: var(--cm-space-5); bottom: var(--cm-space-5); z-index: var(--cm-z-toast); max-width: min(430px, calc(100vw - var(--cm-space-10))); padding: var(--cm-space-3) var(--cm-space-4); border-radius: var(--cm-radius-control); display: flex; align-items: center; gap: 8px; color: var(--cm-surface); background: var(--cm-ink); box-shadow: var(--cm-shadow-2); font-size: 0.83rem; font-weight: 700; animation: cm-surface-in var(--cm-motion-spring-gentle); }
+
+/* Side drawers slide in on X rather than sharing the dialog's Y entrance. */
+@keyframes cm-drawer-in { from { opacity: 0; transform: translateX(-14px); } }
 
 @media (max-width: 1280px) {
   .audit-results { grid-template-columns: 1fr; }
   .audit-detail { max-height: none; }
   .audit-results > .audit-detail { position: static; }
-  .agent-inspector-context .context-bar__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .agent-inspector-context .context-bar__facts,
   .agent-inspector-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
@@ -425,7 +450,7 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
   .sidebar > .sidebar__footer { display: none; }
   .mobile-navigation-context { display: flex; }
   .adaptive-nav-backdrop { padding: 0; place-items: stretch start; }
-  .dialog.adaptive-nav-drawer { width: min(360px, calc(100vw - 32px)); min-height: 100dvh; max-height: 100dvh; align-self: stretch; border: 0; border-right: 1px solid var(--cm-line); border-radius: 0; }
+  .dialog.adaptive-nav-drawer { width: min(360px, calc(100vw - 32px)); min-height: 100dvh; max-height: 100dvh; align-self: stretch; border: 0; border-right: 1px solid var(--cm-line); border-radius: 0; animation: cm-drawer-in var(--cm-motion-spring-gentle); }
   .adaptive-nav-drawer .dialog__header { padding: var(--cm-space-4) var(--cm-space-5); }
   .adaptive-nav-drawer__body { padding: var(--cm-space-5); }
   .admin-navigation--drawer button { min-height: var(--cm-touch-target); }
@@ -480,17 +505,15 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
   .approval-create-form { grid-template-columns: 1fr; }
   .approval-create-form__actions { flex-direction: column-reverse; }
   .approval-create-success { flex-direction: column; }
-  .approval-fact-list, .approval-step-facts { grid-template-columns: 1fr; gap: 5px; }
+  .approval-fact-list, .approval-step-facts, .retention-create-summary, .agent-inspector-fact { grid-template-columns: 1fr; gap: 5px; }
   .approval-fact-list dd + dt, .approval-step-facts dd + dt { margin-top: 7px; }
   .toolbar > .button { margin-left: 0; }
   .overview-fact-grid { grid-template-columns: 1fr; }
-  .retention-create-summary { grid-template-columns: 1fr; gap: 5px; }
   .retention-create-summary dd + dt { margin-top: 8px; }
   .audit-filter-heading { align-items: flex-start; flex-direction: column; }
   .preset-buttons { justify-content: flex-start; }
   .audit-time-grid, .advanced-filter-grid, .audit-export-grid, .agent-inspector-lookup form, .retention-lookup, .retention-versions, .retention-decision-layout, .retention-activation-form, .retention-form,
   .role-catalog, .role-grant-form, .role-filter, .role-assignment-row { grid-template-columns: 1fr; }
-  .agent-inspector-fact { grid-template-columns: 1fr; gap: 5px; }
   .page-heading > .button,
   .approval-heading-actions .button,
   .approval-create-form__actions .button,
@@ -525,5 +548,4 @@ tbody tr.is-selected .table-subline { color: var(--cm-muted-strong); }
   .icon-button, .filter-chip button { width: 44px; height: 44px; }
   .filter-chip { min-height: 44px; }
   .row-button { display: inline-flex; align-items: center; }
-  .checkbox-field input { width: 24px; height: 24px; }
 }

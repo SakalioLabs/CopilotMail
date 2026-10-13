@@ -12,11 +12,11 @@
 /* Match the Mail Shell's explicit list-detail stack breakpoint. */
 @media (max-width: 1007px) {
   .mail-search input {
-    min-height: var(--mail-touch-target-size);
+    min-height: var(--mail-touch);
   }
 
   .mail-search .icon-button {
-    width: var(--mail-touch-target-size);
-    height: var(--mail-touch-target-size);
+    width: var(--mail-touch);
+    height: var(--mail-touch);
   }
 }
