@@ -30,6 +30,29 @@ implementation evidence remains in
 - Governed mail-domain lifecycle, DNS verification, Stalwart adapter boundary,
   WORM audit archives, Legal Hold, retention policies, and two-person
   approvals.
+- Owner-private orphan-draft detection: a content-free
+  `mail_draft_creation_attempts` row is appended before every remote provider
+  draft write and reconciled inside the same transaction that persists local
+  draft metadata. `GET /api/v2/draft-attempts` (Human Mail Session only)
+  returns the caller's own unreconciled attempts — attempt, mailbox, and local
+  draft UUIDs plus the database-stamped attempt time, never content,
+  recipients, provider references, or secrets — behind a final
+  authorization/ownership recheck and the dedicated
+  `mail.draft_attempts.queried` Audit/Outbox commit. Shared-mailbox membership
+  never widens the list, HEAD is rejected, and no remote enumeration or
+  cleanup path exists.
+- Self-service device list: `GET /api/v2/auth/{client}/sessions` returns the
+  caller's own still-active browser sessions (session UUID, client key,
+  created/expires times, and a `current` flag) after the cookie is resolved to
+  the presenting principal. Only persisted non-secret attributes cross the
+  contract; opaque tokens, PKCE material, and IdP-side device sessions do not,
+  and no per-device revocation is offered.
+- Platform-operations login-failure ledger: `human_login_failures` is an
+  append-only control-plane table recording only a closed reason code, the
+  client key, the database-stamped time, and an optional deployment-salted
+  one-way digest of the request source. Login rejection paths append
+  best-effort entries that prune expired rows in bounded batches; the only
+  read surface is a read-only CLI behind control-plane database credentials.
 - Docker development/Pilot delivery, observability overlay, backup/restore
   verifier, and security governance checks.
 
@@ -94,6 +117,11 @@ implementation evidence remains in
   verified retrieval in the immutable audit/outbox chain.
 - The Web build chain pins patched `nanoid` 3.3.18, resolving
   GHSA-2v37-7h3g-55p8 in the prior transitive dependency.
+- The login-failure ledger can never carry OAuth parameters, cookies, tokens,
+  PKCE material, `return_to` values, e-mail addresses, or plaintext client
+  metadata; updates and truncation are always rejected, deletes only pass for
+  rows past the 30-day retention horizon, and it is never joined to tenant
+  `audit_events` or exposed to the tenant admin UI.
 
 ### Known acceptance boundaries
 

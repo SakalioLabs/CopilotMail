@@ -146,6 +146,9 @@ Human 状态与 Agent 状态严格分离：
   关键词且 From 等于授权邮箱；任一条件不符都不会执行 `Email/set`；
 - 前端以 1.2 秒防抖、严格串行的方式自动保存，每次只用上一成功的 Draft UUID 与
   版本继续替换；
+- 远端创建写入之前，服务端先向 `mail_draft_creation_attempts` 追加一条无内容
+  的创建尝试（不含正文、收件人、Provider 引用或秘密）；本地草稿元数据在同一
+  事务中落库时把该尝试标记为已对账，未对账行即本人可对账的孤儿草稿证据；
 - JMAP 部分成功时返回新草稿，并通过 `previous_draft_destroyed=false` 明确提示旧版本
   未清理，避免把已成功创建误判为失败后盲目重试。
 
@@ -178,8 +181,23 @@ Human 状态与 Agent 状态严格分离：
 - `mail.drafts.queried` 只记录邮箱 resource、页大小、结果数和 `has_more`；
   `mail.draft.read` 只记录邮箱/草稿安全 UUID、版本、正文 UTF-8 字节数、收件人数和
   是否为回复。两者均不记录正文、主题、地址、Cursor 或 Provider 引用；
-- 草稿恢复不会枚举、采用或删除 PostgreSQL 未知的远端草稿。孤儿检测与受治理清理仍是
-  后续独立能力。
+- 草稿恢复不会枚举、采用或删除 PostgreSQL 未知的远端草稿。孤儿草稿的本人
+  可见检测已实现（见下）；受治理清理与远端 Drafts 枚举仍是后续独立能力。
+
+`GET /api/v2/draft-attempts` 提供本人私有的孤儿草稿检测目录：
+
+- 只接受 Human Mail Session，并要求 Active Human 与 `mailbox.use`；Admin
+  Cookie、Bearer 与失效主体不能进入；HEAD 被显式拒绝为 405；
+- 目录只返回调用人在本租户全部邮箱中 `created_by` 等于本人且尚未对账的
+  草稿创建尝试，每项只有尝试 UUID、邮箱 UUID、本地 Draft UUID 与数据库时钟
+  的尝试时间；不返回主题、正文、地址、Provider Account/Email/Thread 引用或
+  任何秘密。Shared Mailbox 成员关系不会扩大到其他 Principal 的尝试（MAIL-06）；
+- 结果按尝试 UUID 倒序稳定分页，单页默认 25、最大 50，只接受 canonical
+  `v1.<lowercase UUID>` Cursor；锚点不再可见时整页拒绝；
+- 披露前在新事务按数据库当前时间复核主体、RBAC 与当页每个尝试 UUID 的本人
+  可见性，并与专用 `mail.draft_attempts.queried` Audit/Outbox 原子提交；
+- 该目录只从 PostgreSQL 读取，不连接邮件引擎、不枚举远端 Drafts、不提供任何
+  清理或删除入口；检测在邮件引擎不可用时仍保持可用。
 
 显式回复在上述草稿契约中使用必填可空的 `reply_to_message_id`。非空时还必须通过
 邮箱 Read ABAC；服务端按安全 UUID 解析精确入站 Email，并从其唯一 `messageId`
@@ -405,6 +423,6 @@ Email Header 派生。
 - 继续扩大浏览器矩阵到更多邮件与管理工作流，并在真实 IdP、控制平面、数据库和邮件系统
   上验证目录授权、租户隔离与后端 CAS；
 - 真实触屏和屏幕阅读器 E2E，以及完整 axe/WCAG 2.2 AA 审计；
-- 孤儿草稿检测、受治理后台清理与共享协作编辑。
+- 孤儿草稿的受治理清理（本人可见检测已实现）与共享协作编辑。
 
 这些能力完成并通过计划中的交互与安全验收前，不将 P4A 标记为完成。

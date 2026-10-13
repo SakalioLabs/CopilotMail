@@ -167,7 +167,11 @@ Secrets Manager 或编排器提供，轮换需使所有 BFF 实例原子切换�
   不必等待会话共享锁。SCIM 绑定对 Principal 和令牌持有 `FOR UPDATE` 直到事务
   结束，提交前复查不再要求 Principal 为 active，否则停用令牌 Actor 的同一笔
   事务无法提交；下一笔调用在绑定处失败。Human 会话和 Agent 凭据的复查仍要求
-  Principal 为 active。设备列表仍未实现。
+  Principal 为 active。本人设备列表已按 2026-10-12 决定实现：
+  `GET /api/v2/auth/{client}/sessions` 只接受与路由 client 精确匹配的同类
+  Cookie，按呈现令牌解析本人后返回该 Principal 全部未过期会话的持久化非秘密
+  属性（Session UUID、客户端键、创建/过期时间和 `current` 标记），不接触
+  不透明令牌、PKCE 材料或 IdP 侧设备会话，也不提供单设备选择或远程下线。
 - 安全方法（GET/HEAD/OPTIONS）的 CSRF 检查只要求会话允许列表成员，不比较
   Origin；OIDC relying party 只服务于非安全方法的精确 Origin 比对。生产模式
   下 `ControlPlaneSettings::from_env` 强制会话允许列表（`COPILOTMAIL_*_OIDC_CLIENT_ID`
@@ -176,8 +180,16 @@ Secrets Manager 或编排器提供，轮换需使所有 BFF 实例原子切换�
   的测试运行时。
 - 尚未把已验证的 `acr`、`amr`、`auth_time` 写入 Session 并对高危操作执行
   Step-up；企业 Pilot 前不能宣称达到公司指定 AAL。
-- 匿名失败登录的独立安全账本和设备列表仍待后续增量；不得把原始 OAuth 参数
-  写入普通审计详情作为替代。
+- 匿名失败登录的独立安全账本已按 2026-10-12 决定实现：`human_login_failures`
+  只保存封闭原因码（如准入限流、state 缺失、Cookie/Transaction/材料拒绝、
+  OIDC 回调拒绝、Principal 拒绝、会话建立失败）、客户端键、数据库时钟时间
+  和可选的部署盐单向 `source_sha256`（由会话加密密钥派生，绝不可逆还原）；
+  UPDATE 与 TRUNCATE 恒拒，DELETE 仅放行 30 天前的行，由追加路径有界修剪
+  （单次最多 500 行）。该表不进入租户 `audit_events`，没有 HTTP 读路径，
+  唯一读取面是持有控制面数据库凭据的平台运维 CLI（只读、原因/客户端/时间
+  有界过滤、单页上限 500）；记录是 best-effort，账本故障绝不改变登录响应。
+  原始 OAuth 参数、Cookie、Token、PKCE、return_to 原文、邮箱原文和明文
+  IP/UA 仍一律不得写入该账本或普通审计详情。
 - 请求级 `begin_authorized` 审计现在写入已验证 Human 浏览器会话的不可变
   Session ID，不写入 Cookie、OIDC Access Token 或 JTI。Agent 凭据、SCIM
   Token、旧 Bearer 和受信本地 `begin()` 维护路径不会被记成浏览器会话；生产者

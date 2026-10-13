@@ -39,6 +39,7 @@
 | `mail.message.read` | `mail.message` | High | 是 |
 | `mail.drafts.queried` | `mailbox` | Medium | 是 |
 | `mail.draft.read` | `mail.draft` | High | 是 |
+| `mail.draft_attempts.queried` | `mail.draft_attempt_query` | Medium | 是 |
 | `mail.submissions.queried` | `mailbox` | Medium | 是 |
 | `agent.mail_content.read` | `mail.message` | High | 是 |
 | `agent.mail_policy.activated` | `agent.mail_policy` | Critical | 是 |

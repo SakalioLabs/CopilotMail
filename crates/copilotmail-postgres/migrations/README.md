@@ -230,6 +230,25 @@ private schema.
   code-only change. A later local disposable PostgreSQL 17.11 run, database
   name `copilotmail_test_<suffix>`, not CI and not a deployment, applied this
   file.
+- `0062_human_login_failure_ledger.sql` creates the append-only
+  `human_login_failures` ledger. Rows carry only a closed reason code, a
+  client key, a database-stamped timestamp, and an optional salted source
+  digest; update, delete, and truncate are rejected and pruning is bounded.
+  It holds no OAuth material, cookies, tokens, PKCE data, or plaintext
+  request metadata, and it is not tenant audit data. This migration has not
+  been applied in this code-only change. A later local disposable
+  PostgreSQL 17.11 run, database name `copilotmail_test_<suffix>`, not CI
+  and not a deployment, applied this file.
+- `0063_mail_draft_creation_attempts.sql` registers
+  `mail.draft_attempts.queried` and creates the content-free
+  `mail_draft_creation_attempts` ledger. One row is appended before each
+  remote provider draft write and is marked reconciled only inside the local
+  draft-metadata transaction; every other update, every delete, and any
+  truncate is rejected. No body, recipient, provider object reference, or
+  secret enters the table. This migration has not been applied in this
+  code-only change. A later local disposable PostgreSQL 17.11 run, database
+  name `copilotmail_test_<suffix>`, not CI and not a deployment, applied
+  this file.
 
 Offline SQL and PL/pgSQL grammar checks use the pinned PostgreSQL 17 parser in
 `scripts/requirements-quality.txt`: run

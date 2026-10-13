@@ -117,6 +117,39 @@ Compose 长状态继续完整换行；D4E 把登录入口、已认证目录准�
 
 ## 本轮已落地
 
+- 2026-10-13 批次 15 按 [决定记录](DECISIONS_2026-10-12.zh-CN.md) 第 5、6 条落地
+  B-07 与 B-10：
+  - B-07 匿名失败登录账本：新迁移 `0062_human_login_failure_ledger.sql` 建
+    `human_login_failures`，只保存封闭原因码（准入限流、登录开始拒绝、state
+    缺失、Cookie/Transaction/材料拒绝、回调客户端不匹配、OIDC 回调拒绝、
+    Principal 拒绝、授权不可用、会话建立失败）、`admin`/`mail` 客户端键、
+    数据库时钟 `occurred_at` 与可选 32 字节部署盐 `source_sha256`（由会话
+    加密密钥派生的单向摘要）；触发器恒拒 UPDATE/TRUNCATE，DELETE 仅放行
+    30 天前行，由追加路径单次最多修剪 500 行过期记录。全部登录失败路径
+    （begin 拒绝、限流、回调各分支、会话建立失败）以 best-effort 追加，
+    账本故障不改变登录响应；成功路径不写。账本不进租户 `audit_events`、
+    无 HTTP 读路径，唯一读取面是平台运维 CLI
+    `list-human-login-failures`（原因/客户端/时间有界过滤、单页上限 500），
+    读取前提是持有控制面数据库凭据，不向租户 Admin 暴露。
+  - B-07 本人设备列表：`GET /api/v2/auth/{client}/sessions` 只接受与路由
+    client 精确匹配的同类 Cookie，把呈现令牌按既有会话解析归约为摘要后
+    列出该 Principal 全部未过期会话的非秘密持久化属性（Session UUID、
+    客户端键、创建/过期时间、`current` 标记）；不接触不透明令牌、PKCE
+    材料或 IdP 侧设备会话，不提供单设备下线。
+  - B-10 孤儿草稿检测（仅检测、不清理）：新迁移
+    `0063_mail_draft_creation_attempts.sql` 登记新审计事件
+    `mail.draft_attempts.queried` 并建 `mail_draft_creation_attempts`；
+    远端草稿写入前先追加一条无内容尝试行（不含正文、收件人、Provider
+    引用或秘密），本地草稿元数据事务提交时把该行标记为已对账，触发器
+    只放行这一次对账 UPDATE、拒绝其余 UPDATE/DELETE/TRUNCATE。
+    `GET /api/v2/draft-attempts`（仅 Human Mail Session、Active Human +
+    `mailbox.use`）列出调用人在本租户全部邮箱中 `created_by` 等于本人的
+    未对账尝试，每项只有尝试/邮箱/本地 Draft UUID 与尝试时间；按尝试
+    UUID 倒序分页（默认 25、上限 50、canonical `v1.<UUID>` Cursor），
+    披露前在新事务复核主体、RBAC 与当页每个尝试的本人可见性并与
+    `mail.draft_attempts.queried` Audit/Outbox 原子提交；HEAD 显式拒绝
+    405。不连接邮件引擎、不枚举远端 Drafts、无任何清理入口，Shared
+    Mailbox 成员关系不扩大到他人尝试（MAIL-06）。
 - 2026-10-12 批次 14 按用户当日 UI 改版要求（优先级高于 B-07/B-10，二者顺延）完成 Web
   界面改版，仅表现层与布局：Mail 与 Admin 默认语言统一为 `zh-CN`（无已存选择时不再按
   浏览器语言回退 `en`），`en` 为第二语言，两端顶栏/抽屉内语言切换可见、可键盘操作并
