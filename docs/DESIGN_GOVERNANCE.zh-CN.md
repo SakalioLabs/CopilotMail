@@ -174,13 +174,50 @@ Gmail 风格外壳，仅表现层与布局改动，API 调用、权限、审计�
 - **保持不变**：移动端触点选择器与 e2e DOM 钩子全部保留；WCAG AA 对比度、双环
   `--cm-focus-ring`、44px 触点、键盘导航与 Axe 契约不变，没有放宽预算或断言。
 
+### 2026-10-13 视觉元素丰富（批次 17）
+
+用户 2026-10-13 复核批次 16 截图后反馈「有点素」，并选定方向「加插图和视觉元素：空状态插画、
+图标、卡片阴影」。本批同样只改表现层：信息架构、API、权限、审计与业务逻辑不变，功能入口
+一个不少，不新增依赖、不引入图标库/远程字体/远程图片：
+
+- **空状态插画**：`design-system/src/illustrations.tsx` 提供 11 个产品自制场景
+  （inbox/search/drafts/sent 无结果、未选中消息、未选中记录、审批、审计、合规案件与
+  Legal Hold 共用、域、角色），统一 200×150 viewBox、消费 `--cm-*` 语义色而非原始色。
+  `EmptyState` 新增 `art` prop：传入 ReactElement，组件克隆时附加
+  `empty-state__illustration` 类；所有场景自带 `data-empty-art`、
+  `aria-hidden="true"`、`focusable="false"` 装饰属性。Mail 收件箱/搜索/草稿/已发送/
+  未选中消息与 Admin 审批/审计/合规/域/角色/详情侧栏均已接入；位图 `illustration`
+  通道（含 Image 2 登记约束）保留不变。
+- **图标组件化**：`design-system/src/icons.tsx` 的 41 个自制 glyph 拆分为独立导出组件
+  （`IconSvg` 共享外壳统一尺寸与 `aria-hidden`），名称驱动的 `Icon` 与 `ICON_REGISTRY`
+  保留给 Mail 的动态查找。图标全部为本仓库原创路径数据（product-owned），未使用任何
+  第三方图标库路径或字体，因此无外部许可证义务；如未来引入宽松许可（MIT/Apache-2.0/ISC）
+  的路径数据，必须在本节登记来源。`IconButton` 接受图标元素而非名称，DS 内部组件
+  （StatusIndicator/IdentityBadge/EmptyState 回退/dialog/context-bar/unknown-write-lock/
+  command-palette）均直接引用独立组件，Admin bundle 不再携带完整注册表。
+- **品牌与卡片层次**：`BrandMark` 独立为 `design-system/src/brand-mark.tsx`（字符 Logo
+  色块），用于两端顶栏与 Admin 登录卡。Mail 队列/阅读面板获得 `shadow-1` 静息阴影，
+  Admin 总览指标卡加图标 chip（`overview-fact__mark`）与悬停 `shadow-2` + 顶部品牌色
+  强调线；圆角/阴影仍全部来自既有 token 档，未新增色值。
+- **Admin 去重**：`web/admin-app/src/format.ts` 集中日期/shortId/焦点环辅助函数
+  （此前 8/5/3 处重复），AuditView 复用共享 `Pagination`，导航配置直接引用图标组件
+  （删除 `AdminNavIcon` 间接层），ComplianceViews 内部 Fact 与 updateCreateDraft 收敛。
+- **i18n**：新说明文案进入两端 locale 目录（zh-CN 默认、en 对齐）；装饰性 SVG 不出现在
+  翻译里，仅图标按钮的 `aria-label` 仍走 i18n。
+- **视觉基线**：预期像素变化；本机已按 `--update-snapshots --workers=1` 重建 `-linux`
+  基线（7 张，均 mail）并人工审阅 22 张捕获截图无错位/截断/重叠。Admin 侧增量处于各
+  断言的 `maxDiffPixelRatio` 阈值内、基线未变。`-win32` 基线保持原样，仍待 Windows 环境
+  按同一流程重建。
+
 ### D4A/D4B/D4C/D4D/D4E 当前生产构建测量（2026-10-13）
 
-最新 `npm run build` 的 Admin 工件为：首屏 JavaScript 335,950 B（gzip 102,427 B）、完整图谱
-JavaScript 490,690 B、CSS 52,877 B（gzip 10,035 B）。Mail 工件为：首屏/完整图谱 JavaScript
-324,205 B（gzip 95,965 B）、CSS 49,089 B（gzip 8,975 B）；Mail 交付位图 3 个，最大
-43,484 B。控件精修没有引入 CDN、运行时样式、额外 API 请求或新的生产素材，既有预算及其
-Fail-Closed 检查没有放宽（Admin CSS 仍压在 53 KiB 例外线内，Mail CSS 在共享 48 KiB 默认线内）。
+最新 `npm run build` 的 Admin 工件为：首屏 JavaScript 335,232 B（gzip 102,308 B）、完整图谱
+JavaScript 491,296 B、CSS 53,229 B（gzip 10,080 B）。Mail 工件为：首屏/完整图谱 JavaScript
+329,149 B（gzip 97,432 B）、CSS 49,149 B（gzip 8,976 B）；Mail 交付位图 2 个，最大
+29,720 B。视觉丰富没有引入 CDN、运行时样式、额外 API 请求、远程字体/图标库或新的生产素材
+（插画与图标全部为内联 SVG 组件），既有预算及其 Fail-Closed 检查没有放宽（Admin 完整图谱
+JavaScript 距 480 KiB 例外线余 224 B，CSS 距 53 KiB 例外线余 1,043 B；Mail CSS 距共享 48 KiB
+默认线余 3 B）。
 D4E 只复用已登记的登录主视觉。表中较早 P2/P3/D3 与 2026-08-24、2026-10-12 测量仅保留为
 历史演进记录；本节是当前构建事实。
 

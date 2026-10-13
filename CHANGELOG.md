@@ -55,6 +55,19 @@ implementation evidence remains in
   read surface is a read-only CLI behind control-plane database credentials.
 - Docker development/Pilot delivery, observability overlay, backup/restore
   verifier, and security governance checks.
+- Product-owned visual enrichment on top of the shared shell: eleven inline
+  SVG empty-state scenes on a shared 200x150 grid, a standalone component
+  per icon glyph (`IconSvg` shell; the name-driven `Icon` registry remains
+  for mail's dynamic lookups), and a `BrandMark` character logo. Mail
+  mounts the scenes on inbox/search/drafts/sent/no-selection states, and
+  Admin mounts them across approval, audit, compliance, domain, role, and
+  record-detail empty states. Overview metric cards gain icon chips and a
+  hover elevation; queue and reading panels gain a resting shadow. All
+  scenes are decorative (`aria-hidden`, `focusable="false"`), consume
+  `--cm-*` tokens, and add no dependency, remote font, icon font, or
+  bitmap. Admin deduplication (shared `format.ts` helpers, shared
+  `Pagination`, component-typed nav icons) keeps the complete bundle
+  graph inside its 480 KiB budget.
 
 ### Changed
 
@@ -64,6 +77,9 @@ implementation evidence remains in
   radius, and disabled tokens consolidated in the design system; the
   mail-only command palette styles moved to a mail-only `mail.css` entry.
   No API, permission, audit, or information-architecture change.
+- `EmptyState` accepts a decorative `art` element alongside the existing
+  registered-bitmap channel, and `IconButton` takes an icon element rather
+  than a name so each consumer bundles only the glyphs it renders.
 
 ### Security
 
