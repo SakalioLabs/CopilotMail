@@ -240,8 +240,12 @@ test.describe("Mail bounded empty and failure states", () => {
       await expect(page.getByText("Your inbox is empty", { exact: true })).toBeVisible();
       await expect(page.getByText("There are no messages to process right now.", { exact: true }))
         .toBeVisible();
-      await expect(page.getByRole("img", { name: "An empty mail tray", exact: true }))
-        .toBeVisible();
+      // The scene is an inline decorative SVG: it must render visibly while
+      // staying out of the accessibility tree (title/description carry facts).
+      const scene = page.locator(".empty-state.empty--contextual svg[data-empty-art]");
+      await expect(scene).toBeVisible();
+      await expect(scene).toHaveAttribute("aria-hidden", "true");
+      await expect(scene).toHaveAttribute("focusable", "false");
       await expect(page.locator(".messages .message")).toHaveCount(0);
       await expect(page).toHaveScreenshot("mail-empty-inbox-1440.png", {
         animations: "disabled",
