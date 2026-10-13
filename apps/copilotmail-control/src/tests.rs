@@ -5534,4 +5534,328 @@ mod agent_mcp_tests {
         // business write — identical ordering to the REST surface.
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
     }
+
+    fn mcp_pg_executor(
+        store: PgControlPlaneStore,
+        identity: AuthenticatedIdentity,
+    ) -> ControlMcpToolExecutor {
+        ControlMcpToolExecutor {
+            state: Arc::new(AppState {
+                store,
+                authenticator: Arc::new(UnconfiguredAuthenticator),
+                authentication_ready: true,
+                human_auth_required: false,
+                human_session: None,
+                human_session_required: false,
+                agent_token_service: None,
+                agent_authentication_ready: true,
+                agent_auth_required: true,
+                agent_event_stream_tenant_limit: 100,
+                agent_event_stream_principal_limit: 5,
+                agent_ingress_tenant_requests_per_minute: 6_000,
+                agent_ingress_principal_requests_per_minute: 600,
+                agent_event_stream_metrics: AgentEventStreamMetrics::default(),
+                mail_data_plane_id: None,
+                mail_engine: None,
+                mail_engine_required: false,
+                mail_content: None,
+                mail_content_required: false,
+                mail_drafts: None,
+                mail_draft_content: None,
+                mail_drafts_required: false,
+                mail_event_ingress: None,
+                mail_event_ingress_required: false,
+                audit_archive: None,
+            }),
+            identity,
+        }
+    }
+
+    fn mcp_call_args(entries: &[(&str, &str)]) -> serde_json::Map<String, Value> {
+        entries
+            .iter()
+            .map(|(key, value)| ((*key).to_owned(), Value::String((*value).to_owned())))
+            .collect()
+    }
+
+    async fn mcp_expect_ok(result: Result<Value, McpCallError>, context: &str) -> Value {
+        match result {
+            Ok(value) => value,
+            Err(McpCallError::Fault(response)) => {
+                let (status, code) = mcp_error_code(*response).await;
+                panic!("{context}: unexpected fault {status} {code}");
+            }
+            Err(McpCallError::InvalidParams(message)) => {
+                panic!("{context}: unexpected invalid params: {message}")
+            }
+        }
+    }
+
+    async fn mcp_fault_details(error: McpCallError) -> (StatusCode, String) {
+        match error {
+            McpCallError::Fault(response) => mcp_error_code(*response).await,
+            McpCallError::InvalidParams(message) => {
+                panic!("expected a mapped REST-style fault, got invalid params: {message}")
+            }
+        }
+    }
+
+    /// REST-equivalence coverage: the MCP tool executor must reproduce the
+    /// exact permission, tenant non-disclosure, idempotency, and error-shape
+    /// behavior of the corresponding `/api/v2` handlers because both funnel
+    /// into the same application use cases and error mappers.
+    #[tokio::test]
+    #[ignore = "requires a disposable PostgreSQL database"]
+    async fn mcp_tool_calls_match_the_rest_contract() {
+        let fixture = agent_inspector_http_fixture().await;
+        let now = Utc::now() - chrono::Duration::seconds(5);
+        let mailbox = MailboxManagementService::new(fixture.store.clone())
+            .create(CreateMailboxCommand {
+                organization_id: fixture.organization_id,
+                kind: MailboxKind::Agent,
+                primary_address: format!("mcp-agent-{}@example.test", Uuid::new_v4().simple()),
+                trace_id: Uuid::now_v7().to_string(),
+                now,
+            })
+            .await
+            .expect("create MCP equivalence mailbox");
+        let owner_context = fixture
+            .store
+            .resolve_authorization(fixture.owner_id, now)
+            .await
+            .expect("resolve MCP equivalence owner")
+            .expect("MCP equivalence owner is active");
+        MailboxDelegationService::new(fixture.store.clone())
+            .grant_authorized(
+                &owner_context,
+                GrantMailboxDelegationCommand {
+                    organization_id: fixture.organization_id,
+                    mailbox_id: mailbox.mailbox_id,
+                    grantee_principal_id: fixture.agent_id,
+                    capabilities: BTreeSet::from([
+                        MailboxCapability::Read,
+                        MailboxCapability::Send,
+                    ]),
+                    reason: "MCP equivalence agent processes its mailbox".into(),
+                    valid_from: now,
+                    valid_until: now + chrono::Duration::days(30),
+                    trace_id: Uuid::now_v7().to_string(),
+                    now,
+                },
+            )
+            .await
+            .expect("delegate MCP equivalence mailbox");
+
+        // The commit-time authentication binding re-validates a live
+        // credential row, so the fixture principal needs a real credential —
+        // identical to what `Authorization: Bearer` resolution produces on
+        // the REST surface.
+        let credential_id = CredentialId::new();
+        sqlx::query(
+            r#"
+            INSERT INTO credentials(
+                id, principal_id, kind, public_fingerprint, status,
+                created_at, expires_at
+            )
+            VALUES ($1, $2, 'private_key_jwt', $3, 'active', $4, $5)
+            "#,
+        )
+        .bind(credential_id.as_uuid())
+        .bind(fixture.agent_id.as_uuid())
+        .bind(format!("mcp-eq-{}", Uuid::new_v4().simple()))
+        .bind(now)
+        .bind(now + chrono::Duration::days(30))
+        .execute(fixture.store.pool())
+        .await
+        .expect("insert MCP equivalence credential");
+        let agent_identity = AuthenticatedIdentity {
+            principal_id: fixture.agent_id,
+            principal_kind: AuthenticatedPrincipalKind::Agent,
+            credential_id: Some("mcp-equivalence".into()),
+            scope_restriction: None,
+            authentication: AuthenticationBinding::AgentCredential {
+                credential_id,
+                expires_at: Utc::now() + chrono::Duration::minutes(5),
+                scopes: Permission::AGENT_TOKEN.into_iter().collect(),
+            },
+        };
+        let executor = mcp_pg_executor(fixture.store.clone(), agent_identity.clone());
+
+        // `agent_processing_subscription_ensure` is the REST `PUT` ensure:
+        // repeat calls return the persisted subscription instead of a copy.
+        let mailbox_arg = mailbox.mailbox_id.to_string();
+        let first = mcp_expect_ok(
+            executor
+                .call_tool(
+                    "agent_processing_subscription_ensure",
+                    mcp_call_args(&[("mailbox_id", &mailbox_arg)]),
+                    "mcp-eq-ensure-1",
+                )
+                .await,
+            "subscription ensure",
+        )
+        .await;
+        let second = mcp_expect_ok(
+            executor
+                .call_tool(
+                    "agent_processing_subscription_ensure",
+                    mcp_call_args(&[("mailbox_id", &mailbox_arg)]),
+                    "mcp-eq-ensure-2",
+                )
+                .await,
+            "subscription ensure replay",
+        )
+        .await;
+        assert_eq!(first["subscription_id"], second["subscription_id"]);
+        assert_eq!(first["mailbox_id"], mailbox_arg);
+        assert_eq!(first["agent_id"], fixture.agent_id.to_string());
+        assert_eq!(first["status"], "active");
+
+        // `agent_mail_policy_get` returns exactly what the REST query use
+        // case returns for the same authenticated Agent.
+        let policy = mcp_expect_ok(
+            executor
+                .call_tool(
+                    "agent_mail_policy_get",
+                    serde_json::Map::new(),
+                    "mcp-eq-policy",
+                )
+                .await,
+            "own-policy read",
+        )
+        .await;
+        let mut authorization = fixture
+            .store
+            .resolve_authorization(fixture.agent_id, Utc::now())
+            .await
+            .expect("resolve MCP equivalence agent")
+            .expect("MCP equivalence agent is active");
+        // The upgrade path attaches the verified credential binding so the
+        // commit-time re-validation sees the same context as REST writes.
+        authorization.authentication = Some(agent_identity.authentication.clone());
+        let snapshot = AgentMailPolicyQueryService::new(fixture.store.clone())
+            .get_own_policy(GetOwnAgentMailPolicyCommand {
+                context: authorization.clone(),
+            })
+            .await
+            .expect("REST-equivalent policy snapshot");
+        assert_eq!(
+            policy["agent_id"].as_str().expect("policy agent_id"),
+            snapshot.agent_id.to_string()
+        );
+        assert_eq!(
+            policy["environment"].as_str(),
+            Some(agent_environment_wire(snapshot.environment))
+        );
+        assert_eq!(policy["admission_state"], "not_required");
+
+        // Token scope narrowing is enforced inside the use-case guard, so an
+        // under-scoped MCP token fails with the same 403 as the REST surface.
+        let narrowed = AuthenticatedIdentity {
+            scope_restriction: Some(BTreeSet::from([Permission::AgentOperate])),
+            ..agent_identity.clone()
+        };
+        let denied = mcp_pg_executor(fixture.store.clone(), narrowed)
+            .call_tool(
+                "agent_processing_subscription_ensure",
+                mcp_call_args(&[("mailbox_id", &mailbox_arg)]),
+                "mcp-eq-denied",
+            )
+            .await
+            .expect_err("a narrowed token cannot pass the MailboxUse guard");
+        let (status, code) = mcp_fault_details(denied).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(code, "insufficient_scope");
+
+        // A mailbox this Agent cannot read is indistinguishable from an
+        // absent one — the exact `resource_not_found` mapping REST produces
+        // for `AgentProcessingError::NotFound`.
+        let missing_mailbox = MailboxId::new().to_string();
+        let missing = executor
+            .call_tool(
+                "agent_processing_subscription_ensure",
+                mcp_call_args(&[("mailbox_id", &missing_mailbox)]),
+                "mcp-eq-missing",
+            )
+            .await
+            .expect_err("undelegated mailboxes stay hidden");
+        let (status, code) = mcp_fault_details(missing).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(code, "resource_not_found");
+        let rest = agent_processing_api_error(
+            copilotmail_application::AgentProcessingError::NotFound,
+            "mcp-eq-rest",
+        );
+        let (rest_status, rest_code) = mcp_error_code(rest).await;
+        assert_eq!(status, rest_status);
+        assert_eq!(code, rest_code);
+
+        // The idempotency contract is explicit in MCP: a mutating call
+        // without `idempotency_key` fails exactly like a REST request
+        // without the `Idempotency-Key` header.
+        let no_key = executor
+            .call_tool(
+                "agent_processing_subscription_change",
+                mcp_call_args(&[
+                    (
+                        "subscription_id",
+                        &first["subscription_id"].as_str().unwrap(),
+                    ),
+                    ("expected_status", "active"),
+                    ("status", "paused"),
+                ]),
+                "mcp-eq-no-key",
+            )
+            .await
+            .expect_err("mutating MCP tools require an idempotency key");
+        let (status, code) = mcp_fault_details(no_key).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(code, "idempotency_key_required");
+
+        // Session-open records the same atomic audit + outbox evidence the
+        // upgrade path commits before the socket is accepted.
+        let session_id = Uuid::now_v7();
+        AgentMcpSessionService::new(fixture.store.clone())
+            .open(
+                &authorization,
+                OpenAgentMcpSessionCommand {
+                    organization_id: fixture.organization_id,
+                    session_id,
+                    trace_id: "mcp-eq-session".into(),
+                    now: Utc::now(),
+                },
+            )
+            .await
+            .expect("MCP session open writes durable evidence");
+        let evidence: (String, String) = sqlx::query_as(
+            r#"
+            SELECT action, resource_type
+              FROM audit_events
+             WHERE organization_id = $1
+               AND action = 'agent.mcp_session.opened'
+               AND resource_id = $2
+            "#,
+        )
+        .bind(fixture.organization_id.as_uuid())
+        .bind(session_id.to_string())
+        .fetch_one(fixture.store.pool())
+        .await
+        .expect("MCP session audit row is persisted");
+        assert_eq!(evidence.0, "agent.mcp_session.opened");
+        assert_eq!(evidence.1, "agent.mcp_session");
+        let outbox: i64 = sqlx::query_scalar(
+            r#"
+            SELECT count(*)
+              FROM outbox_events
+             WHERE event_type = 'agent.mcp_session.opened.v1'
+               AND aggregate_id = $1
+               AND payload->>'session_id' = $1
+            "#,
+        )
+        .bind(session_id.to_string())
+        .fetch_one(fixture.store.pool())
+        .await
+        .expect("MCP session outbox row is persisted");
+        assert_eq!(outbox, 1);
+    }
 }

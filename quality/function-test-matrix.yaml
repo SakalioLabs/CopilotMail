@@ -1501,6 +1501,100 @@
       "review_status": "in_progress"
     },
     {
+      "capability_id": "agent.mcp_channel",
+      "module": "apps/copilotmail-control/src/http/agent_mcp.rs",
+      "entrypoints": [
+        "agent_mcp_websocket",
+        "call_tool",
+        "read_resource"
+      ],
+      "risk": "high",
+      "mutates": true,
+      "concurrent": true,
+      "invariants": [
+        "The mcp subprotocol, same-host Origin, and a live Agent credential are required before upgrade",
+        "Every tool call re-resolves authorization and reuses the identical REST use case and error mapping",
+        "Session open commits audit and outbox evidence atomically before the socket is accepted",
+        "Bounded frames, in-flight limits, idle/lifetime timeouts, and a protocol-violation cap govern the loop"
+      ],
+      "cases": {
+        "normal": [
+          "initialize",
+          "call"
+        ],
+        "boundary": [
+          "cap",
+          "frame"
+        ],
+        "failure": [
+          "violation",
+          "panic"
+        ],
+        "authorization": [
+          "auth",
+          "origin"
+        ],
+        "transaction": [
+          "parity"
+        ],
+        "concurrency": [
+          "cap"
+        ]
+      },
+      "test_refs": {
+        "auth": {
+          "path": "apps/copilotmail-control/src/tests.rs",
+          "symbol": "mcp_endpoint_requires_bearer_authentication",
+          "execution": "passed"
+        },
+        "origin": {
+          "path": "apps/copilotmail-control/src/tests.rs",
+          "symbol": "mcp_endpoint_enforces_origin_before_authentication",
+          "execution": "passed"
+        },
+        "initialize": {
+          "path": "apps/copilotmail-control/src/tests.rs",
+          "symbol": "initialize_negotiates_latest_version_and_reports_capabilities",
+          "execution": "passed"
+        },
+        "call": {
+          "path": "apps/copilotmail-control/src/tests.rs",
+          "symbol": "tools_call_returns_structured_content_on_the_latest_revision",
+          "execution": "passed"
+        },
+        "cap": {
+          "path": "apps/copilotmail-control/src/tests.rs",
+          "symbol": "in_flight_concurrency_limit_returns_a_jsonrpc_error",
+          "execution": "passed"
+        },
+        "frame": {
+          "path": "apps/copilotmail-control/src/tests.rs",
+          "symbol": "oversized_frames_close_the_session",
+          "execution": "passed"
+        },
+        "violation": {
+          "path": "apps/copilotmail-control/src/tests.rs",
+          "symbol": "protocol_violation_cap_closes_the_session_loop",
+          "execution": "passed"
+        },
+        "panic": {
+          "path": "apps/copilotmail-control/src/tests.rs",
+          "symbol": "executor_panics_surface_the_internal_error_code",
+          "execution": "passed"
+        },
+        "parity": {
+          "path": "apps/copilotmail-control/src/tests.rs",
+          "symbol": "mcp_tool_calls_match_the_rest_contract",
+          "execution": "passed"
+        }
+      },
+      "environment": "Rust offline protocol suite plus a disposable PostgreSQL REST-equivalence case executed green",
+      "evidence_ref": "docs/MCP.zh-CN.md",
+      "candidate_revision": "batch-18-mcp-channel-2026-10-14",
+      "owner": "primary-implementer",
+      "review_status": "in_progress"
+    },
+    {
       "capability_id": "agent.submission_evidence",
       "module": "crates/copilotmail-application/src/agent_mail_submission_evidence.rs",
       "entrypoints": [
