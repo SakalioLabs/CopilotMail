@@ -1,14 +1,15 @@
 import type { RefCallback, RefObject } from "react";
-import { EmptyState, IconButton } from "@copilotmail/design-system";
+import {
+  EmptyInboxArt,
+  EmptySearchArt,
+  EmptyState,
+  IconButton,
+  RefreshIcon,
+} from "@copilotmail/design-system";
 import type { Locale, Translator } from "../i18n";
 import { formatMessageCount } from "../i18n";
 import type { InboxPage, MessageSummary } from "../types";
 import { MessageQueueItem } from "./MessageQueueItem";
-
-const inboxZeroIllustration = new URL(
-  "../../../design-system/assets/illustrations/inbox-zero-v1.webp",
-  import.meta.url,
-).href;
 
 interface MessageListProps {
   activeSearch?: string;
@@ -71,7 +72,7 @@ export function MessageList({
           className="inbox-refresh"
           aria-busy={searchBusy || undefined}
           disabled={searchBusy}
-          icon="refresh"
+          icon={<RefreshIcon />}
           label={t("inbox.refreshAria")}
           onClick={onRefresh}
         />
@@ -101,21 +102,19 @@ export function MessageList({
         ))}
         {page && page.items.length === 0 && (activeSearch ? (
           <EmptyState
+            art={<EmptySearchArt />}
             className="empty empty--contextual"
             headingLevel={2}
-            icon="search"
             title={t("inbox.noSearchResults")}
             description={t("inbox.noSearchResultsHint")}
           />
         ) : (
           <EmptyState
+            art={<EmptyInboxArt />}
             className="empty empty--contextual"
             headingLevel={2}
-            icon="mail"
             title={t("inbox.empty")}
             description={t("inbox.emptyHint")}
-            illustration={inboxZeroIllustration}
-            illustrationAlt={t("inbox.emptyIllustrationAlt")}
           />
         ))}
         {page?.has_more && (

@@ -1,5 +1,5 @@
 import type { RefCallback, RefObject } from "react";
-import { EmptyState, IconButton } from "@copilotmail/design-system";
+import { EmptyDraftsArt, EmptyState, IconButton, RefreshIcon } from "@copilotmail/design-system";
 import { formatCount, type Locale, type Translator } from "../i18n";
 import type { HumanDraftListItem, HumanDraftPage } from "../types";
 import { DraftDirectoryItem } from "./DraftDirectoryItem";
@@ -61,7 +61,7 @@ export function DraftList({
         <IconButton
           aria-busy={loading || undefined}
           disabled={retryDisabled}
-          icon="refresh"
+          icon={<RefreshIcon />}
           label={t("drafts.refreshAria")}
           onClick={onRefresh}
         />
@@ -104,10 +104,11 @@ export function DraftList({
         })}
         {page && page.items.length === 0 && !listBusy && (
           <EmptyState
+            art={<EmptyDraftsArt />}
             className="empty empty--actionable"
             headingLevel={2}
-            icon="draft"
             title={t("drafts.empty")}
+            description={t("drafts.emptyHint")}
             action={(
               <button className="button button--secondary empty-action" type="button" onClick={onRefresh}>
                 {t("drafts.refreshAria")}

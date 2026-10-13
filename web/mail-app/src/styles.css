@@ -567,6 +567,7 @@ body,
   border: 1px solid var(--cm-line);
   border-radius: var(--cm-radius-panel);
   background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-1);
 }
 
 .mail-shell--directory .inbox {
@@ -841,6 +842,7 @@ body,
   border: 1px solid var(--cm-line);
   border-radius: var(--cm-radius-panel);
   background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-1);
 }
 
 .detail > div { width: min(100%, 760px); }

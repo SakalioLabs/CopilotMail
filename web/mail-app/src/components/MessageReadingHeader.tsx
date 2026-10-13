@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { Icon, IconButton } from "@copilotmail/design-system";
+import { Icon, IconButton, StarFilledIcon, StarIcon } from "@copilotmail/design-system";
 import type { Locale, Translator } from "../i18n";
 import { formatDate } from "../i18n";
 import type { MessageDetail, MessageSummary } from "../types";
@@ -79,7 +79,7 @@ export function MessageReadingHeader({
       </dl>
       <div className="reading-actions" role="group" aria-label={t("detail.actionsAria")}>
         <IconButton
-          icon={selected.is_flagged ? "star-filled" : "star"}
+          icon={selected.is_flagged ? <StarFilledIcon /> : <StarIcon />}
           label={
             selected.is_flagged
               ? t("detail.removeStarAria")

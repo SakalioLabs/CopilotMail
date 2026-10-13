@@ -1,5 +1,5 @@
 import type { FormEvent, RefObject } from "react";
-import { Icon, IconButton } from "@copilotmail/design-system";
+import { BrandMark, CloseIcon, Icon, IconButton, MenuIcon, SearchIcon } from "@copilotmail/design-system";
 import type { Locale, Translator } from "../i18n";
 import { LanguagePicker } from "./LanguagePicker";
 
@@ -52,17 +52,17 @@ export function MailTopbar({
           aria-expanded={navigationOpen}
           aria-haspopup="dialog"
           className="mail-topbar__menu"
-          icon="menu"
+          icon={<MenuIcon />}
           label={t("nav.openMenu")}
           onClick={onOpenMenu}
         />
-        <span className="app-wordmark">{t("app.name")}</span>
+        <span className="app-wordmark"><BrandMark />{t("app.name")}</span>
       </div>
       <form className="mail-search search-omnibox" role="search" onSubmit={submit}>
         <IconButton
           className="mail-search__submit"
           disabled={searchBusy}
-          icon="search"
+          icon={<SearchIcon />}
           label={t("inbox.submitSearchAria")}
           type="submit"
         />
@@ -78,7 +78,7 @@ export function MailTopbar({
           <IconButton
             className="mail-search__clear"
             disabled={searchBusy}
-            icon="close"
+            icon={<CloseIcon />}
             label={t("inbox.clearSearchAria")}
             onClick={onClearSearch}
           />

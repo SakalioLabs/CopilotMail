@@ -1,5 +1,5 @@
 import type { RefCallback } from "react";
-import { Icon, IconButton } from "@copilotmail/design-system";
+import { Icon, IconButton, StarFilledIcon, StarIcon } from "@copilotmail/design-system";
 import type { Locale, Translator } from "../i18n";
 import { formatDate } from "../i18n";
 import type { MessageSummary } from "../types";
@@ -54,7 +54,7 @@ export function MessageQueueItem({
     >
       <IconButton
         className="message__flag"
-        icon={message.is_flagged ? "star-filled" : "star"}
+        icon={message.is_flagged ? <StarFilledIcon /> : <StarIcon />}
         label={
           message.is_flagged ? t("detail.removeStarAria") : t("detail.addStarAria")
         }

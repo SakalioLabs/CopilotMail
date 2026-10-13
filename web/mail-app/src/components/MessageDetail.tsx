@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { EmptyState, Icon } from "@copilotmail/design-system";
+import { EmptyState, Icon, SelectMessageArt } from "@copilotmail/design-system";
 import type { Locale, Translator } from "../i18n";
 import { formatKilobytes } from "../i18n";
 import type { MessageDetail as MessageDetailValue, MessageSummary } from "../types";
@@ -91,10 +91,11 @@ export function MessageDetail({
         </div>
       ) : (
         <EmptyState
+          art={<SelectMessageArt />}
           className="empty-detail"
           headingLevel={2}
-          icon="mail"
           title={t("detail.selectMessage")}
+          description={t("detail.selectMessageHint")}
         />
       )}
     </section>

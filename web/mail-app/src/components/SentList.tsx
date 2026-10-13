@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { EmptyState, IconButton } from "@copilotmail/design-system";
+import { EmptySentArt, EmptyState, IconButton, RefreshIcon } from "@copilotmail/design-system";
 import { formatCount, type Locale, type Translator } from "../i18n";
 import type { HumanSentSubmissionPage } from "../types";
 import { SentDirectoryItem } from "./SentDirectoryItem";
@@ -50,7 +50,7 @@ export function SentList({
         <IconButton
           aria-busy={loading || undefined}
           disabled={listBusy}
-          icon="refresh"
+          icon={<RefreshIcon />}
           label={t("sent.refreshAria")}
           onClick={onRefresh}
         />
@@ -75,10 +75,11 @@ export function SentList({
         ))}
         {page && page.items.length === 0 && !listBusy && (
           <EmptyState
+            art={<EmptySentArt />}
             className="empty empty--actionable"
             headingLevel={2}
-            icon="sent"
             title={t("sent.empty")}
+            description={t("sent.emptyHint")}
             action={(
               <button className="button button--secondary empty-action" type="button" onClick={onRefresh}>
                 {t("sent.refreshAria")}
