@@ -11,6 +11,7 @@ export function LanguagePicker({ locale, onChange, t }: LanguagePickerProps) {
     <label className="language-picker">
       <span className="sr-only">{t("locale.label")}</span>
       <select
+        className="control"
         aria-label={t("locale.label")}
         value={locale}
         onChange={(event) => onChange(event.target.value as Locale)}

@@ -72,34 +72,11 @@
   background: var(--cm-critical-soft);
 }
 
-.detail-load-error p { margin: 0 0 10px; }
+.detail-load-error p { margin: 0 0 var(--cm-space-3); }
 
-.detail-load-error button {
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid currentcolor;
-  border-radius: var(--cm-radius-control);
-  color: inherit;
-  background: var(--cm-surface);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.reply-action {
-  display: inline-flex;
-  min-height: 38px;
-  align-items: center;
-  gap: 7px;
-  padding: 0 14px;
-  border: 1px solid var(--cm-ink);
-  border-radius: var(--cm-radius-control);
-  color: var(--cm-surface);
-  background: var(--cm-ink);
-  font-weight: 720;
-  cursor: pointer;
-}
-
-.reply-action:disabled { cursor: not-allowed; opacity: 0.45; }
+/* The reply and retry actions use the shared .button chrome; the hook class
+   remains so narrow-viewport touch sizing and tests keep a stable handle. */
+.reply-action { flex: 0 0 auto; }
 
 .attachments { margin-top: 30px; }
 .attachments h3 { font-size: 0.86rem; }

@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { Icon } from "@copilotmail/design-system";
+import { EmptyState, Icon } from "@copilotmail/design-system";
 import type { Locale, Translator } from "../i18n";
 import { formatKilobytes } from "../i18n";
 import type { MessageDetail as MessageDetailValue, MessageSummary } from "../types";
@@ -38,7 +38,7 @@ export function MessageDetail({
     <section className="detail" data-dialog-background>
       {selected ? (
         <div className="reading">
-          <button className="detail-back" onClick={onBack}>
+          <button className="button button--secondary detail-back" onClick={onBack}>
             <Icon aria-hidden name="arrow-left" size={17} />
             {t("detail.backToInbox")}
           </button>
@@ -56,7 +56,7 @@ export function MessageDetail({
           {loadError ? (
             <div className="detail-load-error">
               <p role="alert">{loadError}</p>
-              <button type="button" onClick={onRetry}>{t("detail.retry")}</button>
+              <button className="button button--secondary" type="button" onClick={onRetry}>{t("detail.retry")}</button>
             </div>
           ) : !detail ? (
             <p className="detail-preview" role="status" aria-live="polite">
@@ -90,10 +90,12 @@ export function MessageDetail({
           )}
         </div>
       ) : (
-        <div className="empty-detail">
-          <span aria-hidden="true"><Icon name="mail" size={30} /></span>
-          <p>{t("detail.selectMessage")}</p>
-        </div>
+        <EmptyState
+          className="empty-detail"
+          headingLevel={2}
+          icon="mail"
+          title={t("detail.selectMessage")}
+        />
       )}
     </section>
   );

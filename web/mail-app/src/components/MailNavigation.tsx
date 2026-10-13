@@ -234,7 +234,7 @@ function MailboxScopeControls({
       <div className="mobile-mailbox-scope__session-controls">
         <LanguagePicker locale={locale} onChange={onLocaleChange} t={t} />
         <button
-          className="mobile-sign-out"
+          className="topbar-sign-out mobile-sign-out"
           aria-label={t("nav.signOut")}
           onClick={onSignOut}
         >

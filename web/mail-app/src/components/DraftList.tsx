@@ -1,5 +1,5 @@
 import type { RefCallback, RefObject } from "react";
-import { IconButton } from "@copilotmail/design-system";
+import { EmptyState, IconButton } from "@copilotmail/design-system";
 import { formatCount, type Locale, type Translator } from "../i18n";
 import type { HumanDraftListItem, HumanDraftPage } from "../types";
 import { DraftDirectoryItem } from "./DraftDirectoryItem";
@@ -69,7 +69,7 @@ export function DraftList({
       {error && (
         <div className="error error--actionable" role="alert">
           <span>{error}</span>
-          <button disabled={retryDisabled} type="button" onClick={onRefresh}>
+          <button className="button button--secondary" disabled={retryDisabled} type="button" onClick={onRefresh}>
             {t("common.retry")}
           </button>
         </div>
@@ -77,7 +77,7 @@ export function DraftList({
       {restoreError && (
         <div className="error error--actionable" role="alert">
           <span>{restoreError}</span>
-          <button disabled={retryDisabled} type="button" onClick={onRefresh}>
+          <button className="button button--secondary" disabled={retryDisabled} type="button" onClick={onRefresh}>
             {t("common.retry")}
           </button>
         </div>
@@ -103,16 +103,21 @@ export function DraftList({
           );
         })}
         {page && page.items.length === 0 && !listBusy && (
-          <div className="empty empty--actionable">
-            <p>{t("drafts.empty")}</p>
-            <button className="empty-action" type="button" onClick={onRefresh}>
-              {t("drafts.refreshAria")}
-            </button>
-          </div>
+          <EmptyState
+            className="empty empty--actionable"
+            headingLevel={2}
+            icon="draft"
+            title={t("drafts.empty")}
+            action={(
+              <button className="button button--secondary empty-action" type="button" onClick={onRefresh}>
+                {t("drafts.refreshAria")}
+              </button>
+            )}
+          />
         )}
         {page?.has_more && (
           <button
-            className="load-more"
+            className="button button--secondary load-more"
             disabled={listBusy || restoreBusyId !== undefined}
             onClick={onLoadMore}
           >

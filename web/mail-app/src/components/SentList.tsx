@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { IconButton } from "@copilotmail/design-system";
+import { EmptyState, IconButton } from "@copilotmail/design-system";
 import { formatCount, type Locale, type Translator } from "../i18n";
 import type { HumanSentSubmissionPage } from "../types";
 import { SentDirectoryItem } from "./SentDirectoryItem";
@@ -58,7 +58,7 @@ export function SentList({
       {error && (
         <div className="error error--actionable" role="alert">
           <span>{error}</span>
-          <button disabled={listBusy} type="button" onClick={onRefresh}>
+          <button className="button button--secondary" disabled={listBusy} type="button" onClick={onRefresh}>
             {t("common.retry")}
           </button>
         </div>
@@ -74,16 +74,21 @@ export function SentList({
           />
         ))}
         {page && page.items.length === 0 && !listBusy && (
-          <div className="empty empty--actionable">
-            <p>{t("sent.empty")}</p>
-            <button className="empty-action" type="button" onClick={onRefresh}>
-              {t("sent.refreshAria")}
-            </button>
-          </div>
+          <EmptyState
+            className="empty empty--actionable"
+            headingLevel={2}
+            icon="sent"
+            title={t("sent.empty")}
+            action={(
+              <button className="button button--secondary empty-action" type="button" onClick={onRefresh}>
+                {t("sent.refreshAria")}
+              </button>
+            )}
+          />
         )}
         {page?.has_more && (
           <button
-            className="load-more"
+            className="button button--secondary load-more"
             disabled={listBusy}
             onClick={onLoadMore}
           >

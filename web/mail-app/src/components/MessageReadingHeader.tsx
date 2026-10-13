@@ -89,7 +89,7 @@ export function MessageReadingHeader({
         />
         {detail?.reply_to_message_id ? (
           <button
-            className="reply-action"
+            className="button reply-action"
             disabled={!canReply}
             title={!canReply ? t("mailbox.composeUnavailable") : undefined}
             onClick={onReply}

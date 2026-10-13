@@ -201,6 +201,7 @@ export function ComposerDialog({
         />
         <button
           type="button"
+          className="button"
           disabled={sendBusy || terminalSubmission || !mailbox.can_send || !hasRecipient(to)}
           onClick={() => {
             void onSend();

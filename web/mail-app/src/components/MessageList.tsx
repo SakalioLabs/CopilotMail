@@ -1,5 +1,5 @@
 import type { RefCallback, RefObject } from "react";
-import { IconButton } from "@copilotmail/design-system";
+import { EmptyState, IconButton } from "@copilotmail/design-system";
 import type { Locale, Translator } from "../i18n";
 import { formatMessageCount } from "../i18n";
 import type { InboxPage, MessageSummary } from "../types";
@@ -80,7 +80,7 @@ export function MessageList({
         <div className="error error--actionable" role="alert">
           <span>{error}</span>
           {canRetry && (
-            <button disabled={searchBusy} type="button" onClick={retry}>
+            <button className="button button--secondary" disabled={searchBusy} type="button" onClick={retry}>
               {t("common.retry")}
             </button>
           )}
@@ -99,20 +99,27 @@ export function MessageList({
             onToggleFlag={onToggleFlag}
           />
         ))}
-        {page && page.items.length === 0 && (
-          <div className="empty empty--contextual">
-            {!activeSearch && (
-              <img
-                src={inboxZeroIllustration}
-                alt={t("inbox.emptyIllustrationAlt")}
-              />
-            )}
-            <strong>{activeSearch ? t("inbox.noSearchResults") : t("inbox.empty")}</strong>
-            <p>{activeSearch ? t("inbox.noSearchResultsHint") : t("inbox.emptyHint")}</p>
-          </div>
-        )}
+        {page && page.items.length === 0 && (activeSearch ? (
+          <EmptyState
+            className="empty empty--contextual"
+            headingLevel={2}
+            icon="search"
+            title={t("inbox.noSearchResults")}
+            description={t("inbox.noSearchResultsHint")}
+          />
+        ) : (
+          <EmptyState
+            className="empty empty--contextual"
+            headingLevel={2}
+            icon="mail"
+            title={t("inbox.empty")}
+            description={t("inbox.emptyHint")}
+            illustration={inboxZeroIllustration}
+            illustrationAlt={t("inbox.emptyIllustrationAlt")}
+          />
+        ))}
         {page?.has_more && (
-          <button className="load-more" disabled={searchBusy} onClick={onLoadMore}>
+          <button className="button button--secondary load-more" disabled={searchBusy} onClick={onLoadMore}>
             {searchBusy ? t("inbox.loadingMore") : t("inbox.loadMore")}
           </button>
         )}

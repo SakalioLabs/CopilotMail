@@ -40,6 +40,7 @@ export function MailboxPicker({
       <label>
         <span>{t("mailbox.selectorLabel")}</span>
         <select
+          className="control"
           aria-label={t("mailbox.selectorAria")}
           disabled={disabled}
           value={activeMailboxId}
@@ -62,7 +63,7 @@ export function MailboxPicker({
       {hasMore && (
         <button
           type="button"
-          className="mailbox-load-more"
+          className="button button--secondary mailbox-load-more"
           aria-label={loadMoreBusy ? t("mailbox.loadingMore") : t("mailbox.loadMore")}
           disabled={disabled || loadMoreBusy}
           title={loadMoreBusy ? t("mailbox.loadingMore") : t("mailbox.loadMore")}
