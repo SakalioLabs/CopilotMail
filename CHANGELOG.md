@@ -56,6 +56,15 @@ implementation evidence remains in
 - Docker development/Pilot delivery, observability overlay, backup/restore
   verifier, and security governance checks.
 
+### Changed
+
+- Both Web applications now share one control grammar: button variants, the
+  `.control` input/select chrome, icon buttons, the search omnibox, nav
+  items, and `EmptyState` read Material-style state-layer, geometry,
+  radius, and disabled tokens consolidated in the design system; the
+  mail-only command palette styles moved to a mail-only `mail.css` entry.
+  No API, permission, audit, or information-architecture change.
+
 ### Security
 
 - Organization Owners can revoke another principal's current Admin and Mail

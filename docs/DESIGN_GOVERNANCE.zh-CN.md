@@ -116,7 +116,7 @@ Compose 1440/1008/390px、unknown 1008px、manual review 展开证据与恢复�
 | V2 基础 token 不分叉 | 共享 stylesheet 必须定义本地优先的中英文 `--cm-font-sans`、`--cm-font-mono`、4px/8px 间距、语义字号/行高/字重、44px 触点、dialog 半径、120/160/200ms motion、easing 与统一 z-index token；根与 code-like 内容必须实际消费两套字体 token。 | 在 `web/design-system/src/styles.css` 的唯一 token layer 增补或修复；不在某个应用 CSS 中临时造 private token。页面级 spacing/type 迁移仍按 D3/D4/D8 分批实施。 |
 | 关键视觉可访问性 | 计算信息小字、控件边界和 Agent 焦点信号的 WCAG 对比度；焦点 token 必须是表面色加 Agent 色的不透明双环；减少动画模式必须限制迭代并彻底停止 Spinner。 | 调整共享语义 token 或 reduced-motion 规则，不以半透明视觉效果规避门槛。 |
 | Image 2 位图可追溯 | `web/design-system/assets/illustrations/` 中的 PNG/WebP/AVIF 都必须在 [Image 2 素材清单](IMAGE2_ASSET_MANIFEST.zh-CN.md) 中以完整路径登记；审计源 PNG 与生产交付 WebP/AVIF 分别核对 SHA-256。生产源码引用该目录时，必须指向已登记的交付文件。 | 先目检并登记用途、Alt、源文件/交付文件哈希和两个完整路径，再接入页面。 |
-| 生产 Bundle 与 Image 2 交付预算 | `npm run bundle:check` 分别读取两个应用的真实 `dist`，限制首屏/总 JavaScript、CSS 及 gzip 体积，拒绝任何 `.map`、JS/CSS `sourceMappingURL`，并逐个限制 WebP/AVIF：情境图不超过 120 KiB，登记的登录主视觉不超过 300 KiB。P2 收敛时 Admin 的测量为首屏 JavaScript 317,699 B（gzip 97,134 B）、完整图谱 JavaScript 459,423 B、CSS 48,927 B。P3 增加按需打开的 Agent Inspector 与 Human-only、可审计的精确邮件提交证据工作区后，曾测得首屏 JavaScript 329,319 B（gzip 100,261 B）、完整图谱 JavaScript 479,722 B、CSS 48,927 B（gzip 9,006 B）。截至 2026-08-24，D3 的全/窄/抽屉导航和事实→决策 Overview 没有引入 CDN、运行时样式或位图依赖；当前 Admin 生产工件为首屏 JavaScript 333,538 B（gzip 101,950 B）、完整图谱 JavaScript 483,941 B、CSS 52,895 B（gzip 9,861 B）。因此完整图谱 JavaScript 仅对 Admin 明确设为 480 KiB（491,520 B），原始 CSS 仅对 Admin 明确设为 53 KiB（54,272 B）；首屏 JavaScript、gzip CSS（12 KiB）和 Mail 的所有预算仍保持共享默认值，Mail 完整图谱 JavaScript 仍为 420 KiB（430,080 B）。每个例外均有预算脚本自测，绝不是后续功能预留的隐式增量：再次上调必须在本表和预算脚本中单独说明理由。`bundle:check:admin` 与 `bundle:check:mail` 可独立校验单一产物；两个生产 Docker builder 在复制产物前强制执行相应命令。 | 不得通过删除门禁、把翻译/业务数据移到运行时网络请求、或改成只看开发源码来放行；先移除无效依赖、拆分非首屏模块、关闭 source map 或重新压缩交付位图。Admin 的 480 KiB 与 53 KiB 只适用于其完整、可选的受控工作区图谱，不放宽首屏约束，也不适用于 Mail；P3/D3 的例外不构成后续自动扩容依据。新增主视觉前必须显式登记分类，未知位图默认采用更严格的 120 KiB 上限。 |
+| 生产 Bundle 与 Image 2 交付预算 | `npm run bundle:check` 分别读取两个应用的真实 `dist`，限制首屏/总 JavaScript、CSS 及 gzip 体积，拒绝任何 `.map`、JS/CSS `sourceMappingURL`，并逐个限制 WebP/AVIF：情境图不超过 120 KiB，登记的登录主视觉不超过 300 KiB。P2 收敛时 Admin 的测量为首屏 JavaScript 317,699 B（gzip 97,134 B）、完整图谱 JavaScript 459,423 B、CSS 48,927 B。P3 增加按需打开的 Agent Inspector 与 Human-only、可审计的精确邮件提交证据工作区后，曾测得首屏 JavaScript 329,319 B（gzip 100,261 B）、完整图谱 JavaScript 479,722 B、CSS 48,927 B（gzip 9,006 B）。截至 2026-08-24，D3 的全/窄/抽屉导航和事实→决策 Overview 没有引入 CDN、运行时样式或位图依赖；当前 Admin 生产工件为首屏 JavaScript 335,950 B（gzip 102,427 B）、完整图谱 JavaScript 490,690 B、CSS 52,877 B（gzip 10,035 B）。因此完整图谱 JavaScript 仅对 Admin 明确设为 480 KiB（491,520 B），原始 CSS 仅对 Admin 明确设为 53 KiB（54,272 B）；首屏 JavaScript、gzip CSS（12 KiB）和 Mail 的所有预算仍保持共享默认值，Mail 完整图谱 JavaScript 仍为 420 KiB（430,080 B）。每个例外均有预算脚本自测，绝不是后续功能预留的隐式增量：再次上调必须在本表和预算脚本中单独说明理由。`bundle:check:admin` 与 `bundle:check:mail` 可独立校验单一产物；两个生产 Docker builder 在复制产物前强制执行相应命令。 | 不得通过删除门禁、把翻译/业务数据移到运行时网络请求、或改成只看开发源码来放行；先移除无效依赖、拆分非首屏模块、关闭 source map 或重新压缩交付位图。Admin 的 480 KiB 与 53 KiB 只适用于其完整、可选的受控工作区图谱，不放宽首屏约束，也不适用于 Mail；P3/D3 的例外不构成后续自动扩容依据。新增主视觉前必须显式登记分类，未知位图默认采用更严格的 120 KiB 上限。 |
 | 翻译不承担图标职责 | 仅扫描运行时 locale catalog（`web/*/src/i18n.ts` 与 `web/*/src/locales/`），拒绝 emoji、dingbat 与常用符号图标，包括 TypeScript 的 Unicode escape。破折号、中文标点、正文和邮件内容不在扫描范围。 | 使用 `@copilotmail/design-system` 的 SVG icon registry；翻译只提供可读名称与文案。 |
 | 有插画的 `EmptyState` 必有 Alt | 检查从 `@copilotmail/design-system` 的命名导入（含别名）和 namespace 导入的 JSX `EmptyState` 调用。发现 `illustration` 时必须显式提供 `illustrationAlt`。 | 传入对应 locale 的 Alt；刻意装饰时也要明确传入空 Alt，而不是遗漏属性。 |
 
@@ -146,15 +146,43 @@ Gmail 风格外壳，仅表现层与布局改动，API 调用、权限、审计�
   `-linux` 基线（102 张）并人工审图。`-win32` 基线保持原样未动：Windows 环境的视觉比对在
   重新生成前会失败，需待 Windows CI/机器按同一流程重建。
 
-### D4A/D4B/D4C/D4D/D4E 当前生产构建测量（2026-10-12）
+### 2026-10-13 控件精修（批次 16）
 
-最新 `npm run build` 的 Admin 工件为：首屏 JavaScript 335,832 B（gzip 102,377 B）、完整图谱
-JavaScript 490,572 B、CSS 54,210 B（gzip 10,037 B）。Mail 工件为：首屏/完整图谱 JavaScript
-323,279 B（gzip 95,761 B）、CSS 48,186 B（gzip 8,677 B）；Mail 交付位图 3 个，最大
-43,484 B。Gmail 风格外壳没有引入 CDN、运行时样式、额外 API 请求或新的生产素材，既有预算及其
+用户 2026-10-13 08:39 复核批次 14 截图后反馈「设计方向没问题，就是控件质量不行，优化一下」。
+本批只精修控件质感、对齐 Material 3 / Gmail 的交互语法；信息架构、API、权限、审计与业务逻辑
+不变，功能入口一个不少：
+
+- **共享控件语法**：按钮（主/次/文字/图标按钮）、`.control` 输入框与下拉（统一边框、
+  chevron、placeholder 与 disabled 表现）、`search-omnibox`、`app-nav-item`、
+  `topbar-sign-out` 与 `EmptyState` 收敛到 `design-system` 的同一交互语法。Mail 的
+  LanguagePicker/MailboxPicker 下拉与 retry、load-more、compose、reply、composer-send、
+  sign-out 等按钮改复用共享 `.control`/`.button` 变体；MessageList/DraftList/SentList 的
+  空态改用共享 `EmptyState` 组件（标题层级 2，保留 e2e 依赖的 `.empty--actionable`/
+  `.empty-action` 钩子）。Admin 的 locale-switch、表格选中、工具栏、筛选 Chip 与 Toast
+  同样改读共享 token 与状态层；两端 bespoke 圆角并入共享半径档。
+- **令牌**：新增 Material 风格状态层与控件几何 token——`--cm-control-height`、
+  `--cm-icon-size`、`--cm-select-indicator`、hover/pressed 状态层色与 disabled 色，全部
+  集中在 `@layer tokens`；`.button` 变体改为重定向共享 `--_hover`/`--_pressed` 状态层，
+  不再各自手写 hover 色。
+- **命令面板拆分**：Mail-only 命令面板样式移入新的 `design-system/src/mail.css`（与
+  `admin.css` 同模式、仅 Mail 引入），保证 Admin CSS 预算仍在既有上限内；共享层名不变。
+- **修复**：`.compose`/`.compose-fab` 组件层静态阴影会遮住 reset 层焦点环，补显式
+  `:focus-visible` 覆盖恢复双环（mail 焦点边界 e2e 契约断言）；Admin 侧栏底部「语言」
+  标签加单行约束，避免在窄栏折行。
+- **视觉基线**：`-linux` 基线重建 78 张并人工审图（无错位/截断/重叠）；`-win32` 基线
+  保持原样，仍待 Windows 环境按同一流程重建。
+- **保持不变**：移动端触点选择器与 e2e DOM 钩子全部保留；WCAG AA 对比度、双环
+  `--cm-focus-ring`、44px 触点、键盘导航与 Axe 契约不变，没有放宽预算或断言。
+
+### D4A/D4B/D4C/D4D/D4E 当前生产构建测量（2026-10-13）
+
+最新 `npm run build` 的 Admin 工件为：首屏 JavaScript 335,950 B（gzip 102,427 B）、完整图谱
+JavaScript 490,690 B、CSS 52,877 B（gzip 10,035 B）。Mail 工件为：首屏/完整图谱 JavaScript
+324,205 B（gzip 95,965 B）、CSS 49,089 B（gzip 8,975 B）；Mail 交付位图 3 个，最大
+43,484 B。控件精修没有引入 CDN、运行时样式、额外 API 请求或新的生产素材，既有预算及其
 Fail-Closed 检查没有放宽（Admin CSS 仍压在 53 KiB 例外线内，Mail CSS 在共享 48 KiB 默认线内）。
-D4E 只复用已登记的登录主视觉。表中较早 P2/P3/D3 与 2026-08-24 测量仅保留为历史演进记录；
-本节是当前构建事实。
+D4E 只复用已登记的登录主视觉。表中较早 P2/P3/D3 与 2026-08-24、2026-10-12 测量仅保留为
+历史演进记录；本节是当前构建事实。
 
 素材清单的表格行是门禁的机器可读接口：每一行必须包含完整仓库路径、具体页面/
 状态用途、Alt 文本与 64 位源 PNG SHA-256。不要把一个路径缩写成“同名 `.webp`”，

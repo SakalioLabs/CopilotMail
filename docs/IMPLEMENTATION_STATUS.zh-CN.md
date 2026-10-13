@@ -17,14 +17,15 @@
 > SQL/PLpgSQL 离线语法检查。最新新增迁移到 0060，均未在本轮部署。详见
 > [代码质量审查](CODE_QUALITY_REVIEW.zh-CN.md)；未完成的函数级验证、会话代次屏障和最终签字
 > 不被本地通过数替代。下列 411/317 等计数保持其历史口径，不是当前汇总。
-> **批次 14 改版（2026-10-12）后的当前 Web 门禁**：`npm run check`、Vitest（428 条：设计
-> 系统 19、Admin 217、Mail 192）、`npm run build` 与 `npx playwright test --workers=1`
-> （122/122，仅回环 Chromium；PNG 基线按平台拆分：`-linux` 102 张 Admin 39/Mail 63，
-> `-win32` 103 张 Admin 40/Mail 63）均通过。最新 Admin 工件为首屏 JavaScript 335,832 B
-> （gzip 102,377 B）、完整图谱 490,572 B、CSS 54,210 B（gzip 10,037 B）；Mail 为首屏/
-> 完整图谱 JavaScript 323,279 B（gzip 95,761 B）、CSS 48,186 B（gzip 8,677 B），交付
-> 位图 3 个、最大 43,484 B。该结果只覆盖本地构建工件与内存 BFF 夹具，不表示 Docker、
-> NixOS、数据库、IdP、域名邮件或生产环境已经验证；`-win32` 基线待 Windows 环境重新生成。
+> **批次 16 控件精修（2026-10-13）后的当前 Web 门禁**：`npm run check`、Vitest（428 条：设计
+> 系统 19、Admin 217、Mail 192）、`npm run build` 与 `npm run e2e:run -- --workers=1`
+> （122/122，仅回环 Chromium；PNG 基线按平台拆分：`-linux` 102 张 Admin 39/Mail 63，其中
+> 78 张在本批重建，`-win32` 103 张 Admin 40/Mail 63 保持原样）均通过。最新 Admin 工件为
+> 首屏 JavaScript 335,950 B（gzip 102,427 B）、完整图谱 490,690 B、CSS 52,877 B
+> （gzip 10,035 B）；Mail 为首屏/完整图谱 JavaScript 324,205 B（gzip 95,965 B）、
+> CSS 49,089 B（gzip 8,975 B），交付位图 3 个、最大 43,484 B。该结果只覆盖本地构建工件
+> 与内存 BFF 夹具，不表示 Docker、NixOS、数据库、IdP、域名邮件或生产环境已经验证；
+> `-win32` 基线待 Windows 环境重新生成。
 > 当前源码审计目录声明：85 类事件；下列 Application 108、Domain 43、Mail Engine 35、
 > Contracts 17、Control Plane 60；全工作区 `cargo test --workspace --locked` 实跑
 > 381 个非忽略 Rust 测试通过、0 个失败，另有 43 个 ignored 场景（含本轮新增 5 个
@@ -117,6 +118,34 @@ Compose 长状态继续完整换行；D4E 把登录入口、已认证目录准�
 
 ## 本轮已落地
 
+- 2026-10-13 批次 16 按用户当日 08:39 反馈（批次 14 截图「设计方向没问题，就是控件质量
+  不行，优化一下」）完成 Web 控件质量精修，仅表现层：信息架构、API、权限、审计与业务
+  逻辑不变，功能入口一个不少。
+  - design-system 新增 Material 风格状态层与控件几何 token（`--cm-control-height`、
+    `--cm-icon-size`、`--cm-select-indicator`、hover/pressed 状态层色与 disabled 色，
+    集中在 `@layer tokens`）；`.button` 变体改为重定向共享 `--_hover`/`--_pressed`
+    状态层；`.control` 统一输入框/下拉的边框、chevron、placeholder 与 disabled；
+    `.icon-button`/`search-omnibox`/`app-nav-item`/`topbar-sign-out` 升级同一交互语法；
+    `EmptyState` 移入共享表并支持可选描述、插画与标题层级。Mail-only 命令面板样式拆入
+    新增的 `design-system/src/mail.css`（与 `admin.css` 同模式、仅 Mail 引入），Admin
+    CSS 预算保持既有上限。
+  - mail-app：LanguagePicker/MailboxPicker 下拉与 retry、load-more、compose、reply、
+    detail-retry、composer-send、sign-out 按钮改复用共享 `.control`/`.button`；
+    MessageList/DraftList/SentList 空态改用共享 `EmptyState`（标题层级 2，保留
+    `.empty--actionable`/`.empty-action` 等 e2e 钩子）；detail.css 去掉手写 reply/
+    error 按钮外壳，compose FAB 读共享状态层，撰写框头部与 `.dialog__header` 去重。
+    全部移动端触点选择器与 DOM 钩子保留。
+  - admin-app：locale-switch 下拉采用共享 `.control`；表格选中、工具栏、筛选 Chip 与
+    Toast 改读共享间距/状态层 token；bespoke 圆角并入共享半径档；粗指针触点块删除已被
+    `.control` 覆盖的选择器。
+  - 修复：`.compose`/`.compose-fab` 组件层静态阴影遮住 reset 层焦点环，补显式
+    `:focus-visible` 覆盖恢复白+青双环（mail 焦点边界 e2e 断言）；Admin 侧栏底部
+    「语言」标签加单行约束防止折行。
+  - `-linux` 视觉基线重建 78 张并人工审图（无错位/截断/重叠），`-win32` 基线未动、
+    待 Windows 环境按同一流程重生成；同组审阅截图（zh-CN 1440/390 + en 对照，与批次
+    14 一一对应）输出在 `/workspace/copilotmail-notes/screenshots-batch16/`。
+    控件规范与构建测量见 [DESIGN_GOVERNANCE.zh-CN.md](DESIGN_GOVERNANCE.zh-CN.md) 的
+    「2026-10-13 控件精修」。
 - 2026-10-13 批次 15 按 [决定记录](DECISIONS_2026-10-12.zh-CN.md) 第 5、6 条落地
   B-07 与 B-10：
   - B-07 匿名失败登录账本：新迁移 `0062_human_login_failure_ledger.sql` 建
@@ -819,6 +848,7 @@ ignored/实际执行状态分别解释。
 
 | 验证项 | 结果 |
 |---|---|
+| 2026-10-13 批次 16 Web 控件质量精修：共享令牌与控件原语收敛 | Node v20.19.2、npm 9.2.0、Chromium 151（仅回环 Vite Preview 与内存 BFF 夹具）。未改 Rust；`cargo fmt --all --check` 通过，未跑 clippy 与工作区测试。`npm run check` 通过；`npm test` 为设计系统 19、Admin 217、Mail 192，共 428 通过；`npm run build` 通过（bundle 自测 13 个负向 fixture；Admin 首屏 JavaScript 335,950 B、gzip 102,427 B、完整图谱 490,690 B、CSS 52,877 B ≤ 54,272 B 例外线；Mail 首屏/完整 324,205 B、gzip 95,965 B、CSS 49,089 B ≤ 49,152 B 默认线）。`npm run e2e:check` 通过；`npx playwright test --update-snapshots --workers=1` 重建 `-linux` 基线 78 张并人工审图无错位/截断/重叠（差异均在既有 `maxDiffPixelRatio` 阈值内，未改阈值）；随后 `npm run e2e:run -- --workers=1` 本机全量 122/122 通过（含既有 Axe A/AA 扫描与 44px 触点测量）。`-win32` 基线未动，待 Windows 环境重新生成，此前 Windows CI 视觉比对会失败。本行写入后运行并通过：`python3 scripts/check_documentation.py`（13 个必需文件、101 份文档）、`check_audit_governance.py`（87）、`check_function_test_matrix.py`（108，未跑 `--release`）、`check_architecture.py`、`check_crypto_boundary.py`、`check_agent_skill.py`（11 个工作流）、`check_web_i18n.py`、`check_design_governance.py --self-test`、`python3 -m unittest discover -s scripts -p test_audit_governance.py`（17 项）。ignored PostgreSQL/MinIO 未执行；无 Docker、SSH、真实邮件、外部 IdP。 |
 | 2026-10-12 批次 14 Web 界面改版：zh-CN 默认与 Gmail 风格外壳 | Node v20.19.2、npm 9.2.0、Chromium 151（仅回环 Vite Preview 与内存 BFF 夹具）。未改 Rust；`cargo fmt --all --check` 通过，未跑 clippy 与工作区测试。`npm run check` 通过；`npm test` 为设计系统 19、Admin 217、Mail 192，共 428 通过；`npm run build` 通过（bundle 自测 13 个负向 fixture；Admin 首屏 JavaScript 335,832 B、gzip 102,377 B、完整图谱 490,572 B、CSS 54,210 B ≤ 54,272 B 例外线；Mail 首屏/完整 323,279 B、gzip 95,761 B、CSS 48,186 B ≤ 49,152 B 默认线）。`npm run e2e:check` 通过；`npx playwright test --update-snapshots --workers=1` 重建 `-linux` 基线（102 张：Admin 39、Mail 63）并人工审图无错位/截断/重叠；随后 `npx playwright test --workers=1` 本机全量 122/122 通过（含既有 Axe A/AA 扫描与 44px 触点测量）。Admin 默认 `zh-CN`：无已存选择不再按浏览器语言回退 `en`；夹具改为向产品 Locale 存储键写入显式 `en` 且不清空已有选择。失效 e2e 选择器按新 DOM 重写（断言强度不变；`r` 用例先等详情动作出现再按键）；`topbar-sign-out` 上移共享表、Compose 补 `:focus-visible` 环、队列右外边距收窄以保持 1008px 最小宽度契约。`-win32` 基线未动，待 Windows 环境重新生成，此前 Windows CI 视觉比对会失败。本行写入后运行并通过：`python3 scripts/check_documentation.py`（13 个必需文件、101 份文档）、`check_audit_governance.py`（86）、`check_function_test_matrix.py`（106，未跑 `--release`）、`check_architecture.py`、`check_crypto_boundary.py`、`check_agent_skill.py`（11 个工作流）、`check_web_i18n.py`、`check_design_governance.py --self-test`、`python3 -m unittest discover -s scripts -p test_audit_governance.py`（17 项）。ignored PostgreSQL/MinIO 未执行；无 Docker、SSH、真实邮件、外部 IdP。 |
 | 2026-10-12 批次 13 决定落地：平台后缀基线、source-map-js、OIDC/会话配对 | Node v20.19.2、npm 9.2.0、Chromium 151（仅回环 Vite Preview 与内存 BFF 夹具）；Rust 1.97.1。`cargo fmt --all --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings` 通过；`cargo test --workspace --locked` 为 455 passed、0 failed、52 ignored（+1：`production_pairs_human_session_allowlist_with_oidc_relying_parties`）。`npm run check`、`npm test`（设计系统 19、Admin 215、Mail 192）与 `npm run build`（bundle 自测 13 个负向 fixture；Admin 首屏 334,280 B、gzip 101,855 B；Mail 322,285 B、gzip 95,093 B）通过。`npx playwright test --update-snapshots --workers=1` 生成 `-linux` 基线并 122/122 通过；`npm run e2e:run`（含 `e2e:check`）本机全量 122/122 通过。锁文件仅 `source-map-js` 1.2.1→1.2.2 一处条目改动；`npm audit` 归零（GHSA-68fv-2mgg-jv7q 消失）。103 张既有 PNG `git mv` 为 `-win32`，新增 102 张 `-linux`（孤儿 `admin-navigation-drawer-720` 仅 win32）。未改 `maxDiffPixelRatio`、预算与用例清单；Windows CI 继续比对 `-win32`。本行写入后运行并通过：`python3 scripts/check_documentation.py`（13 个必需文件、101 份文档）、`check_audit_governance.py`（86）、`check_function_test_matrix.py`（106，未跑 `--release`）、`check_architecture.py`、`check_crypto_boundary.py`、`check_agent_skill.py`（11 个工作流）、`check_web_i18n.py`、`check_design_governance.py --self-test`、`python3 -m unittest discover -s scripts -p test_audit_governance.py`（17 项）。ignored PostgreSQL/MinIO 未执行；无 Docker、SSH、真实邮件、外部 IdP。 |
 | 2026-10-12 批次 12 邮件端与剩余管理视图的自动化无障碍补证 | Node v20.19.2、npm 9.2.0、Chromium 151（仅回环 Vite Preview 与内存 BFF 夹具）。`cargo fmt --all --check` 通过；未改 Rust，未跑 clippy 与工作区测试。`npm run check`、`npm test`（设计系统 19、Admin 215、Mail 192）与 `npm run build`（bundle 自测 13 个负向 fixture；Admin 首屏 JavaScript 334,280 B、gzip 101,855 B；Mail 322,285 B、gzip 95,093 B）通过。`npm run e2e:check` 通过。新增 `e2e/mail/mail-a11y-contracts.spec.ts` 5/5：Composer 对话框真实浏览器内 Tab/Shift+Tab 双向陷阱、Escape 关闭、焦点返回 Compose 触发器、`.dialog` 的 Axe `wcag2a/2aa/21aa/22aa` 扫描；草稿恢复 alertdialog 双向焦点陷阱、焦点返回「Resume editing」行、Axe 与零 POST 证据；Inbox/Drafts/Sent 列表状态区 `role="status"` + `aria-live="polite"` + `aria-atomic="true"`；队列纯 Tab 顺序（搜索→提交→两条消息行）与 `j`/`k` 移动真实焦点并置 `aria-current`；zh-CN 播报警化与 `.inbox` Axe。新增 `e2e/admin/admin-workspace-a11y.spec.ts` 5/5：Approvals 仅键盘路由进入、`.workspace` Axe、创建表单自定义校验绑定（`aria-invalid`、指向 `role="alert"` 的 `aria-describedby`、`focusVisible` 聚焦、零 POST）、`.approval-create-panel` Axe 与 Escape 后焦点返回触发器；Cases、Legal holds、Mail domains、Audit 全 `.workspace` Axe（含选中详情）。单测补证：MessageList/DraftList/SentList 状态区断言 `aria-live`/`aria-atomic`；MessageDetail 新增读取中 `role="status"` 与失败 `role="alert"` 用例。本批 Axe 与键盘扫描未发现真实缺陷，产品代码无改动。全部不截图；未改快照、`maxDiffPixelRatio` 与锁文件。这仍是自动化证据，不等同 WCAG 2.2 AA 验收。本行写入后运行并通过：`python3 scripts/check_documentation.py`、`check_audit_governance.py`（86）、`check_function_test_matrix.py`（未跑 `--release`）、`check_architecture.py`、`check_crypto_boundary.py`、`check_agent_skill.py`、`check_web_i18n.py`、`test_audit_governance`（17 项）。 |
