@@ -703,5 +703,5 @@ function LocaleSwitch({
   setLocale: (locale: Locale) => void;
   t: ReturnType<typeof translator>;
 }) {
-  return <label className="locale-switch"><span>{t("language")}</span><select value={locale} onChange={(event) => setLocale(event.target.value as Locale)}><option value="zh-CN">{t("languageNameZhCN")}</option><option value="en">{t("languageNameEn")}</option></select></label>;
+  return <label className="locale-switch"><span>{t("language")}</span><select className="control" value={locale} onChange={(event) => setLocale(event.target.value as Locale)}><option value="zh-CN">{t("languageNameZhCN")}</option><option value="en">{t("languageNameEn")}</option></select></label>;
 }
