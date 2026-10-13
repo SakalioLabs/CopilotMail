@@ -1,5 +1,5 @@
 import type { HTMLAttributes, ReactNode } from "react";
-import { Icon } from "./icons";
+import { StatusWarningIcon } from "./icons";
 
 export interface UnknownWriteLockProps extends Omit<
   HTMLAttributes<HTMLElement>,
@@ -48,7 +48,7 @@ export function UnknownWriteLock({
       role={announces ? "status" : undefined}
     >
       <div className="unknown-write-lock__mark" aria-hidden="true">
-        <Icon aria-hidden name="status-warning" size={18} />
+        <StatusWarningIcon aria-hidden size={18} />
       </div>
       <div className="unknown-write-lock__copy">
         <strong>{title}</strong>

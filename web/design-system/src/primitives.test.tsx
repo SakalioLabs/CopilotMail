@@ -1,11 +1,23 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
+  BrandMark,
+  EmptyApprovalsArt,
+  EmptyAuditArt,
+  EmptyComplianceArt,
+  EmptyDomainsArt,
+  EmptyDraftsArt,
+  EmptyInboxArt,
+  EmptyRolesArt,
+  EmptySearchArt,
+  EmptySentArt,
   Field,
   ICON_NAMES,
   Icon,
   Input,
   Select,
+  SelectMessageArt,
+  SelectRecordArt,
   Textarea,
   type IconName,
 } from "./index";
@@ -131,5 +143,42 @@ describe("shared mail navigation icons", () => {
       expect(icon?.childElementCount).toBeGreaterThan(0);
       view.unmount();
     }
+  });
+});
+
+describe("shared empty-state illustrations", () => {
+  const scenes = [
+    EmptyInboxArt,
+    EmptySearchArt,
+    EmptyDraftsArt,
+    EmptySentArt,
+    SelectMessageArt,
+    SelectRecordArt,
+    EmptyApprovalsArt,
+    EmptyAuditArt,
+    EmptyComplianceArt,
+    EmptyDomainsArt,
+    EmptyRolesArt,
+  ];
+
+  it("renders every scene as a non-empty decorative SVG on the shared grid", () => {
+    for (const Scene of scenes) {
+      const view = render(<Scene />);
+      const svg = view.container.querySelector("svg");
+      expect(svg).toHaveAttribute("viewBox", "0 0 200 150");
+      expect(svg).toHaveAttribute("aria-hidden", "true");
+      expect(svg).toHaveAttribute("focusable", "false");
+      expect(svg?.childElementCount).toBeGreaterThan(0);
+      view.unmount();
+    }
+  });
+
+  it("keeps the character logomark decorative beside the visible wordmark", () => {
+    const view = render(<BrandMark />);
+    const svg = view.container.querySelector("svg");
+    expect(svg).toHaveAttribute("viewBox", "0 0 24 24");
+    expect(svg).toHaveAttribute("aria-hidden", "true");
+    expect(svg).toHaveAttribute("focusable", "false");
+    expect(svg?.childElementCount).toBeGreaterThan(0);
   });
 });

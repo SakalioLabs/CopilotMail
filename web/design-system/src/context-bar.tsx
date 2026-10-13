@@ -5,7 +5,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { Icon } from "./icons";
+import { ChevronDownIcon } from "./icons";
 import type { StatusIndicatorProps } from "./index";
 
 /** A fact already authorized for the current screen. ContextBar never infers one. */
@@ -160,10 +160,9 @@ export function EvidenceInspector({
         {count !== undefined ? (
           <span className="evidence-inspector__count">{count}</span>
         ) : null}
-        <Icon
+        <ChevronDownIcon
           aria-hidden
           className="evidence-inspector__indicator"
-          name="chevron-down"
           size={16}
         />
       </summary>

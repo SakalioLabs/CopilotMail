@@ -10,7 +10,7 @@ import {
   type PointerEvent,
 } from "react";
 import { createPortal } from "react-dom";
-import { Icon, type IconName } from "./icons";
+import { CloseIcon, Icon, SearchIcon, type IconName } from "./icons";
 
 /** A product action that can be offered by a command palette. */
 export interface CommandPaletteCommand {
@@ -337,12 +337,12 @@ export function CommandPalette({
               type="button"
               onClick={dismiss}
             >
-              <Icon aria-hidden name="close" size={18} />
+              <CloseIcon aria-hidden size={18} />
             </button>
           </div>
         </div>
         <label className="command-palette__search">
-          <Icon aria-hidden name="search" size={18} />
+          <SearchIcon aria-hidden size={18} />
           <span className="sr-only">{searchLabel}</span>
           <input
             ref={inputRef}

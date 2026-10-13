@@ -8,7 +8,7 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import { Icon } from "./icons";
+import { CloseIcon } from "./icons";
 
 const FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -285,7 +285,7 @@ export function Dialog({
                 if (!dismissDisabledRef.current) onCloseRef.current();
               }}
             >
-              <Icon aria-hidden name="close" size={20} />
+              <CloseIcon aria-hidden size={20} />
             </button>
           ) : null}
         </div>
