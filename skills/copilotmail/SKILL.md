@@ -33,7 +33,8 @@ mail-engine credentials, or raw provider errors.
 
 Use `scripts/copilotmail.py` for deterministic requests. Read
 [`references/api.md`](references/api.md) for authentication forms, scopes,
-payloads, status semantics, Cursor/SSE recovery, and sending.
+payloads, status semantics, Cursor/SSE recovery, the MCP WebSocket channel
+(`GET /api/v2/mcp`, `mcp` subprotocol, JSON-RPC 2.0), and sending.
 
 ## Sending
 

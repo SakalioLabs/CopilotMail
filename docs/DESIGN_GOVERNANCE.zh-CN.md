@@ -209,15 +209,50 @@ Gmail 风格外壳，仅表现层与布局改动，API 调用、权限、审计�
   断言的 `maxDiffPixelRatio` 阈值内、基线未变。`-win32` 基线保持原样，仍待 Windows 环境
   按同一流程重建。
 
-### D4A/D4B/D4C/D4D/D4E 当前生产构建测量（2026-10-13）
+### 2026-10-14 苹果风格控件与非线性弹簧动画（批次 18）
 
-最新 `npm run build` 的 Admin 工件为：首屏 JavaScript 335,232 B（gzip 102,308 B）、完整图谱
-JavaScript 491,296 B、CSS 53,229 B（gzip 10,080 B）。Mail 工件为：首屏/完整图谱 JavaScript
-329,149 B（gzip 97,432 B）、CSS 49,149 B（gzip 8,976 B）；Mail 交付位图 2 个，最大
-29,720 B。视觉丰富没有引入 CDN、运行时样式、额外 API 请求、远程字体/图标库或新的生产素材
-（插画与图标全部为内联 SVG 组件），既有预算及其 Fail-Closed 检查没有放宽（Admin 完整图谱
-JavaScript 距 480 KiB 例外线余 224 B，CSS 距 53 KiB 例外线余 1,043 B；Mail CSS 距共享 48 KiB
-默认线余 3 B）。
+用户 2026-10-14 要求「UI 的控件风格看看能不能学一学苹果，然后增加一下非线性的弹簧动画」。
+本批仍只改表现层与共享令牌：信息架构、功能入口、API、权限、审计、i18n 与批次 17 的
+插画/图标/字符 Logo 全部不变，不新增依赖、不引入远程字体或图标库：
+
+- **字体栈**：`--cm-font-sans` 改为 `-apple-system`/`BlinkMacSystemFont`/`"SF Pro Text"`
+  优先，macOS/iOS 自动落到 SF；Inter、`"PingFang SC"`、`"Microsoft YaHei"`、
+  `"Noto Sans CJK SC"`、`system-ui`、`"Segoe UI"` 等本地回退全部保留，不加载远程字体。
+  Linux/CI 渲染与基线不变。
+- **弹簧令牌**：`--cm-ease-spring-gentle`/`--cm-ease-spring-snappy` 为阻尼振荡器
+  （gentle ζ≈0.72、约 4% 超调；snappy ζ≈0.55、约 12% 超调；采样公式
+  `x(t)=1-e^{-ζωt}(cos ωd t + ζω/ωd·sin ωd t)`，ωd=ω√(1-ζ²)，gentle ω=10、
+  snappy ω=16，各 16 采样点）。`@layer tokens` 中先给 cubic-bezier 近似回退，
+  文件尾部 `linear()` `@supports` 探测块（不写进 tokens layer，天然具更高级联）把
+  令牌升级为真实 `linear()` 弹簧曲线；`--cm-motion-spring-gentle`(380ms)/
+  `-snappy`(240ms) 为 duration+easing 复合令牌。
+- **弹簧应用**：`.button`/`.icon-button` 按下 `scale(0.97/0.9)` 回弹（transition 的
+  transform 通道用 snappy 弹簧，其余通道仍走 `--cm-motion-interactive`）；
+  `.evidence-inspector`/`mobile-mailbox-scope` 的展开箭头用 snappy 旋转；
+  浮层 `.dialog`、Mail 撰写窗 `.composer`、Admin `.toast` 用
+  `@keyframes cm-surface-in`（位移 10px + 轻微缩放 + 淡入，gentle 弹簧）；Admin 侧栏
+  抽屉用 `cm-drawer-in`（translateX(-14px)，gentle）。
+- **控件**：Admin `.checkbox-field` 的原生 checkbox 外观升级为 iOS 式 44×26 胶囊开关
+  （`appearance: none` + `::before` 圆形 thumb，thumb 位移走 snappy 弹簧；role、
+  label 关联、键盘与焦点环契约不变，label 行仍提供 44px 触点）；Audit 时间预设
+  `.preset-buttons` 收敛为圆角分段控件组（容器 `surface-subtle` 底 + 2px 内边距，
+  段为 quiet 按钮）。
+- **减少动画**：全局 `prefers-reduced-motion: reduce` 契约不变——所有
+  transition/animation 时长降到 0.01ms，弹簧与入场动画在该模式下等价于直接切换；
+  e2e 浏览器上下文本就固定 reduce，动画不影响截图稳定性。动画只用
+  transform/opacity，不引起布局抖动。
+- **预算腾挪**：全部新增通过合并重复选择器与收窄 mail 私有别名
+  （`--mail-touch-target-size` → `--mail-touch`，测试同步更新断言字面量、断言强度不变）
+  自费；未提高任何预算或阈值。
+
+### D4A/D4B/D4C/D4D/D4E 当前生产构建测量（2026-10-14）
+
+最新 `npm run build` 的 Admin 工件为：首屏 JavaScript 335,232 B（gzip 102,313 B）、完整图谱
+JavaScript 491,296 B、CSS 54,215 B（gzip 10,478 B）。Mail 工件为：首屏/完整图谱 JavaScript
+329,149 B（gzip 97,432 B）、CSS 48,880 B（gzip 9,210 B）；Mail 交付位图 2 个，最大
+29,720 B。批次 18 的弹簧令牌、入场动画与 iOS 开关全部在既有预算内完成：Admin 完整图谱
+JavaScript 距 480 KiB 例外线余 224 B（未变），CSS 距 53 KiB 例外线余 57 B；Mail CSS 距共享
+48 KiB 默认线余 272 B（批次 17 余量为 3 B，腾挪后反而增大）。
 D4E 只复用已登记的登录主视觉。表中较早 P2/P3/D3 与 2026-08-24、2026-10-12 测量仅保留为
 历史演进记录；本节是当前构建事实。
 

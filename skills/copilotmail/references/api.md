@@ -75,6 +75,33 @@ the Authorization header, never in a query parameter. Resume with
 `Last-Event-ID` or a `cursor` query parameter, not both with different values.
 Connections are bounded and must reconnect with capped exponential backoff.
 
+## MCP WebSocket channel
+
+Agents that speak the Model Context Protocol can use
+`GET /api/v2/mcp` instead of discrete REST calls. Upgrade requirements:
+
+- `Sec-WebSocket-Protocol: mcp` is mandatory. Browser clients that cannot
+  set an Authorization header may add one `bearer.<token>` entry alongside
+  `mcp`; combining it with an Authorization header is rejected, and the
+  token must never appear in the query string.
+- Authenticate with the same short-lived scoped token; `agent.operate` is
+  required and every `tools/call` re-checks live RBAC, policy, approval,
+  sandbox, and rate limits exactly like the REST endpoint.
+- The session speaks JSON-RPC 2.0 (protocol revisions `2025-06-18` and
+  `2025-03-26`): `initialize`, the `notifications/initialized`
+  acknowledgement, `ping`, `tools/list`, `tools/call`, `resources/list`,
+  `resources/read`, `resources/templates/list`, and
+  `notifications/cancelled`. Other methods receive `-32601`; calls before
+  `initialize` are rejected.
+- Frames are limited to 128 KiB, at most four calls run concurrently, an
+  idle session closes after 75 seconds, and the socket is closed after 900
+  seconds or eight protocol violations.
+
+`tools/call` names map one-to-one onto the REST operations above
+(`agent_message_claim`, `agent_mail_content_read`,
+`agent_mail_submission_request`, …) and return the same machine error codes
+inside a `CallToolResult`; see `docs/MCP.zh-CN.md` for the full catalogue.
+
 ## Sending plain-text mail
 
 Save a draft:

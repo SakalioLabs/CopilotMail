@@ -47,6 +47,24 @@ implementation evidence remains in
   the presenting principal. Only persisted non-secret attributes cross the
   contract; opaque tokens, PKCE material, and IdP-side device sessions do not,
   and no per-device revocation is offered.
+- Agent MCP channel: `GET /api/v2/mcp` upgrades to a WebSocket session on the
+  `mcp` subprotocol and serves JSON-RPC 2.0 MCP (protocol revisions
+  2025-06-18/2025-03-26) — initialize, ping, tools/list, tools/call,
+  resources/list, resources/read, resources/templates/list, and cancellation
+  notifications. Every call runs the same application use case, live
+  authorization, policy, approval, sandbox, idempotency, and rate-limit path
+  as the matching REST endpoint; session establishment commits
+  `agent.mcp_session.opened` audit/outbox evidence before the upgrade is
+  accepted. Frames are capped at 128 KiB, in-flight requests at four, idle
+  sessions at 75 seconds, and total lifetime at 900 seconds.
+- Apple-style control grammar and nonlinear spring motion in the shared
+  design system: SF-first local font stack, `--cm-ease-spring-gentle`/
+  `--cm-ease-spring-snappy` damped-oscillator tokens with `linear()` curves
+  and cubic-bezier fallbacks, spring button/icon presses, spring disclosure
+  indicators, spring dialog/composer/toast/drawer entrances, an iOS-style
+  switch treatment for Admin checkboxes, and a segmented pill group for the
+  audit time presets — all inside the unchanged CSS/JS budgets, with the
+  `prefers-reduced-motion` contract preserved.
 - Platform-operations login-failure ledger: `human_login_failures` is an
   append-only control-plane table recording only a closed reason code, the
   client key, the database-stamped time, and an optional deployment-salted

@@ -2087,6 +2087,47 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
         "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v2/mcp:
+    get:
+      operationId: openAgentMcpChannel
+      summary: Upgrade to the Agent MCP WebSocket channel (JSON-RPC 2.0).
+      description: >
+        Agent-only Model Context Protocol channel. The request must offer the
+        `mcp` WebSocket subprotocol and authenticates exactly like the REST
+        surface: `Authorization: Bearer` or a single `bearer.<token>`
+        Sec-WebSocket-Protocol entry for browser clients; query-string
+        credentials and ambiguous double presentation are rejected. Same-host
+        Origin is enforced for browser clients. Once upgraded the socket
+        speaks JSON-RPC 2.0 with the MCP lifecycle (initialize, initialized
+        notification, ping, tools/list, tools/call, resources/list,
+        resources/read, resources/templates/list, notifications/cancelled)
+        for protocol revisions 2025-06-18 and 2025-03-26. Every tools/call
+        re-resolves live authorization and runs the identical application
+        use case, policy, approval, sandbox, and rate-limit path as the
+        corresponding REST endpoint; responses embed the REST machine code.
+        Frames are capped at 128 KiB, in-flight requests at 4, idle sessions
+        close after 75s, and total session lifetime at 900s. Session
+        establishment is committed before the upgrade as
+        `agent.mcp_session.opened` audit/outbox evidence. See
+        docs/MCP.zh-CN.md for the capability map and frame contract.
+      security:
+        - bearerAuth: [agent.operate]
+      responses:
+        "101":
+          description: WebSocket upgrade accepted with subprotocol `mcp`.
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "426": { description: Upgrade header missing or unusable. }
+        "429":
+          description: Agent tenant or principal ingress capacity is exhausted.
+          headers:
+            Retry-After:
+              schema: { type: integer, minimum: 1, maximum: 60 }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /api/v2/mailboxes/{mailbox_id}/drafts:
     get:
       operationId: listHumanDrafts

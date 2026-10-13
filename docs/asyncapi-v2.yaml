@@ -36,6 +36,18 @@ channels:
     messages:
       applicationEvent:
         $ref: "#/components/messages/SseApplicationEvent"
+  agentMcpChannel:
+    address: /api/v2/mcp
+    description: >
+      Authenticated Agent MCP WebSocket channel (subprotocol `mcp`,
+      JSON-RPC 2.0, protocol revisions 2025-06-18 and 2025-03-26). Every
+      tools/call and resources/read executes the same application use case,
+      live authorization, idempotency, audit, and rate-limit path as the
+      corresponding REST endpoint. Frames are capped at 128 KiB, in-flight
+      requests at 4, and the session at 900s; see docs/MCP.zh-CN.md.
+    messages:
+      mcpFrame:
+        $ref: "#/components/messages/McpJsonRpcFrame"
 operations:
   sendApplicationEvent:
     action: send
@@ -53,6 +65,17 @@ operations:
       $ref: "#/channels/agentEventStream"
     messages:
       - $ref: "#/channels/agentEventStream/messages/applicationEvent"
+  callAgentMcp:
+    action: send
+    title: Exchange MCP JSON-RPC frames with an Agent session
+    summary: >
+      Bidirectional Agent MCP channel. Requests and notifications flow
+      Agent-to-server; responses and request results flow back over the
+      same authenticated socket.
+    channel:
+      $ref: "#/channels/agentMcpChannel"
+    messages:
+      - $ref: "#/channels/agentMcpChannel/messages/mcpFrame"
 components:
   messages:
     ApplicationEvent:
@@ -99,6 +122,26 @@ components:
         location: "$message.payload#/id"
       payload:
         $ref: "#/components/schemas/EventEnvelope"
+    McpJsonRpcFrame:
+      name: McpJsonRpcFrame
+      title: MCP JSON-RPC 2.0 frame
+      summary: >
+        One JSON-RPC 2.0 request, response, or notification of the Model
+        Context Protocol session. The method catalogue, error codes, and
+        session bounds are documented in docs/MCP.zh-CN.md and the
+        function test matrix capability agent.mcp_channel.
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - jsonrpc
+        properties:
+          jsonrpc: { type: string, const: "2.0" }
+          id: {}
+          method: { type: string }
+          params: { type: object }
+          result: {}
+          error: { type: object }
   schemas:
     EventEnvelope:
       type: object
