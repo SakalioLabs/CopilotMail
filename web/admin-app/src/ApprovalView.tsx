@@ -2,11 +2,13 @@ import {
   Badge,
   Button,
   ConfirmDialog,
+  EmptyApprovalsArt,
   EmptyState,
   Field,
   Input,
   Panel,
   Select,
+  SelectRecordArt,
   Spinner,
   StatusIndicator,
   Textarea,
@@ -18,6 +20,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { AdminErrorNotice } from "./AdminErrorNotice";
 import { AdminListDetail } from "./AdminListDetail";
 import { ControlPlaneClient, isUnknownWriteFailure } from "./api";
+import { focusWithVisibleRing, formatNullableDate as formatDate, shortId } from "./format";
 import { translator } from "./i18n";
 import type {
   ApprovalAction,
@@ -125,11 +128,6 @@ function validBoundedText(value: string, maximum: number): boolean {
 }
 
 /** See the same helper in dialog.tsx. */
-function focusWithVisibleRing(element: HTMLElement | null | undefined) {
-  if (!element) return;
-  const options: FocusOptions & { focusVisible: boolean } = { focusVisible: true };
-  element.focus(options);
-}
 
 function validateApprovalCreateDraft(
   draft: ApprovalCreateDraft,
@@ -182,17 +180,7 @@ function validateApprovalCreateDraft(
   return undefined;
 }
 
-function formatDate(value: string | null, locale: Locale): string {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
 
-function shortId(value: string): string {
-  return value.length > 18 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value;
-}
 
 function statusTone(
   status: ApprovalStatus,
@@ -1523,7 +1511,7 @@ export default function ApprovalView({
             </article>
           ) : <Spinner label={t("loading")} />}
           detailClassName="approval-detail"
-          detailEmpty={<EmptyState title={t("details")} description={t("selectRow")} />}
+          detailEmpty={<EmptyState art={<SelectRecordArt />} title={t("details")} description={t("selectRow")} />}
           detailHeader={<p className="eyebrow">{t("approvalRequest")}</p>}
           detailTitle={selectedId ? shortId(selectedId) : t("details")}
           detailTitleRef={approvalDetailTitleRef}
@@ -1535,7 +1523,7 @@ export default function ApprovalView({
           renderList={(registerTrigger) => (
             <>
               {!page.items.length ? (
-                <EmptyState title={t("noApprovals")} description={t("noApprovalsHint")} />
+                <EmptyState art={<EmptyApprovalsArt />} title={t("noApprovals")} description={t("noApprovalsHint")} />
               ) : (
                 <div className="table-wrap">
                   <table>

@@ -3,6 +3,7 @@ import {
   Button,
   ConfirmDialog,
   ContextBar,
+  EmptyRolesArt,
   EmptyState,
   EvidenceInspector,
   Field,
@@ -17,17 +18,13 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AdminErrorNotice } from "./AdminErrorNotice";
 import { ControlPlaneClient, isUnknownWriteFailure } from "./api";
+import { Pagination } from "./ComplianceViews";
+import { formatDate, shortId } from "./format";
 import { translator } from "./i18n";
 import type { Locale, Page, Role, RoleAssignment } from "./types";
 
 type T = ReturnType<typeof translator>;
 
-function formatDate(value: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
 
 /**
  * `valid_until` is the only nullable date in the role-assignment DTO.  A
@@ -38,9 +35,6 @@ function formatAssignmentExpiry(value: string | null, locale: Locale, t: T): str
   return value === null ? t("noExpiry") : formatDate(value, locale);
 }
 
-function shortId(value: string): string {
-  return value.length > 18 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value;
-}
 
 function PrincipalIdentity({ kind, t }: { kind: RoleAssignment["principal_kind"]; t: T }) {
   const label = kind === "human"
@@ -579,7 +573,7 @@ export default function RolesView({
 
         {loading && !page ? <Spinner label={t("loading")} /> : null}
         {!loading && page?.items.length === 0 ? (
-          <EmptyState title={t("noRoleAssignments")} description={t("noRoleAssignmentsHint")} />
+          <EmptyState art={<EmptyRolesArt />} title={t("noRoleAssignments")} description={t("noRoleAssignmentsHint")} />
         ) : null}
         {page?.items.length ? (
           <div className="role-assignment-list">
@@ -617,31 +611,22 @@ export default function RolesView({
             ))}
           </div>
         ) : null}
-        {cursors.length > 1 || Boolean(page?.has_more && page.next_cursor) ? (
-          <nav className="pagination" aria-label={t("roleAssignmentsPagination")}>
-            <Button
-              variant="secondary"
-              disabled={cursors.length === 1 || loading || acting || writeFrozen}
-              onClick={() => {
-                prepareAssignmentQueryChange();
-                setCursors((value) => value.slice(0, -1));
-              }}
-            >
-              {t("previous")}
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={!page?.has_more || !page.next_cursor || loading || acting || writeFrozen}
-              onClick={() => {
-                if (!page?.next_cursor) return;
-                prepareAssignmentQueryChange();
-                setCursors((value) => [...value, page.next_cursor!]);
-              }}
-            >
-              {t("next")}
-            </Button>
-          </nav>
-        ) : null}
+        <Pagination
+          canGoBack={cursors.length > 1}
+          canGoNext={Boolean(page?.has_more && page.next_cursor)}
+          disabled={loading || acting || writeFrozen}
+          label={t("roleAssignmentsPagination")}
+          onBack={() => {
+            prepareAssignmentQueryChange();
+            setCursors((value) => value.slice(0, -1));
+          }}
+          onNext={() => {
+            if (!page?.next_cursor) return;
+            prepareAssignmentQueryChange();
+            setCursors((value) => [...value, page.next_cursor!]);
+          }}
+          t={t}
+        />
       </Panel>
 
       {pendingGrant ? (

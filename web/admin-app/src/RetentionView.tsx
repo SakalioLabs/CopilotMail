@@ -20,6 +20,7 @@ import {
   adminErrorPresentation,
 } from "./AdminErrorNotice";
 import { isUnknownWriteFailure, type ControlPlaneClient } from "./api";
+import { formatDate } from "./format";
 import type { translator } from "./i18n";
 import type {
   Locale,
@@ -196,12 +197,6 @@ function mergeHighWater(
   };
 }
 
-function formatDate(value: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
 
 function versionDays(value: string, required: true): number;
 function versionDays(value: string, required: false): number | null;

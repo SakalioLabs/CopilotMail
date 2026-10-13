@@ -5,12 +5,14 @@ import {
   ConfirmDialog,
   ContextBar,
   Dialog,
+  EmptyDomainsArt,
   EmptyState,
   EvidenceInspector,
   Field,
   Input,
   Panel,
   Select,
+  SelectRecordArt,
   Spinner,
   StatusIndicator,
   UnknownWriteLock,
@@ -26,6 +28,8 @@ import {
 import { AdminErrorNotice, AdminUiError } from "./AdminErrorNotice";
 import { AdminListDetail } from "./AdminListDetail";
 import { ControlPlaneClient, isUnknownWriteFailure } from "./api";
+import { Pagination } from "./ComplianceViews";
+import { focusWithVisibleRing, formatNullableDate as formatDate } from "./format";
 import type { translator } from "./i18n";
 import type { Locale, MailDomain } from "./types";
 
@@ -78,11 +82,6 @@ interface UnknownWriteContext {
 const emptyCreateDraft = (): CreateDraft => ({ name: "", routeMode: "" });
 
 /** See the same helper in dialog.tsx. */
-function focusWithVisibleRing(element: HTMLElement | null | undefined) {
-  if (!element) return;
-  const options: FocusOptions & { focusVisible: boolean } = { focusVisible: true };
-  element.focus(options);
-}
 
 function routeDraftFor(domain: MailDomain): RouteDraft {
   return {
@@ -172,15 +171,6 @@ function lifecycleDecision(domain: MailDomain): LifecycleDecision {
   return "verify";
 }
 
-function formatDate(value: string | null, locale: Locale, empty: string): string {
-  if (!value) return empty;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return empty;
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(parsed);
-}
 
 function isCandidateDomain(value: string): boolean {
   return Boolean(value)
@@ -1103,7 +1093,7 @@ export default function MailDomainsView({
       retry={selectedId ? () => void readDomain(selectedId, { clearCurrent: false }) : undefined}
       t={t}
     />
-  ) : <EmptyState title={t("domainDetail")} description={t("domainSelectionEmpty")} />;
+  ) : <EmptyState art={<SelectRecordArt />} title={t("domainDetail")} description={t("domainSelectionEmpty")} />;
 
   return (
     <section className="view-stack" aria-labelledby="mail-domains-title">
@@ -1171,7 +1161,7 @@ export default function MailDomainsView({
           className="mail-domain-workbench"
           backLabel={t("domainList")}
           detailBody={detailBody}
-          detailEmpty={<EmptyState title={t("domainDetail")} description={t("domainSelectionEmpty")} />}
+          detailEmpty={<EmptyState art={<SelectRecordArt />} title={t("domainDetail")} description={t("domainSelectionEmpty")} />}
           detailHeader={<p className="eyebrow">{t("domainDetail")}</p>}
           detailClassName="mail-domain-detail"
           detailTitle={detailTitle}
@@ -1234,38 +1224,28 @@ export default function MailDomainsView({
                   </tbody>
                 </table>
               </div>
-              {afterHistory.length > 1 || nextAfter ? (
-                <nav aria-label={t("domainListPagination")} className="pagination">
-                  <Button
-                    disabled={afterHistory.length === 1 || listLoading || writing || writeFrozen}
-                    type="button"
-                    variant="secondary"
-                    onClick={() => {
-                      clearSelection();
-                      setAfterHistory((history) => history.slice(0, -1));
-                    }}
-                  >
-                    {t("previous")}
-                  </Button>
-                  <Button
-                    disabled={!nextAfter || listLoading || writing || writeFrozen}
-                    type="button"
-                    variant="secondary"
-                    onClick={() => {
-                      if (!nextAfter) return;
-                      clearSelection();
-                      setAfterHistory((history) => [...history, nextAfter]);
-                    }}
-                  >
-                    {t("next")}
-                  </Button>
-                </nav>
-              ) : null}
+              <Pagination
+                canGoBack={afterHistory.length > 1}
+                canGoNext={Boolean(nextAfter)}
+                disabled={listLoading || writing || writeFrozen}
+                label={t("domainListPagination")}
+                onBack={() => {
+                  clearSelection();
+                  setAfterHistory((history) => history.slice(0, -1));
+                }}
+                onNext={() => {
+                  if (!nextAfter) return;
+                  clearSelection();
+                  setAfterHistory((history) => [...history, nextAfter]);
+                }}
+                t={t}
+              />
             </>
           )}
         />
       ) : !listLoading && !listError ? (
         <EmptyState
+          art={<EmptyDomainsArt />}
           action={(
             <Button disabled={writeFrozen} type="button" onClick={openCreate}>
               {t("domainRegister")}

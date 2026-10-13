@@ -10,7 +10,9 @@ import {
   StatusIndicator,
 } from "@copilotmail/design-system";
 import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Fact } from "./AdminListDetail";
 import { ApiError, type ControlPlaneClient } from "./api";
+import { formatEvidenceDate as formatDate, isCanonicalUuid } from "./format";
 import { adminErrorPresentation } from "./AdminErrorNotice";
 import AgentMailSubmissionEvidenceView from "./AgentMailSubmissionEvidenceView";
 import type { translator } from "./i18n";
@@ -35,19 +37,7 @@ interface InspectorError {
   retryable: boolean;
 }
 
-function isCanonicalUuid(value: string): boolean {
-  return value !== "00000000-0000-0000-0000-000000000000"
-    && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(value);
-}
 
-function formatDate(value: string, locale: Locale): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
 
 function optionalDate(
   value: string | null,
@@ -219,14 +209,6 @@ function InspectorErrorNotice({
   );
 }
 
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="agent-inspector-fact">
-      <dt>{label}</dt>
-      <dd>{children}</dd>
-    </div>
-  );
-}
 
 function Snapshot({
   snapshot,

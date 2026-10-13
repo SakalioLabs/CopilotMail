@@ -1,11 +1,23 @@
 import {
+  AdminAgentInspectorIcon,
+  AdminApprovalsIcon,
+  AdminAuditIcon,
+  AdminCasesIcon,
+  AdminHoldsIcon,
+  AdminMailDomainsIcon,
+  AdminOverviewIcon,
+  AdminRetentionIcon,
+  AdminRolesIcon,
+  BrandMark,
   Button,
   CheckIcon,
+  CloseIcon,
   ConfirmDialog,
   Dialog,
-  Icon,
   IconButton,
   Panel,
+  PanelIcon,
+  SearchIcon,
   SignOutIcon,
   Spinner,
 } from "@copilotmail/design-system";
@@ -20,10 +32,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { AdminNavIcon, type AdminNavIconName } from "./AdminNavIcon";
+
 import { AdminErrorNotice } from "./AdminErrorNotice";
 import { ControlPlaneClient } from "./api";
+import { shortId } from "./format";
 import { loadSession, logout, startLogin } from "./auth";
+import type { IconComponentProps } from "@copilotmail/design-system";
+import type { ReactElement } from "react";
 import type {
   CaseCommitStore,
   CommittedCaseEvidence,
@@ -117,10 +132,11 @@ export class RecoverableRouteBoundary extends Component<
 }
 
 type NavigationGroupId = "command" | "operations" | "evidence" | "identity";
+type NavIconComponent = (props: IconComponentProps) => ReactElement;
 
 interface NavigationGroup {
   id: NavigationGroupId;
-  items: ReadonlyArray<{ view: View; icon: AdminNavIconName }>;
+  items: ReadonlyArray<{ view: View; icon: NavIconComponent }>;
 }
 
 /**
@@ -131,29 +147,29 @@ interface NavigationGroup {
 const navigationGroups: ReadonlyArray<NavigationGroup> = [
   {
     id: "command",
-    items: [{ view: "overview", icon: "overview" }],
+    items: [{ view: "overview", icon: AdminOverviewIcon }],
   },
   {
     id: "operations",
     items: [
-      { view: "mail-domains", icon: "mail-domains" },
-      { view: "approvals", icon: "approvals" },
-      { view: "cases", icon: "cases" },
-      { view: "holds", icon: "holds" },
+      { view: "mail-domains", icon: AdminMailDomainsIcon },
+      { view: "approvals", icon: AdminApprovalsIcon },
+      { view: "cases", icon: AdminCasesIcon },
+      { view: "holds", icon: AdminHoldsIcon },
     ],
   },
   {
     id: "evidence",
     items: [
-      { view: "audit", icon: "audit" },
-      { view: "retention", icon: "retention" },
+      { view: "audit", icon: AdminAuditIcon },
+      { view: "retention", icon: AdminRetentionIcon },
     ],
   },
   {
     id: "identity",
     items: [
-      { view: "agent-inspector", icon: "agent-inspector" },
-      { view: "roles", icon: "roles" },
+      { view: "agent-inspector", icon: AdminAgentInspectorIcon },
+      { view: "roles", icon: AdminRolesIcon },
     ],
   },
 ];
@@ -177,9 +193,6 @@ const navigationGroupLabels = {
   identity: "navigationGroupIdentity",
 } as const;
 
-function shortId(value: string): string {
-  return value.length > 18 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value;
-}
 
 export function AdminNavigation({
   view,
@@ -226,7 +239,7 @@ export function AdminNavigation({
               {groupLabel}
             </h2>
             <div className="admin-navigation__items">
-              {group.items.map(({ view: item, icon }) => {
+              {group.items.map(({ view: item, icon: NavIcon }) => {
                 const label = t(navigationLabels[item]);
                 return (
                   <button
@@ -237,7 +250,7 @@ export function AdminNavigation({
                     type="button"
                     onClick={() => navigate(item)}
                   >
-                    <AdminNavIcon name={icon} />
+                    <NavIcon aria-hidden size={20} />
                     <span className="app-nav-item__label">{label}</span>
                   </button>
                 );
@@ -305,7 +318,7 @@ export function AdaptiveNavigation({
           variant="secondary"
           onClick={() => setDrawerOpen(true)}
         >
-          <Icon aria-hidden name="panel" size={18} />
+          <PanelIcon aria-hidden size={18} />
           <span className="mobile-navigation-context__toggle-label">{t("openNavigation")}</span>
         </Button>
       </div>
@@ -494,12 +507,13 @@ function AuthenticatedWorkspace({
             view={view}
           />
           <span className="app-wordmark">
+            <BrandMark />
             {t("product")}
             <small>{t("adminCenter")}</small>
           </span>
         </div>
         <div className="admin-topbar__search search-omnibox" role="search">
-          <Icon aria-hidden className="admin-topbar__search-icon" name="search" size={20} />
+          <SearchIcon aria-hidden className="admin-topbar__search-icon" size={20} />
           <input
             aria-label={t("navSearchAria")}
             maxLength={64}
@@ -510,7 +524,7 @@ function AuthenticatedWorkspace({
           {navQuery ? (
             <IconButton
               className="admin-topbar__search-clear"
-              icon="close"
+              icon={<CloseIcon />}
               label={t("clearFilter")}
               onClick={() => setNavQuery("")}
             />
@@ -523,7 +537,7 @@ function AuthenticatedWorkspace({
         >
           <LocaleSwitch locale={locale} setLocale={onLocaleChange} t={t} />
           <button className="topbar-sign-out" type="button" onClick={onSignOut}>
-            <Icon aria-hidden name="sign-out" size={17} />
+            <SignOutIcon aria-hidden size={17} />
             {t("signOut")}
           </button>
         </div>
@@ -665,11 +679,11 @@ export default function App() {
   }, [auth, revalidateSession]);
 
   if (problems.length) {
-    return <main className="centered"><Panel className="auth-card"><span className="app-wordmark auth-card__wordmark">{t("product")}</span><h1>{t("configurationRequired")}</h1><p>{t("configurationHint")}</p><div className="notice"><strong>{t("missingFields")}</strong><code>{problems.join(", ")}</code></div><LocaleSwitch locale={locale} setLocale={setLocale} t={t} /></Panel></main>;
+    return <main className="centered"><Panel className="auth-card"><span className="app-wordmark auth-card__wordmark"><BrandMark />{t("product")}</span><h1>{t("configurationRequired")}</h1><p>{t("configurationHint")}</p><div className="notice"><strong>{t("missingFields")}</strong><code>{problems.join(", ")}</code></div><LocaleSwitch locale={locale} setLocale={setLocale} t={t} /></Panel></main>;
   }
   if (auth.kind === "checking") return <main className="centered"><Spinner label={t("loading")} /></main>;
   if (auth.kind !== "authenticated") {
-    return <main className="centered"><Panel className="auth-card"><span className="app-wordmark auth-card__wordmark">{t("product")}</span><h1>{t("secureSignIn")}</h1><p>{t("secureSignInHint")}</p>{auth.kind === "error" ? <AdminErrorNotice error={new Error(auth.message)} t={t} /> : null}<Button onClick={() => { try { startLogin(config); } catch (error) { setAuth({ kind: "error", message: error instanceof Error ? error.message : "login_failed" }); } }}>{t("signIn")}</Button><LocaleSwitch locale={locale} setLocale={setLocale} t={t} /></Panel></main>;
+    return <main className="centered"><Panel className="auth-card"><span className="app-wordmark auth-card__wordmark"><BrandMark />{t("product")}</span><h1>{t("secureSignIn")}</h1><p>{t("secureSignInHint")}</p>{auth.kind === "error" ? <AdminErrorNotice error={new Error(auth.message)} t={t} /> : null}<Button onClick={() => { try { startLogin(config); } catch (error) { setAuth({ kind: "error", message: error instanceof Error ? error.message : "login_failed" }); } }}>{t("signIn")}</Button><LocaleSwitch locale={locale} setLocale={setLocale} t={t} /></Panel></main>;
   }
 
   return (

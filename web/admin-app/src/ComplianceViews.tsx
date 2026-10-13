@@ -4,13 +4,16 @@ import {
   Button,
   ConfirmDialog,
   ContextBar,
+  CloseIcon,
   Dialog,
+  EmptyComplianceArt,
   EmptyState,
   EvidenceInspector,
   Field,
   IconButton,
   Input,
   Select,
+  SelectRecordArt,
   Spinner,
   StatusIndicator,
   Textarea,
@@ -29,6 +32,7 @@ import {
 import { AdminErrorNotice } from "./AdminErrorNotice";
 import { AdminListDetail } from "./AdminListDetail";
 import { ControlPlaneClient, isUnknownWriteFailure } from "./api";
+import { formatNullableDate as formatDate, shortId } from "./format";
 import { translator } from "./i18n";
 import type {
   CaseStatus,
@@ -39,17 +43,7 @@ import type {
   Page,
 } from "./types";
 
-function formatDate(value: string | null, locale: Locale): string {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
 
-function shortId(value: string): string {
-  return value.length > 18 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value;
-}
 
 function caseHoldStatusTone(status: CaseStatus | HoldStatus): "warning" | "neutral" {
   return status === "open" || status === "active" ? "warning" : "neutral";
@@ -121,21 +115,25 @@ function reconcileCommittedPage<T>(
 export function Pagination({
   canGoBack,
   canGoNext,
+  disabled,
+  label,
   onBack,
   onNext,
   t,
 }: {
   canGoBack: boolean;
   canGoNext: boolean;
+  disabled?: boolean;
+  label?: string;
   onBack: () => void;
   onNext: () => void;
   t: ReturnType<typeof translator>;
 }) {
   if (!canGoBack && !canGoNext) return null;
   return (
-    <nav className="pagination" aria-label={t("pagination")}>
-      <Button variant="secondary" disabled={!canGoBack} onClick={onBack}>{t("previous")}</Button>
-      <Button variant="secondary" disabled={!canGoNext} onClick={onNext}>{t("next")}</Button>
+    <nav className="pagination" aria-label={label ?? t("pagination")}>
+      <Button variant="secondary" disabled={!canGoBack || disabled} onClick={onBack}>{t("previous")}</Button>
+      <Button variant="secondary" disabled={!canGoNext || disabled} onClick={onNext}>{t("next")}</Button>
     </nav>
   );
 }
@@ -833,7 +831,7 @@ export function CasesView({
             />
           ) : null}
           detailClassName="case-hold-detail"
-          detailEmpty={<EmptyState title={t("details")} description={t("selectRow")} />}
+          detailEmpty={<EmptyState art={<SelectRecordArt />} title={t("details")} description={t("selectRow")} />}
           detailHeader={<p className="eyebrow">{t("details")}</p>}
           detailTitle={selected?.title ?? t("details")}
           detailTrailing={selected ? <StatusBadge status={selected.status} t={t} /> : null}
@@ -861,10 +859,10 @@ export function CasesView({
               <Pagination canGoBack={cursorHistory.length > 1} canGoNext={Boolean(page.has_more && page.next_cursor)}
                 onBack={() => { prepareQueryChange(); setCursorHistory((items) => items.slice(0, -1)); }}
                 onNext={() => { if (page.next_cursor) { prepareQueryChange(); setCursorHistory((items) => [...items, page.next_cursor ?? undefined]); } }} t={t} />
-            </> : page ? <EmptyState title={t("noCases")} description={t("noCasesHint")} /> : <Spinner label={t("loading")} />
+            </> : page ? <EmptyState art={<EmptyComplianceArt />} title={t("noCases")} description={t("noCasesHint")} /> : <Spinner label={t("loading")} />
           )}
         />
-      ) : page ? <EmptyState title={t("noCases")} description={t("noCasesHint")} /> : null}
+      ) : page ? <EmptyState art={<EmptyComplianceArt />} title={t("noCases")} description={t("noCasesHint")} /> : null}
       {dialog === "create" ? (
         <Dialog
           busy={Boolean(creatingCase || uncertainCaseCreate)}
@@ -1088,7 +1086,7 @@ export function HoldsView({
       <div className="page-heading"><div><p className="eyebrow">{t("adminCenter")}</p><h1>{t("holds")}</h1></div><Button ref={applyHoldButtonRef} onClick={() => setDialog("apply")}><AddIcon aria-hidden size={17} />{t("applyHold")}</Button></div>
       <div className="toolbar">
         <Field label={t("status")}><Select value={status} onChange={(event) => { setStatus(event.target.value as HoldStatus | ""); resetPaging(); }}><option value="">{t("all")}</option><option value="active">{t("active")}</option><option value="released">{t("released")}</option></Select></Field>
-        {caseId ? <div className="filter-chip"><span>{t("filteredByCase")}: <span className="mono">{shortId(caseId)}</span></span><IconButton className="filter-chip__clear" icon="close" label={t("clearFilter")} onClick={() => { setCaseId(""); clearInitialCase(); resetPaging(); }} /></div> : null}
+        {caseId ? <div className="filter-chip"><span>{t("filteredByCase")}: <span className="mono">{shortId(caseId)}</span></span><IconButton className="filter-chip__clear" icon={<CloseIcon />} label={t("clearFilter")} onClick={() => { setCaseId(""); clearInitialCase(); resetPaging(); }} /></div> : null}
         <Button variant="quiet" onClick={() => void load()}>{t("refresh")}</Button>
       </div>
       {committedHoldEvidence ? (
@@ -1113,7 +1111,7 @@ export function HoldsView({
             />
           ) : null}
           detailClassName="case-hold-detail"
-          detailEmpty={<EmptyState title={t("details")} description={t("selectRow")} />}
+          detailEmpty={<EmptyState art={<SelectRecordArt />} title={t("details")} description={t("selectRow")} />}
           detailHeader={<p className="eyebrow">{t("details")}</p>}
           detailTitle={selected ? <span className="mono">{shortId(selected.legal_hold_id)}</span> : t("details")}
           detailTrailing={selected ? <StatusBadge status={selected.status} t={t} /> : null}
@@ -1129,7 +1127,7 @@ export function HoldsView({
             </>
           )}
         />
-      ) : page ? <EmptyState title={t("noHolds")} description={t("noHoldsHint")} /> : null}
+      ) : page ? <EmptyState art={<EmptyComplianceArt />} title={t("noHolds")} description={t("noHoldsHint")} /> : null}
       {dialog === "apply" ? (
         <Dialog
           busy={Boolean(applyingHold || uncertainHoldApply)}

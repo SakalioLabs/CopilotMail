@@ -247,3 +247,13 @@ export function AdminListDetail({
     </div>
   );
 }
+
+/** A labelled evidence field shared by the inspector and submission views. */
+export function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="agent-inspector-fact">
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}

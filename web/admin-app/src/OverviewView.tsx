@@ -1,5 +1,5 @@
-import { Badge, Button, Panel, Spinner } from "@copilotmail/design-system";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { AdminCasesIcon, AdminHoldsIcon, Badge, Button, Panel, Spinner } from "@copilotmail/design-system";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { AdminErrorNotice } from "./AdminErrorNotice";
 import { ApiError, ControlPlaneClient } from "./api";
 import { translator } from "./i18n";
@@ -40,12 +40,14 @@ export function deriveOverviewDecision(
 
 function OverviewFact({
   emptyHint,
+  icon,
   label,
   retry,
   state,
   t,
 }: {
   emptyHint: string;
+  icon: ReactElement;
   label: string;
   retry: () => void;
   state: OverviewMetricState;
@@ -57,7 +59,12 @@ function OverviewFact({
       className="overview-fact"
       data-overview-state={state.kind}
     >
-      <span className="overview-fact__label">{label}</span>
+      <div className="overview-fact__head">
+        <span className="overview-fact__label">{label}</span>
+        <span className="overview-fact__mark" aria-hidden="true">
+          {icon}
+        </span>
+      </div>
       <div className="overview-fact__state" aria-live="polite">
         {state.kind === "loading" ? <Spinner label={t("loading")} /> : null}
         {state.kind === "ready" ? (
@@ -218,6 +225,7 @@ export function Overview({
         <div className="overview-fact-grid">
           <OverviewFact
             emptyHint={t("noOpenCases")}
+            icon={<AdminCasesIcon size={20} />}
             label={t("openCases")}
             retry={() => void loadCases()}
             state={casesState}
@@ -225,6 +233,7 @@ export function Overview({
           />
           <OverviewFact
             emptyHint={t("noActiveHolds")}
+            icon={<AdminHoldsIcon size={20} />}
             label={t("activeHolds")}
             retry={() => void loadHolds()}
             state={holdsState}

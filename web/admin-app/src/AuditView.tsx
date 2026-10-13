@@ -1,6 +1,7 @@
 import {
   Button,
   ContextBar,
+  EmptyAuditArt,
   EmptyState,
   EvidenceInspector,
   Field,
@@ -8,6 +9,7 @@ import {
   Input,
   Panel,
   Select,
+  SelectRecordArt,
   Spinner,
   StatusIndicator,
   UnknownWriteLock,
@@ -16,6 +18,8 @@ import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "rea
 import { AdminErrorNotice } from "./AdminErrorNotice";
 import { AdminListDetail } from "./AdminListDetail";
 import { ControlPlaneClient, isUnknownWriteFailure } from "./api";
+import { Pagination } from "./ComplianceViews";
+import { focusWithVisibleRing } from "./format";
 import type { translator } from "./i18n";
 import type {
   AuditEvent,
@@ -64,11 +68,6 @@ type AuditFieldValidation = "resource" | "time";
  * Script focus does not match `:focus-visible` unless this option is set.
  * The checked-in DOM lib omits `focusVisible`.
  */
-function focusWithVisibleRing(element: HTMLInputElement | null) {
-  if (!element) return;
-  const options: FocusOptions & { focusVisible: boolean } = { focusVisible: true };
-  element.focus(options);
-}
 
 const MAX_WINDOW_MS = 31 * 24 * 60 * 60 * 1000;
 
@@ -603,7 +602,7 @@ export default function AuditView({
             <AuditEventDetail event={selected} locale={locale} t={t} />
           ) : null}
           detailClassName="audit-detail"
-          detailEmpty={<EmptyState title={t("details")} description={t("selectRow")} />}
+          detailEmpty={<EmptyState art={<SelectRecordArt />} title={t("details")} description={t("selectRow")} />}
           detailHeader={<p className="eyebrow">{t("eventId")}</p>}
           detailTitle={selected ? shortId(selected.event_id) : t("details")}
           detailTrailing={selected ? (
@@ -649,17 +648,20 @@ export default function AuditView({
                   ))}</tbody>
                 </table>
               </div>
-              {(cursorHistory.length > 1 || page.has_more) ? <nav className="pagination" aria-label={t("pagination")}>
-                <Button variant="secondary" disabled={cursorHistory.length <= 1} onClick={() => { prepareQueryChange(); setCursorHistory((items) => items.slice(0, -1)); }}>{t("previous")}</Button>
-                <Button variant="secondary" disabled={!page.has_more || !page.next_cursor} onClick={() => { if (page.next_cursor) { prepareQueryChange(); setCursorHistory((items) => [...items, page.next_cursor ?? undefined]); } }}>{t("next")}</Button>
-              </nav> : null}
+              <Pagination
+                canGoBack={cursorHistory.length > 1}
+                canGoNext={Boolean(page.has_more && page.next_cursor)}
+                onBack={() => { prepareQueryChange(); setCursorHistory((items) => items.slice(0, -1)); }}
+                onNext={() => { if (page.next_cursor) { prepareQueryChange(); setCursorHistory((items) => [...items, page.next_cursor ?? undefined]); } }}
+                t={t}
+              />
             </>
           )}
           selectionKey={selected?.event_id ?? null}
           onBack={() => setSelected(undefined)}
         />
       ) : page ? (
-        <EmptyState title={t("noAuditEvents")} description={t("noAuditEventsHint")} />
+        <EmptyState art={<EmptyAuditArt />} title={t("noAuditEvents")} description={t("noAuditEventsHint")} />
       ) : null}
 
       <Panel className="audit-export-panel">
