@@ -268,9 +268,13 @@ export function Panel({
 
 type EmptyStateBaseProps = {
   title: string;
-  description: string;
+  /** Defaults to h3 (under a h2 panel); pass 2 inside h1-led sections. */
+  headingLevel?: 2 | 3;
+  description?: string;
   action?: ReactNode;
   icon?: IconName;
+  /** Extra hook classes for app-level layout overrides. */
+  className?: string;
 };
 
 /**
@@ -291,21 +295,24 @@ export type EmptyStateProps = EmptyStateBaseProps & (
 
 export function EmptyState({
   title,
+  headingLevel = 3,
   description,
   action,
   icon = "mail",
   illustration,
   illustrationAlt,
+  className = "",
 }: EmptyStateProps) {
+  const Title = `h${headingLevel}` as "h2" | "h3";
   return (
-    <div className="empty-state">
+    <div className={`empty-state${className ? ` ${className}` : ""}`}>
       {illustration ? (
         <img className="empty-state__illustration" src={illustration} alt={illustrationAlt} />
       ) : (
         <div className="empty-state__mark" aria-hidden="true"><Icon name={icon} size={28} /></div>
       )}
-      <h3>{title}</h3>
-      <p>{description}</p>
+      <Title className="empty-state__title">{title}</Title>
+      {description ? <p>{description}</p> : null}
       {action}
     </div>
   );

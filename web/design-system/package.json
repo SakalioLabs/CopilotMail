@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.tsx",
     "./styles.css": "./src/styles.css",
-    "./admin.css": "./src/admin.css"
+    "./admin.css": "./src/admin.css",
+    "./mail.css": "./src/mail.css"
   },
   "scripts": {
     "build": "tsc -b --pretty false",

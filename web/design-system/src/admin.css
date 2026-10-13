@@ -1,8 +1,9 @@
 /*
  * Admin-surface components: the Mail workspace never mounts Panel, Field,
- * Badge, EmptyState, Spinner, or UnknownWriteLock, so these rules live in a
- * separate entry imported only by admin-app.  The @layer blocks reopen the
- * layer names declared first in styles.css, keeping the cascade identical.
+ * Badge, Spinner, or UnknownWriteLock, so these rules live in a separate
+ * entry imported only by admin-app.  The @layer blocks reopen the layer
+ * names declared first in styles.css, keeping the cascade identical.
+ * (EmptyState now lives in the shared sheet: Mail mounts it too.)
  */
 
 @layer primitives {
@@ -73,30 +74,6 @@
   .unknown-write-lock__copy p { margin-top: 3px; font-size: 0.78rem; line-height: 1.45; }
   .unknown-write-lock__evidence { margin-top: 6px; font-size: 0.74rem; }
   .unknown-write-lock__action { justify-self: end; }
-
-  .empty-state {
-    display: flex;
-    min-height: 280px;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 24px;
-    color: var(--cm-muted);
-    text-align: center;
-  }
-  .empty-state__mark {
-    display: grid;
-    width: 48px;
-    height: 48px;
-    place-items: center;
-    border: 1px solid var(--cm-line);
-    border-radius: var(--cm-radius-panel);
-    color: var(--cm-ink);
-    background: var(--cm-surface-subtle);
-  }
-  .empty-state__illustration { width: min(180px, 100%); height: auto; margin-bottom: 8px; object-fit: contain; }
-  .empty-state h3 { margin: 14px 0 5px; color: var(--cm-ink); }
-  .empty-state p { max-width: 460px; margin: 4px 0 20px; line-height: 1.6; }
 
   .loading {
     display: flex;
