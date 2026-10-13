@@ -73,7 +73,7 @@
     background: transparent;
     cursor: pointer;
   }
-  .command-palette__close:hover { color: var(--cm-ink); background: var(--cm-surface-subtle); }
+
   .command-palette kbd {
     display: inline-flex;
     min-height: 22px;
@@ -133,6 +133,7 @@
     text-align: left;
     cursor: pointer;
   }
+  .command-palette__close:hover,
   .command-palette__command:hover:not(:disabled),
   .command-palette__command[aria-selected="true"] {
     color: var(--cm-ink);

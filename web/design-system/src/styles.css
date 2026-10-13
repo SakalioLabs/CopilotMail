@@ -7,7 +7,7 @@
      * fallbacks make the Admin and Mail workspaces render the same factual
      * hierarchy on Windows, macOS, and Linux without an external font CDN.
      */
-    --cm-font-sans: Inter, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --cm-font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
     --cm-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
     font-family: var(--cm-font-sans);
     font-synthesis: none;
@@ -61,7 +61,7 @@
        select; encoded colour keeps feature CSS free of raw literals. */
     --cm-control-height: 40px;
     --cm-icon-size: 20px;
-    --cm-select-indicator: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f6368' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6.5 9.5 5.5 5 5.5-5'/%3E%3C/svg%3E");
+    --cm-select-indicator: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='m1 1.2 5 5.4 5-5.4' fill='none' stroke='%235f6368' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 
     /* 4px micro-unit, with an 8px layout rhythm.  Feature CSS must consume
        these names instead of creating another private spacing scale. */
@@ -103,6 +103,14 @@
     --cm-motion-interactive: var(--cm-duration-fast) var(--cm-ease-standard);
     --cm-motion-disclosure: var(--cm-duration-standard) var(--cm-ease-standard);
     --cm-motion-dialog: var(--cm-duration-slow) var(--cm-ease-standard);
+    /* Batch-18 nonlinear springs (damped oscillators: gentle ζ≈0.72 with a
+       ~4% overshoot, snappy ζ≈0.55 with ~12%).  The cubic-bezier values are
+       fallback approximations; the @supports block after the layer section
+       upgrades them to the precomputed linear() spring curves. */
+    --cm-ease-spring-gentle: cubic-bezier(0.24, 1.05, 0.4, 1);
+    --cm-ease-spring-snappy: cubic-bezier(0.34, 1.4, 0.45, 1);
+    --cm-motion-spring-gentle: 380ms var(--cm-ease-spring-gentle);
+    --cm-motion-spring-snappy: 240ms var(--cm-ease-spring-snappy);
     --cm-z-toast: 30;
     --cm-z-floating: 40;
     --cm-z-mobile-picker: 50;
@@ -151,12 +159,13 @@
     --_hover: var(--cm-state-hover-inverse);
     --_pressed: var(--cm-state-pressed-inverse);
     --_hover-shadow: var(--cm-shadow-1);
-    transition: var(--cm-motion-interactive);
+    transition: var(--cm-motion-interactive), transform var(--cm-motion-spring-snappy);
   }
   .button:enabled:hover { background-image: linear-gradient(var(--_hover), var(--_hover)); box-shadow: var(--_hover-shadow); }
-  .button:enabled:active { background-image: linear-gradient(var(--_pressed), var(--_pressed)); box-shadow: none; }
+  .button:enabled:active { background-image: linear-gradient(var(--_pressed), var(--_pressed)); box-shadow: none; transform: scale(0.97); }
   .button:disabled { color: var(--cm-disabled-content); background-color: var(--cm-disabled-container); background-image: none; box-shadow: none; cursor: not-allowed; }
-  .button > svg { width: var(--cm-icon-size); height: var(--cm-icon-size); flex: 0 0 auto; }
+  .button > svg,
+  .app-nav-item > svg { width: var(--cm-icon-size); height: var(--cm-icon-size); flex: 0 0 auto; }
   .button--secondary { --_hover: var(--cm-info-hover); --_pressed: var(--cm-info-pressed); --_hover-shadow: none; border-color: var(--cm-line-strong); color: var(--cm-info); background-color: var(--cm-surface); }
   .button--secondary:disabled { border-color: var(--cm-line-strong); background-color: transparent; }
   .button--danger { --_hover: var(--cm-state-pressed-inverse); --_pressed: var(--cm-state-strong-pressed); background-color: var(--cm-critical); }
@@ -178,7 +187,8 @@
     background: var(--cm-surface);
     transition: var(--cm-motion-interactive);
   }
-  .control::placeholder { color: var(--cm-muted); opacity: 1; }
+  .control::placeholder,
+  .search-omnibox input::placeholder { color: var(--cm-muted); opacity: 1; }
   .control:hover:enabled:not(:focus-visible) { border-color: var(--cm-muted); }
   .control:focus-visible { border-color: var(--cm-agent); }
   .control:disabled { border-color: var(--cm-line); color: var(--cm-disabled-content); background-color: var(--cm-surface-subtle); cursor: not-allowed; }
@@ -202,11 +212,12 @@
     color: var(--cm-muted-strong);
     background: transparent;
     cursor: pointer;
-    transition: var(--cm-motion-interactive);
+    transition: var(--cm-motion-interactive), transform var(--cm-motion-spring-snappy);
   }
   .icon-button:enabled:hover { color: var(--cm-ink); background-color: var(--cm-state-hover); }
-  .icon-button:enabled:active { background-color: var(--cm-state-pressed); }
-  .icon-button:disabled { color: var(--cm-disabled-content); cursor: not-allowed; }
+  .icon-button:enabled:active { background-color: var(--cm-state-pressed); transform: scale(0.9); }
+  .icon-button:disabled,
+  .app-nav-item:disabled { color: var(--cm-disabled-content); cursor: not-allowed; }
 
   /* Shared application shell: top bar, omnibox search, nav items, wordmark. */
   .app-wordmark {
@@ -262,7 +273,6 @@
     background: transparent;
     font-size: var(--cm-text-reading);
   }
-  .search-omnibox input::placeholder { color: var(--cm-muted); opacity: 1; }
   .search-omnibox .icon-button { flex: 0 0 auto; color: var(--cm-muted-strong); }
 
   .app-nav-item {
@@ -282,11 +292,13 @@
     cursor: pointer;
     transition: var(--cm-motion-interactive);
   }
-  .app-nav-item:enabled:hover {
+  .app-nav-item:enabled:hover,
+  .topbar-sign-out:hover {
     color: var(--cm-ink);
     background: var(--cm-state-hover);
   }
-  .app-nav-item:enabled:active {
+  .app-nav-item:enabled:active,
+  .topbar-sign-out:active {
     background: var(--cm-state-pressed);
   }
   .app-nav-item[aria-current] {
@@ -298,9 +310,9 @@
     color: var(--cm-info-strong);
     background-image: linear-gradient(var(--cm-info-hover), var(--cm-info-hover));
   }
-  .app-nav-item:disabled { color: var(--cm-disabled-content); cursor: not-allowed; }
-  .app-nav-item > svg { width: var(--cm-icon-size); height: var(--cm-icon-size); flex: 0 0 auto; }
-  .app-nav-item__label {
+  .app-nav-item__label,
+  .identity-badge__label,
+  .status-indicator__label {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -337,14 +349,6 @@
     white-space: nowrap;
     transition: var(--cm-motion-interactive);
   }
-  .topbar-sign-out:hover {
-    color: var(--cm-ink);
-    background: var(--cm-state-hover);
-  }
-  .topbar-sign-out:active {
-    background: var(--cm-state-pressed);
-  }
-
   .identity-badge {
     display: inline-flex;
     min-width: 0;
@@ -365,12 +369,6 @@
     border-radius: 6px;
     color: var(--cm-muted-strong);
     background: var(--cm-surface-subtle);
-  }
-  .identity-badge__label {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .identity-badge--human .identity-badge__mark { border-radius: 50%; }
   .identity-badge--agent { color: var(--cm-agent); }
@@ -413,12 +411,6 @@
     height: 16px;
     flex: 0 0 auto;
     place-items: center;
-  }
-  .status-indicator__label {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .status-indicator--positive {
     border-color: var(--cm-positive);
@@ -524,7 +516,8 @@
     list-style: none;
     user-select: none;
   }
-  .evidence-inspector__summary::-webkit-details-marker { display: none; }
+  .evidence-inspector__summary::-webkit-details-marker,
+  .evidence-inspector__content { display: none; }
   .evidence-inspector__summary::marker { content: ""; }
   .evidence-inspector__summary:hover { background: var(--cm-state-hover); }
   .evidence-inspector__summary:active { background: var(--cm-state-pressed); }
@@ -558,10 +551,9 @@
   }
   .evidence-inspector__indicator {
     color: var(--cm-muted-strong);
-    transition: transform var(--cm-motion-disclosure);
+    transition: transform var(--cm-motion-spring-snappy);
   }
   .evidence-inspector[open] .evidence-inspector__indicator { transform: rotate(180deg); }
-  .evidence-inspector__content { display: none; }
   .evidence-inspector[open] .evidence-inspector__content {
     display: grid;
     min-width: 0;
@@ -591,6 +583,7 @@
     border-radius: var(--cm-radius-dialog);
     background: var(--cm-surface);
     box-shadow: var(--cm-shadow-2);
+    animation: cm-surface-in var(--cm-motion-spring-gentle);
   }
   .dialog__header {
     display: flex;
@@ -677,6 +670,20 @@
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 }
 
+/* Floating surfaces (dialogs, sheets, the composer, toasts) enter with the
+   gentle spring: a small transform + fade that lands without layout work.
+   Unlayered so it outranks the token layer when linear() support exists. */
+@keyframes cm-surface-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+}
+
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --cm-ease-spring-gentle: linear(0, 0.06, 0.21, 0.38, 0.55, 0.7, 0.82, 0.91, 0.97, 1.01, 1.03, 1.04, 1.04, 1.03, 1.03, 1.02, 1.01);
+    --cm-ease-spring-snappy: linear(0, 0.11, 0.34, 0.61, 0.83, 0.99, 1.09, 1.12, 1.12, 1.09, 1.06, 1.03, 1.01, 0.99, 0.98, 0.98, 0.99);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;
@@ -691,7 +698,8 @@
 
 @media (pointer: coarse) {
   .button,
-  .control {
+  .control,
+  .evidence-inspector__summary {
     min-height: var(--cm-touch-target);
   }
 
@@ -699,8 +707,6 @@
     width: var(--cm-touch-target);
     height: var(--cm-touch-target);
   }
-
-  .evidence-inspector__summary { min-height: var(--cm-touch-target); }
 }
 
 @media (max-width: 560px) {
