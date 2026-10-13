@@ -200,8 +200,75 @@ pub struct MailDraftWrite {
     pub body_ref: [u8; 32],
     pub content_sha256: [u8; 32],
     pub recipients: Vec<MailDraftRecipientEvidence>,
+    /// The local draft-creation attempt appended before the remote write.
+    /// Persistence must mark it reconciled inside this same transaction so an
+    /// unreconciled row proves the remote write never reached local metadata.
+    pub creation_attempt_id: DraftCreationAttemptId,
     pub expected_version: Option<i64>,
     pub now: chrono::DateTime<chrono::Utc>,
+}
+
+/// Persistence input for the local draft-creation attempt appended
+/// immediately before the remote provider write. It carries no body,
+/// recipient, provider object reference, or secret; the database stamps
+/// `attempted_at`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DraftCreationAttemptWrite {
+    pub attempt_id: DraftCreationAttemptId,
+    pub organization_id: OrganizationId,
+    pub mailbox_id: MailboxId,
+    pub created_by: PrincipalId,
+    pub draft_id: DraftId,
+    pub data_plane_id: MailDataPlaneId,
+}
+
+/// Immutable-key pagination request for an active Human's own unreconciled
+/// draft-creation attempts.
+///
+/// Persistence must scope rows to `created_by == principal_id`; shared
+/// mailbox membership never widens the result set. `after_attempt_id` is an
+/// exclusive descending cursor anchor that must still resolve to an owned,
+/// unreconciled attempt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HumanDraftAttemptListQuery {
+    pub organization_id: OrganizationId,
+    pub principal_id: PrincipalId,
+    pub after_attempt_id: Option<DraftCreationAttemptId>,
+    pub limit: u16,
+    pub now: chrono::DateTime<chrono::Utc>,
+}
+
+/// Internal list candidate. It carries the fields needed to repeat tenant
+/// and ownership checks without loading draft content, recipient evidence,
+/// or provider object references.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HumanDraftAttemptListCandidate {
+    pub attempt_id: DraftCreationAttemptId,
+    pub organization_id: OrganizationId,
+    pub mailbox_id: MailboxId,
+    pub created_by: PrincipalId,
+    pub draft_id: DraftId,
+    pub attempted_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// One database-authoritative page of own unreconciled draft attempts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HumanDraftAttemptListBatch {
+    pub active_human: bool,
+    pub cursor_valid: bool,
+    pub candidates: Vec<HumanDraftAttemptListCandidate>,
+    pub has_more: bool,
+}
+
+/// Exact authorization and result-set proof repeated in the transaction
+/// that records a successful attempt-list disclosure. `expected_attempt_ids`
+/// is ordered exactly as the disclosed page, may be empty, and is bounded by
+/// the application page-size limit of 50 items.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HumanDraftAttemptListRecheck {
+    pub organization_id: OrganizationId,
+    pub principal_id: PrincipalId,
+    pub expected_attempt_ids: Vec<DraftCreationAttemptId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

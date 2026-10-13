@@ -209,6 +209,134 @@ impl HumanDraftQueryStore for PgControlPlaneStore {
         })
     }
 
+    async fn list_human_draft_attempts(
+        &self,
+        query: &HumanDraftAttemptListQuery,
+    ) -> Result<HumanDraftAttemptListBatch, StoreError> {
+        if !(1..=50).contains(&query.limit) {
+            return Err(StoreError::Conflict);
+        }
+
+        let mut transaction = self.pool.begin().await.map_err(map_store_error)?;
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_store_error)?;
+
+        let active_human = sqlx::query_scalar::<_, bool>(
+            r#"
+            SELECT EXISTS (
+                SELECT 1
+                  FROM principals
+                 WHERE id = $1
+                   AND organization_id = $2
+                   AND kind = 'human'
+                   AND status = 'active'
+            )
+            "#,
+        )
+        .bind(query.principal_id.as_uuid())
+        .bind(query.organization_id.as_uuid())
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_store_error)?;
+        if !active_human {
+            transaction.commit().await.map_err(map_store_error)?;
+            return Ok(HumanDraftAttemptListBatch {
+                active_human: false,
+                cursor_valid: false,
+                candidates: Vec::new(),
+                has_more: false,
+            });
+        }
+
+        let cursor_valid = if let Some(after_attempt_id) = query.after_attempt_id {
+            sqlx::query_scalar::<_, bool>(
+                r#"
+                SELECT EXISTS (
+                    SELECT 1
+                      FROM mail_draft_creation_attempts AS attempt
+                     WHERE attempt.id = $1
+                       AND attempt.organization_id = $2
+                       AND attempt.created_by = $3
+                       AND attempt.reconciled_at IS NULL
+                )
+                "#,
+            )
+            .bind(after_attempt_id.as_uuid())
+            .bind(query.organization_id.as_uuid())
+            .bind(query.principal_id.as_uuid())
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(map_store_error)?
+        } else {
+            true
+        };
+        if !cursor_valid {
+            transaction.commit().await.map_err(map_store_error)?;
+            return Ok(HumanDraftAttemptListBatch {
+                active_human: true,
+                cursor_valid: false,
+                candidates: Vec::new(),
+                has_more: false,
+            });
+        }
+
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            id: Uuid,
+            organization_id: Uuid,
+            mailbox_id: Uuid,
+            created_by: Uuid,
+            draft_id: Uuid,
+            attempted_at: DateTime<Utc>,
+        }
+
+        let mut rows = sqlx::query_as::<_, Row>(
+            r#"
+            SELECT attempt.id, attempt.organization_id, attempt.mailbox_id,
+                   attempt.created_by, attempt.draft_id, attempt.attempted_at
+              FROM mail_draft_creation_attempts AS attempt
+             WHERE attempt.organization_id = $1
+               AND attempt.created_by = $2
+               AND attempt.reconciled_at IS NULL
+               AND ($3::uuid IS NULL OR attempt.id < $3)
+             ORDER BY attempt.id DESC
+             LIMIT $4
+            "#,
+        )
+        .bind(query.organization_id.as_uuid())
+        .bind(query.principal_id.as_uuid())
+        .bind(query.after_attempt_id.map(DraftCreationAttemptId::as_uuid))
+        .bind(i64::from(query.limit) + 1)
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_store_error)?;
+        let has_more = rows.len() > usize::from(query.limit);
+        rows.truncate(usize::from(query.limit));
+        let candidates = rows
+            .into_iter()
+            .map(|row| {
+                Ok(HumanDraftAttemptListCandidate {
+                    attempt_id: DraftCreationAttemptId::from_uuid(row.id),
+                    organization_id: OrganizationId::from_uuid(row.organization_id),
+                    mailbox_id: MailboxId::from_uuid(row.mailbox_id),
+                    created_by: PrincipalId::from_uuid(row.created_by),
+                    draft_id: DraftId::from_uuid(row.draft_id),
+                    attempted_at: row.attempted_at,
+                })
+            })
+            .collect::<Result<Vec<_>, StoreError>>()?;
+
+        transaction.commit().await.map_err(map_store_error)?;
+        Ok(HumanDraftAttemptListBatch {
+            active_human: true,
+            cursor_valid: true,
+            candidates,
+            has_more,
+        })
+    }
+
     async fn resolve_human_draft_restore_target(
         &self,
         query: &HumanDraftRestoreQuery,

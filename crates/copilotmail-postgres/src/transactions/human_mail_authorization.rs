@@ -153,6 +153,83 @@ impl PgControlPlaneTransaction {
         .map_err(map_store_error)
     }
 
+    /// Re-proves the owner-private attempt list inside the disclosure
+    /// transaction: active Human, current `mailbox.use` grant, and every
+    /// disclosed attempt still owned and unreconciled.
+    pub(crate) async fn tx_human_draft_attempt_list_still_authorized(
+        &mut self,
+        proof: &HumanDraftAttemptListRecheck,
+    ) -> Result<bool, StoreError> {
+        if proof.expected_attempt_ids.len() > 50
+            || proof
+                .expected_attempt_ids
+                .iter()
+                .any(|attempt_id| attempt_id.as_uuid().is_nil())
+        {
+            return Ok(false);
+        }
+        let mut unique_attempt_ids = BTreeSet::new();
+        if proof
+            .expected_attempt_ids
+            .iter()
+            .any(|attempt_id| !unique_attempt_ids.insert(*attempt_id))
+        {
+            return Ok(false);
+        }
+        let expected_attempt_ids = proof
+            .expected_attempt_ids
+            .iter()
+            .map(|attempt_id| attempt_id.as_uuid())
+            .collect::<Vec<_>>();
+
+        sqlx::query_scalar::<_, bool>(
+            r#"
+            SELECT EXISTS (
+                SELECT 1
+                  FROM principals AS principal
+                 WHERE principal.id = $2
+                   AND principal.organization_id = $1
+                   AND principal.kind = 'human'
+                   AND principal.status = 'active'
+                   AND EXISTS (
+                       SELECT 1
+                         FROM role_assignments AS assignment
+                         JOIN roles AS role
+                           ON role.id = assignment.role_id
+                          AND role.organization_id = assignment.organization_id
+                         JOIN role_permissions AS permission
+                           ON permission.role_id = role.id
+                          AND permission.permission = 'mailbox.use'
+                        WHERE assignment.organization_id = $1
+                          AND assignment.principal_id = $2
+                          AND assignment.revoked_at IS NULL
+                          AND assignment.valid_from <= CURRENT_TIMESTAMP
+                          AND (
+                              assignment.valid_until IS NULL
+                              OR assignment.valid_until > CURRENT_TIMESTAMP
+                          )
+                   )
+                   AND NOT EXISTS (
+                       SELECT 1
+                         FROM unnest($3::uuid[]) AS expected(attempt_id)
+                         LEFT JOIN mail_draft_creation_attempts AS attempt
+                           ON attempt.id = expected.attempt_id
+                          AND attempt.organization_id = $1
+                          AND attempt.created_by = $2
+                          AND attempt.reconciled_at IS NULL
+                        WHERE attempt.id IS NULL
+                   )
+            )
+            "#,
+        )
+        .bind(proof.organization_id.as_uuid())
+        .bind(proof.principal_id.as_uuid())
+        .bind(expected_attempt_ids.as_slice())
+        .fetch_one(&mut **self.transaction()?)
+        .await
+        .map_err(map_store_error)
+    }
+
     pub(crate) async fn tx_human_sent_list_still_authorized(
         &mut self,
         proof: &HumanSentListRecheck,

@@ -204,6 +204,8 @@ fn human_session_cookies_and_routes_are_strictly_client_partitioned() {
 
     let mail_routes = [
         (Method::GET, "/api/v2/mailboxes"),
+        (Method::GET, "/api/v2/draft-attempts"),
+        (Method::HEAD, "/api/v2/draft-attempts"),
         (Method::GET, "/api/v2/mailboxes/m1/messages"),
         (Method::POST, "/api/v2/mailboxes/m1/messages/search"),
         (Method::GET, "/api/v2/mailboxes/m1/messages/msg1"),
@@ -1462,6 +1464,18 @@ async fn create_agent_mail_submission_evidence_http_target(
         .await
         .expect("create Agent evidence first-contact approval policy");
     let draft_id = DraftId::new();
+    let creation_attempt_id = copilotmail_domain::DraftCreationAttemptId::new();
+    store
+        .record_draft_creation_attempt(&copilotmail_application::DraftCreationAttemptWrite {
+            attempt_id: creation_attempt_id,
+            organization_id,
+            mailbox_id: mailbox.mailbox_id,
+            created_by: agent_id,
+            draft_id,
+            data_plane_id,
+        })
+        .await
+        .expect("record Agent evidence draft creation attempt");
     store
         .record_mail_draft(copilotmail_application::MailDraftWrite {
             draft_id,
@@ -1469,6 +1483,7 @@ async fn create_agent_mail_submission_evidence_http_target(
             mailbox_id: mailbox.mailbox_id,
             created_by: agent_id,
             data_plane_id,
+            creation_attempt_id,
             engine_account_ref: engine_account_ref.clone(),
             engine_email_ref: "agent-evidence-draft-1".into(),
             engine_thread_ref: "agent-evidence-thread-1".into(),
@@ -2842,6 +2857,7 @@ async fn mailbox_resource_route_fails_closed_without_authentication() {
     let submission_id = MailSubmissionId::new();
     for uri in [
         "/api/v2/mailboxes".to_owned(),
+        "/api/v2/draft-attempts".to_owned(),
         format!("/api/v2/mailboxes/{mailbox_id}"),
         format!("/api/v2/mailboxes/{mailbox_id}/messages"),
         format!("/api/v2/mailboxes/{mailbox_id}/messages/{message_id}"),

@@ -156,6 +156,88 @@ pub(crate) async fn list_human_drafts(
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub(crate) struct HumanDraftAttemptListQuery {
+    pub(crate) limit: Option<u16>,
+    pub(crate) cursor: Option<String>,
+}
+
+/// Owner-private orphan-draft detection surface: lists only the
+/// authenticated Human's own remote draft writes that never reconciled into
+/// a local record. No remote engine access and no shared-mailbox widening —
+/// the list stays correct and private while the provider is unavailable.
+pub(crate) async fn list_human_draft_attempts(
+    State(state): State<Arc<AppState>>,
+    OriginalUri(uri): OriginalUri,
+    Extension(request_id): Extension<RequestId>,
+    ConnectionProof(connection): ConnectionProof,
+    headers: HeaderMap,
+) -> Result<Json<HumanDraftAttemptListResponse>, Response> {
+    let request_id = request_id_value(&request_id);
+    let authorization =
+        authenticate_human_mail_session_request(&state, &headers, connection, &request_id).await?;
+    let Query(query) = Query::<HumanDraftAttemptListQuery>::try_from_uri(&uri).map_err(|_| {
+        api_error(
+            StatusCode::BAD_REQUEST,
+            "invalid_human_draft_attempt_query",
+            "the Human draft-attempt query is invalid",
+            false,
+            &request_id,
+        )
+    })?;
+    let page = HumanDraftAttemptService::new(state.store.clone())
+        .list(ListHumanDraftAttemptsCommand {
+            context: authorization,
+            limit: query.limit.unwrap_or(25),
+            cursor: query.cursor,
+            trace_id: request_id.clone(),
+            now: Utc::now(),
+        })
+        .await
+        .map_err(|error| human_draft_api_error(error, &request_id))?;
+    let has_more = page.next_cursor.is_some();
+    Ok(Json(HumanDraftAttemptListResponse {
+        items: page
+            .items
+            .into_iter()
+            .map(|item| HumanDraftAttemptItemResponse {
+                attempt_id: item.attempt_id.to_string(),
+                mailbox_id: item.mailbox_id.to_string(),
+                draft_id: item.draft_id.to_string(),
+                attempted_at: item.attempted_at.to_rfc3339(),
+            })
+            .collect(),
+        next_cursor: page.next_cursor,
+        has_more,
+    }))
+}
+
+/// `GET` records immutable disclosure evidence. Do not let Axum's implicit
+/// GET-to-HEAD fallback create audit/Outbox records for a request that has no
+/// response body. The Mail-session check remains first so HEAD cannot probe
+/// this route or bypass the client partition.
+pub(crate) async fn reject_human_draft_attempts_head(
+    State(state): State<Arc<AppState>>,
+    Extension(request_id): Extension<RequestId>,
+    ConnectionProof(connection): ConnectionProof,
+    headers: HeaderMap,
+) -> Result<Response, Response> {
+    let request_id = request_id_value(&request_id);
+    authenticate_human_mail_session_request(&state, &headers, connection, &request_id).await?;
+    let mut response = api_error(
+        StatusCode::METHOD_NOT_ALLOWED,
+        "human_draft_attempts_head_not_supported",
+        "HEAD is not supported for the Human draft-attempt list",
+        false,
+        &request_id,
+    );
+    response
+        .headers_mut()
+        .insert(header::ALLOW, header::HeaderValue::from_static("GET"));
+    Ok(response)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct HumanSentListQuery {
     pub(crate) limit: Option<u16>,
     pub(crate) cursor: Option<String>,

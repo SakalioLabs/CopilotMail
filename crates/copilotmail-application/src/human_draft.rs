@@ -1,14 +1,14 @@
 use crate::draft::{body_reference, draft_digest, normalized_input, recipient_evidence};
 use crate::mail_ports::{MailDraftContentReader, MailEngineError};
 use crate::{
-    ControlPlaneStore, HumanDraftListItemRecheck, HumanDraftListQuery, HumanDraftListRecheck,
-    HumanDraftQueryStore, HumanDraftReadRecheck, HumanDraftRestoreQuery, MailDraftStatus,
-    PendingEvent, StoreError,
+    ControlPlaneStore, HumanDraftAttemptListQuery, HumanDraftAttemptListRecheck,
+    HumanDraftListItemRecheck, HumanDraftListQuery, HumanDraftListRecheck, HumanDraftQueryStore,
+    HumanDraftReadRecheck, HumanDraftRestoreQuery, MailDraftStatus, PendingEvent, StoreError,
 };
 use chrono::{DateTime, Utc};
 use copilotmail_domain::{
-    AuditActor, AuditEvent, AuditOutcome, AuditResource, AuthorizationContext, DraftId,
-    MailboxCapability, MailboxId, Permission,
+    AuditActor, AuditEvent, AuditOutcome, AuditResource, AuthorizationContext,
+    DraftCreationAttemptId, DraftId, MailboxCapability, MailboxId, Permission,
 };
 use serde_json::json;
 use std::sync::Arc;
@@ -477,6 +477,213 @@ where
     }
 }
 
+/// Command for the owner-private unreconciled draft-attempt list.
+///
+/// The list is scoped to the presenting principal only. It is the local
+/// orphan-detection surface for B-10: every row proves a remote draft write
+/// was attempted while the matching local record never committed.
+#[derive(Debug, Clone)]
+pub struct ListHumanDraftAttemptsCommand {
+    pub context: AuthorizationContext,
+    pub limit: u16,
+    pub cursor: Option<String>,
+    pub trace_id: String,
+    pub now: DateTime<Utc>,
+}
+
+/// Content-free attempt-list projection safe for the Human browser contract.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HumanDraftAttemptListItem {
+    pub attempt_id: DraftCreationAttemptId,
+    pub mailbox_id: MailboxId,
+    pub draft_id: DraftId,
+    pub attempted_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HumanDraftAttemptPage {
+    pub items: Vec<HumanDraftAttemptListItem>,
+    pub next_cursor: Option<String>,
+}
+
+/// Owner-private draft-attempt queries. This surface deliberately keeps no
+/// remote content reader: detection must stay available while the mail
+/// engine is unreachable, which is exactly when unreconciled attempts occur.
+pub struct HumanDraftAttemptService<S> {
+    store: S,
+}
+
+impl<S> HumanDraftAttemptService<S>
+where
+    S: HumanDraftQueryStore + ControlPlaneStore,
+{
+    #[must_use]
+    pub const fn new(store: S) -> Self {
+        Self { store }
+    }
+
+    /// Lists the caller's own unreconciled draft-creation attempts, newest
+    /// first. Rows are disclosed only after the exact authorization/result
+    /// recheck, the dedicated audit event, and the Outbox record commit in
+    /// one transaction.
+    pub async fn list(
+        &self,
+        command: ListHumanDraftAttemptsCommand,
+    ) -> Result<HumanDraftAttemptPage, HumanDraftError> {
+        require_mailbox_use(&command.context)?;
+        if !(MIN_LIMIT..=MAX_LIMIT).contains(&command.limit) {
+            return Err(HumanDraftError::InvalidPageSize);
+        }
+        let after_attempt_id = command
+            .cursor
+            .as_deref()
+            .map(parse_attempt_cursor)
+            .transpose()?;
+        let batch = self
+            .store
+            .list_human_draft_attempts(&HumanDraftAttemptListQuery {
+                organization_id: command.context.organization_id,
+                principal_id: command.context.principal_id,
+                after_attempt_id,
+                limit: command.limit,
+                now: command.now,
+            })
+            .await
+            .map_err(map_store_error)?;
+
+        if !batch.active_human {
+            return Err(HumanDraftError::Forbidden);
+        }
+        if after_attempt_id.is_some() && !batch.cursor_valid {
+            return Err(HumanDraftError::InvalidCursor);
+        }
+        if batch.candidates.len() > usize::from(command.limit)
+            || (batch.has_more && batch.candidates.is_empty())
+        {
+            return Err(HumanDraftError::Unavailable);
+        }
+
+        let mut previous = after_attempt_id;
+        let mut items = Vec::with_capacity(batch.candidates.len());
+        for candidate in batch.candidates {
+            if candidate.organization_id != command.context.organization_id
+                || candidate.created_by != command.context.principal_id
+                || candidate.attempt_id.as_uuid().is_nil()
+                || candidate.mailbox_id.as_uuid().is_nil()
+                || candidate.draft_id.as_uuid().is_nil()
+                || previous.is_some_and(|cursor| candidate.attempt_id >= cursor)
+            {
+                return Err(HumanDraftError::Unavailable);
+            }
+            previous = Some(candidate.attempt_id);
+            items.push(HumanDraftAttemptListItem {
+                attempt_id: candidate.attempt_id,
+                mailbox_id: candidate.mailbox_id,
+                draft_id: candidate.draft_id,
+                attempted_at: candidate.attempted_at,
+            });
+        }
+        let next_cursor = if batch.has_more {
+            items
+                .last()
+                .map(|item| format_attempt_cursor(item.attempt_id))
+        } else {
+            None
+        };
+        let page = HumanDraftAttemptPage { items, next_cursor };
+        let proof = HumanDraftAttemptListRecheck {
+            organization_id: command.context.organization_id,
+            principal_id: command.context.principal_id,
+            expected_attempt_ids: page.items.iter().map(|item| item.attempt_id).collect(),
+        };
+        self.record_attempt_list_evidence(&command, &proof, &page)
+            .await?;
+        Ok(page)
+    }
+
+    async fn record_attempt_list_evidence(
+        &self,
+        command: &ListHumanDraftAttemptsCommand,
+        proof: &HumanDraftAttemptListRecheck,
+        page: &HumanDraftAttemptPage,
+    ) -> Result<(), HumanDraftError> {
+        let mut transaction = self
+            .store
+            .begin_authorized(&command.context)
+            .await
+            .map_err(|_| HumanDraftError::Unavailable)?;
+        if !transaction
+            .human_draft_attempt_list_still_authorized(proof)
+            .await
+            .map_err(|_| HumanDraftError::Unavailable)?
+        {
+            return Err(HumanDraftError::Conflict);
+        }
+        let audit = AuditEvent::new(
+            command.context.organization_id,
+            AuditActor {
+                principal_id: command.context.principal_id,
+                on_behalf_of: None,
+                credential_id: None,
+            },
+            "mail.draft_attempts.queried",
+            AuditResource {
+                kind: "mail.draft_attempt_query".into(),
+                id: command.context.principal_id.to_string(),
+            },
+            AuditOutcome::Success,
+            command.trace_id.clone(),
+            json!({
+                "page_size": command.limit,
+                "result_count": page.items.len(),
+                "has_more": page.next_cursor.is_some(),
+            }),
+            command.now,
+        )
+        .and_then(|event| event.correlate_human_session(command.context.authentication.as_ref()))
+        .map_err(|_| HumanDraftError::Unavailable)?;
+        let event = PendingEvent::new(
+            "mail.draft_attempts.queried.v1",
+            "mail.draft_attempt_query",
+            command.context.principal_id.to_string(),
+            json!({
+                "organization_id": command.context.organization_id,
+                "principal_id": command.context.principal_id,
+                "result_count": page.items.len(),
+                "has_more": page.next_cursor.is_some(),
+            }),
+            command.now,
+        );
+        transaction
+            .append_audit_event(&audit)
+            .await
+            .map_err(|_| HumanDraftError::Unavailable)?;
+        transaction
+            .enqueue_event(&event)
+            .await
+            .map_err(|_| HumanDraftError::Unavailable)?;
+        transaction
+            .commit()
+            .await
+            .map_err(|_| HumanDraftError::Unavailable)
+    }
+}
+
+fn parse_attempt_cursor(value: &str) -> Result<DraftCreationAttemptId, HumanDraftError> {
+    let raw = value
+        .strip_prefix(CURSOR_PREFIX)
+        .ok_or(HumanDraftError::InvalidCursor)?;
+    let parsed = Uuid::parse_str(raw).map_err(|_| HumanDraftError::InvalidCursor)?;
+    if parsed.is_nil() || raw != parsed.to_string() {
+        return Err(HumanDraftError::InvalidCursor);
+    }
+    Ok(DraftCreationAttemptId::from_uuid(parsed))
+}
+
+fn format_attempt_cursor(attempt_id: DraftCreationAttemptId) -> String {
+    format!("{CURSOR_PREFIX}{attempt_id}")
+}
+
 fn require_mailbox_use(context: &AuthorizationContext) -> Result<(), HumanDraftError> {
     if context.permits(context.organization_id, Permission::MailboxUse) {
         Ok(())
@@ -547,9 +754,10 @@ mod tests {
     use super::*;
     use crate::mail_ports::{MailDataPlanePort, MailDraftContent};
     use crate::{
-        ControlPlaneTransaction, ExistingOrganizationBootstrap, HumanDraftListBatch,
-        HumanDraftListCandidate, HumanDraftRestoreResolution, HumanDraftRestoreTarget,
-        MailDraftRecord, MailEngineMailboxBinding, MailboxSummary,
+        ControlPlaneTransaction, ExistingOrganizationBootstrap, HumanDraftAttemptListBatch,
+        HumanDraftAttemptListCandidate, HumanDraftListBatch, HumanDraftListCandidate,
+        HumanDraftRestoreResolution, HumanDraftRestoreTarget, MailDraftRecord,
+        MailEngineMailboxBinding, MailboxSummary,
     };
     use async_trait::async_trait;
     use copilotmail_domain::{
@@ -570,11 +778,13 @@ mod tests {
         commits: usize,
         rechecks: Vec<HumanDraftReadRecheck>,
         list_rechecks: Vec<HumanDraftListRecheck>,
+        attempt_rechecks: Vec<HumanDraftAttemptListRecheck>,
     }
 
     #[derive(Clone)]
     struct Store {
         batch: HumanDraftListBatch,
+        attempt_batch: HumanDraftAttemptListBatch,
         resolution: HumanDraftRestoreResolution,
         evidence: Arc<Mutex<Evidence>>,
         query_calls: Arc<AtomicUsize>,
@@ -596,6 +806,14 @@ mod tests {
         ) -> Result<HumanDraftListBatch, StoreError> {
             self.query_calls.fetch_add(1, Ordering::SeqCst);
             Ok(self.batch.clone())
+        }
+
+        async fn list_human_draft_attempts(
+            &self,
+            _: &HumanDraftAttemptListQuery,
+        ) -> Result<HumanDraftAttemptListBatch, StoreError> {
+            self.query_calls.fetch_add(1, Ordering::SeqCst);
+            Ok(self.attempt_batch.clone())
         }
 
         async fn resolve_human_draft_restore_target(
@@ -668,6 +886,18 @@ mod tests {
                 .lock()
                 .unwrap()
                 .list_rechecks
+                .push(proof.clone());
+            Ok(self.final_authorized)
+        }
+
+        async fn human_draft_attempt_list_still_authorized(
+            &mut self,
+            proof: &HumanDraftAttemptListRecheck,
+        ) -> Result<bool, StoreError> {
+            self.evidence
+                .lock()
+                .unwrap()
+                .attempt_rechecks
                 .push(proof.clone());
             Ok(self.final_authorized)
         }
@@ -848,6 +1078,12 @@ mod tests {
     ) -> Store {
         Store {
             batch,
+            attempt_batch: HumanDraftAttemptListBatch {
+                active_human: true,
+                cursor_valid: true,
+                candidates: Vec::new(),
+                has_more: false,
+            },
             resolution: HumanDraftRestoreResolution {
                 active_human: true,
                 target: Some(fixture.target.clone()),
@@ -1165,5 +1401,213 @@ mod tests {
             .await;
         assert_eq!(result, Err(HumanDraftError::NotFound));
         assert!(second_reader.calls.lock().unwrap().is_empty());
+    }
+
+    fn attempt_candidate(
+        fixture: &Fixture,
+        attempt_id: DraftCreationAttemptId,
+    ) -> HumanDraftAttemptListCandidate {
+        HumanDraftAttemptListCandidate {
+            attempt_id,
+            organization_id: fixture.organization_id,
+            mailbox_id: fixture.mailbox_id,
+            created_by: fixture.principal_id,
+            draft_id: fixture.draft_id,
+            attempted_at: fixture.now,
+        }
+    }
+
+    fn attempt_list_command(fixture: &Fixture) -> ListHumanDraftAttemptsCommand {
+        ListHumanDraftAttemptsCommand {
+            context: fixture.context.clone(),
+            limit: 2,
+            cursor: None,
+            trace_id: "trace-draft-attempts".into(),
+            now: fixture.now,
+        }
+    }
+
+    #[tokio::test]
+    async fn draft_attempts_stay_owner_scoped_ordered_and_audited_before_return() {
+        let fixture = fixture();
+        let evidence = Arc::new(Mutex::new(Evidence::default()));
+        let newest = DraftCreationAttemptId::from_uuid(Uuid::from_u128(0x30));
+        let older = DraftCreationAttemptId::from_uuid(Uuid::from_u128(0x20));
+        let store = store(&fixture, empty_batch(&fixture), evidence.clone());
+        let service = HumanDraftAttemptService::new(Store {
+            attempt_batch: HumanDraftAttemptListBatch {
+                active_human: true,
+                cursor_valid: true,
+                candidates: vec![
+                    attempt_candidate(&fixture, newest),
+                    attempt_candidate(&fixture, older),
+                ],
+                has_more: true,
+            },
+            ..store
+        });
+
+        let page = service.list(attempt_list_command(&fixture)).await.unwrap();
+
+        assert_eq!(
+            page.items
+                .iter()
+                .map(|item| item.attempt_id)
+                .collect::<Vec<_>>(),
+            [newest, older]
+        );
+        assert_eq!(page.items[0].mailbox_id, fixture.mailbox_id);
+        assert_eq!(page.items[0].draft_id, fixture.draft_id);
+        assert_eq!(page.next_cursor, Some(format_attempt_cursor(older)));
+        let evidence = evidence.lock().unwrap();
+        assert_eq!(evidence.attempt_rechecks.len(), 1);
+        assert_eq!(
+            evidence.attempt_rechecks[0],
+            HumanDraftAttemptListRecheck {
+                organization_id: fixture.organization_id,
+                principal_id: fixture.principal_id,
+                expected_attempt_ids: vec![newest, older],
+            }
+        );
+        assert_eq!(evidence.audits, ["mail.draft_attempts.queried"]);
+        assert_eq!(evidence.events, ["mail.draft_attempts.queried.v1"]);
+        assert_eq!(evidence.commits, 1);
+        let serialized = evidence.serialized.join(" ");
+        for secret in [
+            "provider-account-secret",
+            "provider-email-secret",
+            "provider-thread-secret",
+            "Sensitive draft body",
+            "Quarterly status",
+            "recipient@example.test",
+        ] {
+            assert!(!serialized.contains(secret));
+        }
+    }
+
+    #[tokio::test]
+    async fn draft_attempt_list_rejects_rbac_cursor_and_anomalies_early() {
+        let fixture = fixture();
+        let evidence = Arc::new(Mutex::new(Evidence::default()));
+        let store = store(&fixture, empty_batch(&fixture), evidence);
+        let calls = store.query_calls.clone();
+        let service = HumanDraftAttemptService::new(store.clone());
+        let mut command = attempt_list_command(&fixture);
+        command.context.permissions.clear();
+        assert_eq!(service.list(command).await, Err(HumanDraftError::Forbidden));
+        let mut command = attempt_list_command(&fixture);
+        command.limit = 0;
+        assert_eq!(
+            service.list(command).await,
+            Err(HumanDraftError::InvalidPageSize)
+        );
+        let mut command = attempt_list_command(&fixture);
+        command.cursor = Some("v1.not-a-uuid".into());
+        assert_eq!(
+            service.list(command).await,
+            Err(HumanDraftError::InvalidCursor)
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+
+        let inactive = HumanDraftAttemptService::new(Store {
+            attempt_batch: HumanDraftAttemptListBatch {
+                active_human: false,
+                cursor_valid: true,
+                candidates: Vec::new(),
+                has_more: false,
+            },
+            ..store.clone()
+        });
+        assert_eq!(
+            inactive.list(attempt_list_command(&fixture)).await,
+            Err(HumanDraftError::Forbidden)
+        );
+
+        let stale_cursor = HumanDraftAttemptService::new(Store {
+            attempt_batch: HumanDraftAttemptListBatch {
+                active_human: true,
+                cursor_valid: false,
+                candidates: Vec::new(),
+                has_more: false,
+            },
+            ..store.clone()
+        });
+        let mut command = attempt_list_command(&fixture);
+        command.cursor = Some(format_attempt_cursor(DraftCreationAttemptId::new()));
+        assert_eq!(
+            stale_cursor.list(command).await,
+            Err(HumanDraftError::InvalidCursor)
+        );
+
+        for candidate in [
+            HumanDraftAttemptListCandidate {
+                organization_id: OrganizationId::new(),
+                ..attempt_candidate(&fixture, DraftCreationAttemptId::new())
+            },
+            HumanDraftAttemptListCandidate {
+                created_by: PrincipalId::new(),
+                ..attempt_candidate(&fixture, DraftCreationAttemptId::new())
+            },
+            HumanDraftAttemptListCandidate {
+                draft_id: DraftId::from_uuid(Uuid::nil()),
+                ..attempt_candidate(&fixture, DraftCreationAttemptId::new())
+            },
+        ] {
+            let service = HumanDraftAttemptService::new(Store {
+                attempt_batch: HumanDraftAttemptListBatch {
+                    active_human: true,
+                    cursor_valid: true,
+                    candidates: vec![candidate],
+                    has_more: false,
+                },
+                ..store.clone()
+            });
+            assert_eq!(
+                service.list(attempt_list_command(&fixture)).await,
+                Err(HumanDraftError::Unavailable)
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn draft_attempt_list_discloses_nothing_when_recheck_or_commit_fails() {
+        let fixture = fixture();
+        let evidence = Arc::new(Mutex::new(Evidence::default()));
+        let attempt_batch = HumanDraftAttemptListBatch {
+            active_human: true,
+            cursor_valid: true,
+            candidates: vec![attempt_candidate(&fixture, DraftCreationAttemptId::new())],
+            has_more: false,
+        };
+        let mut denied = Store {
+            attempt_batch: attempt_batch.clone(),
+            ..store(&fixture, empty_batch(&fixture), evidence.clone())
+        };
+        denied.final_authorized = false;
+        assert_eq!(
+            HumanDraftAttemptService::new(denied)
+                .list(attempt_list_command(&fixture))
+                .await,
+            Err(HumanDraftError::Conflict)
+        );
+        {
+            let evidence = evidence.lock().unwrap();
+            assert_eq!(evidence.attempt_rechecks.len(), 1);
+            assert!(evidence.audits.is_empty());
+            assert_eq!(evidence.commits, 0);
+        }
+
+        let mut failing = Store {
+            attempt_batch,
+            ..store(&fixture, empty_batch(&fixture), evidence.clone())
+        };
+        failing.commit_fails = true;
+        assert_eq!(
+            HumanDraftAttemptService::new(failing)
+                .list(attempt_list_command(&fixture))
+                .await,
+            Err(HumanDraftError::Unavailable)
+        );
+        assert_eq!(evidence.lock().unwrap().commits, 0);
     }
 }

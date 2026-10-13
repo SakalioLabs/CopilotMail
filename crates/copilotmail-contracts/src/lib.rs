@@ -67,6 +67,27 @@ pub struct HumanBrowserSessionListResponse {
     pub sessions: Vec<HumanBrowserSessionItemResponse>,
 }
 
+/// One of the owner's own unreconciled draft-creation attempts.
+///
+/// Each item proves a remote draft write was attempted while its local
+/// record never committed — the local orphan-detection surface. It carries
+/// no body, recipient, provider object reference, or secret.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HumanDraftAttemptItemResponse {
+    pub attempt_id: String,
+    pub mailbox_id: String,
+    pub draft_id: String,
+    pub attempted_at: String,
+}
+
+/// Owner-private list of unreconciled draft-creation attempts.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HumanDraftAttemptListResponse {
+    pub items: Vec<HumanDraftAttemptItemResponse>,
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
+}
+
 /// Offline organization-bootstrap result printed by the control-plane CLI.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OrganizationBootstrapResponse {

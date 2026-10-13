@@ -157,6 +157,7 @@ pub(crate) fn human_mail_route(method: &Method, path: &str) -> bool {
     };
     match segments.as_slice() {
         ["api", "v2", "mailboxes"] => method == Method::GET || method == Method::HEAD,
+        ["api", "v2", "draft-attempts"] => method == Method::GET || method == Method::HEAD,
         ["api", "v2", "mailboxes", _, "messages"] => {
             method == Method::GET || method == Method::HEAD
         }

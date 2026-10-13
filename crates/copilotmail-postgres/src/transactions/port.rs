@@ -360,6 +360,14 @@ impl ControlPlaneTransaction for PgControlPlaneTransaction {
         self.tx_human_draft_list_still_authorized(proof).await
     }
 
+    async fn human_draft_attempt_list_still_authorized(
+        &mut self,
+        proof: &HumanDraftAttemptListRecheck,
+    ) -> Result<bool, StoreError> {
+        self.tx_human_draft_attempt_list_still_authorized(proof)
+            .await
+    }
+
     async fn human_sent_list_still_authorized(
         &mut self,
         proof: &HumanSentListRecheck,

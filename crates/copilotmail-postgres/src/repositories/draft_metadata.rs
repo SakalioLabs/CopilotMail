@@ -64,6 +64,36 @@ impl MailDraftMetadataStore for PgControlPlaneStore {
         {
             return Err(StoreError::MissingReference);
         }
+        // Reconcile the pre-write attempt atomically with the draft record.
+        // The exact identity match fails closed: a draft write without its
+        // own recorded attempt, or an attempt bound to different scope, can
+        // never produce metadata.
+        let reconciled = sqlx::query(
+            r#"
+            UPDATE mail_draft_creation_attempts
+               SET reconciled_at = clock_timestamp()
+             WHERE id = $1
+               AND organization_id = $2
+               AND mailbox_id = $3
+               AND created_by = $4
+               AND draft_id = $5
+               AND mail_data_plane_id = $6
+               AND reconciled_at IS NULL
+            "#,
+        )
+        .bind(write.creation_attempt_id.as_uuid())
+        .bind(write.organization_id.as_uuid())
+        .bind(write.mailbox_id.as_uuid())
+        .bind(write.created_by.as_uuid())
+        .bind(write.draft_id.as_uuid())
+        .bind(write.data_plane_id.as_uuid())
+        .execute(&mut *transaction)
+        .await
+        .map_err(map_store_error)?
+        .rows_affected();
+        if reconciled != 1 {
+            return Err(StoreError::Conflict);
+        }
         let row = if let Some(expected_version) = write.expected_version {
             sqlx::query_as::<_, MailDraftRow>(
                 r#"
@@ -155,5 +185,35 @@ impl MailDraftMetadataStore for PgControlPlaneStore {
         };
         transaction.commit().await.map_err(map_store_error)?;
         mail_draft_from_row(row)
+    }
+
+    async fn record_draft_creation_attempt(
+        &self,
+        write: &DraftCreationAttemptWrite,
+    ) -> Result<(), StoreError> {
+        if write.attempt_id.as_uuid().is_nil() || write.draft_id.as_uuid().is_nil() {
+            return Err(StoreError::Conflict);
+        }
+        // `attempted_at` is stamped by the database clock via the migration
+        // DDL default; the caller never supplies a timestamp.
+        sqlx::query(
+            r#"
+            INSERT INTO mail_draft_creation_attempts(
+                id, organization_id, mailbox_id, created_by,
+                draft_id, mail_data_plane_id
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
+        )
+        .bind(write.attempt_id.as_uuid())
+        .bind(write.organization_id.as_uuid())
+        .bind(write.mailbox_id.as_uuid())
+        .bind(write.created_by.as_uuid())
+        .bind(write.draft_id.as_uuid())
+        .bind(write.data_plane_id.as_uuid())
+        .execute(&self.pool)
+        .await
+        .map_err(map_store_error)?;
+        Ok(())
     }
 }

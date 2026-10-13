@@ -261,6 +261,10 @@ pub(crate) fn router_with_state(state: AppState, scim_identity_provider: Option<
             axum::routing::put(update_mail_domain_route),
         )
         .route("/api/v2/mailboxes", get(list_human_mailboxes))
+        .route(
+            "/api/v2/draft-attempts",
+            get(list_human_draft_attempts).head(reject_human_draft_attempts_head),
+        )
         .route("/api/v2/mailboxes/{mailbox_id}", get(get_mailbox))
         .route(
             "/api/v2/mailboxes/{mailbox_id}/messages",

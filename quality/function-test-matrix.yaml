@@ -2495,6 +2495,67 @@
       "review_status": "in_progress"
     },
     {
+      "capability_id": "human.draft_attempts",
+      "module": "crates/copilotmail-application/src/human_draft.rs",
+      "entrypoints": [
+        "list"
+      ],
+      "risk": "high",
+      "mutates": true,
+      "concurrent": false,
+      "invariants": [
+        "Only the owner's unreconciled attempts are listed; shared membership never widens the scope",
+        "Items are content free: no body, recipients, provider references, or secrets",
+        "Authorization and every returned attempt are rechecked before evidence commit"
+      ],
+      "cases": {
+        "normal": [
+          "list"
+        ],
+        "boundary": [
+          "early"
+        ],
+        "failure": [
+          "closed"
+        ],
+        "authorization": [
+          "early",
+          "pg"
+        ],
+        "transaction": [
+          "closed",
+          "pg"
+        ]
+      },
+      "test_refs": {
+        "list": {
+          "path": "crates/copilotmail-application/src/human_draft.rs",
+          "symbol": "draft_attempts_stay_owner_scoped_ordered_and_audited_before_return",
+          "execution": "passed"
+        },
+        "early": {
+          "path": "crates/copilotmail-application/src/human_draft.rs",
+          "symbol": "draft_attempt_list_rejects_rbac_cursor_and_anomalies_early",
+          "execution": "passed"
+        },
+        "closed": {
+          "path": "crates/copilotmail-application/src/human_draft.rs",
+          "symbol": "draft_attempt_list_discloses_nothing_when_recheck_or_commit_fails",
+          "execution": "passed"
+        },
+        "pg": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "draft_creation_attempts_are_owner_private_audited_and_reconcile_only",
+          "execution": "passed"
+        }
+      },
+      "environment": "On 2026-10-12 a clean disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, ran the serial ignored suite: 48 passed, 0 failed, including draft_creation_attempts_are_owner_private_audited_and_reconcile_only, which proves owner privacy, cross-tenant hiding, reconcile-only mutation, and the dedicated mail.draft_attempts.queried audit and outbox evidence. The unit tests ran inside the 178-test copilotmail-application suite. The HTTP route is GET /api/v2/draft-attempts with explicit HEAD rejection; the route never queries the remote mail engine. Local, non-CI.",
+      "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
+      "candidate_revision": "local-pg17-batch15-2026-10-12",
+      "owner": "primary-implementer",
+      "review_status": "in_progress"
+    },
+    {
       "capability_id": "human.mailbox_directory",
       "module": "crates/copilotmail-application/src/human_mailbox_directory.rs",
       "entrypoints": [
@@ -2627,23 +2688,28 @@
       "concurrent": false,
       "invariants": [
         "Sender and auto-submitted markers are server-derived",
-        "Duplicate body references are scoped to tenant and principal"
+        "Duplicate body references are scoped to tenant and principal",
+        "A content-free creation attempt is recorded before the remote write and reconciled only with metadata"
       ],
       "cases": {
         "normal": [
-          "marker"
+          "marker",
+          "attempt_write"
         ],
         "boundary": [
           "dup_recip"
         ],
         "failure": [
-          "nocap"
+          "nocap",
+          "orphan_remote",
+          "orphan_meta"
         ],
         "authorization": [
           "ineligible"
         ],
         "transaction": [
-          "provenance"
+          "provenance",
+          "attempt_pg"
         ]
       },
       "test_refs": {
@@ -2667,15 +2733,35 @@
           "symbol": "ineligible_principal_fails_before_mail_data_plane_access",
           "execution": "passed"
         },
+        "attempt_write": {
+          "path": "crates/copilotmail-application/src/draft.rs",
+          "symbol": "save_records_a_content_free_attempt_before_the_remote_write",
+          "execution": "passed"
+        },
+        "orphan_remote": {
+          "path": "crates/copilotmail-application/src/draft.rs",
+          "symbol": "remote_write_failure_keeps_the_attempt_orphaned",
+          "execution": "passed"
+        },
+        "orphan_meta": {
+          "path": "crates/copilotmail-application/src/draft.rs",
+          "symbol": "metadata_write_failure_keeps_the_attempt_orphaned",
+          "execution": "passed"
+        },
+        "attempt_pg": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "draft_creation_attempts_are_owner_private_audited_and_reconcile_only",
+          "execution": "passed"
+        },
         "provenance": {
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "mail_draft_provenance_is_versioned_frozen_and_submission_bound",
           "execution": "passed"
         }
       },
-      "environment": "Earlier clean-database evidence stays passed. On 2026-10-12 a dirty-database rerun of mail_draft_provenance_is_versioned_frozen_and_submission_bound stopped at bind with Store(Conflict) on the fixed legacy data-plane account_ref, before the new send recheck. That account_ref and the reply document ref are now unique per run. The seeded data plane id ending 2101 stays, because bindings reference that migration row. After that change, both ignored-suite runs on the same dirty local PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, passed this test inside 45 passed, 0 failed. execution stays passed.",
+      "environment": "Earlier clean-database evidence stays passed. On 2026-10-12 a dirty-database rerun of mail_draft_provenance_is_versioned_frozen_and_submission_bound stopped at bind with Store(Conflict) on the fixed legacy data-plane account_ref, before the new send recheck. That account_ref and the reply document ref are now unique per run. The seeded data plane id ending 2101 stays, because bindings reference that migration row. After that change, both ignored-suite runs on the same dirty local PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, passed this test inside 45 passed, 0 failed. execution stays passed. Later on 2026-10-12 the same class of clean disposable database ran the serial ignored suite after draft saves began recording a content-free creation attempt before the remote write: 48 passed, 0 failed, including draft_creation_attempts_are_owner_private_audited_and_reconcile_only. The three attempt unit tests ran inside the 178-test copilotmail-application suite. Local, non-CI.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
-      "candidate_revision": "local-pg17-batch9-2026-10-12",
+      "candidate_revision": "local-pg17-batch15-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -5999,18 +6085,22 @@
         "list_human_mailboxes",
         "list_human_drafts",
         "list_human_sent_submissions",
-        "restore_human_draft"
+        "restore_human_draft",
+        "list_human_draft_attempts",
+        "reject_human_draft_attempts_head"
       ],
       "risk": "high",
       "mutates": true,
       "concurrent": false,
       "invariants": [
         "Route handlers enforce authentication before any storage or engine access",
-        "Cursors and filters are versioned, tenant-scoped and canonical"
+        "Cursors and filters are versioned, tenant-scoped and canonical",
+        "The draft-attempts surface stays mail-client only and rejects HEAD explicitly"
       ],
       "cases": {
         "normal": [
-          "t0"
+          "t0",
+          "partition"
         ],
         "boundary": [
           "t1"
@@ -6019,7 +6109,8 @@
           "t1"
         ],
         "authorization": [
-          "t0"
+          "t0",
+          "partition"
         ],
         "transaction": [
           "t0"
@@ -6035,9 +6126,14 @@
           "path": "apps/copilotmail-control/src/tests.rs",
           "symbol": "inbox_cursor_is_mailbox_bound_and_bounded",
           "execution": "passed"
+        },
+        "partition": {
+          "path": "apps/copilotmail-control/src/tests.rs",
+          "symbol": "human_session_cookies_and_routes_are_strictly_client_partitioned",
+          "execution": "passed"
         }
       },
-      "environment": "Rust unit fixtures; disposable PostgreSQL 17 suite executed green",
+      "environment": "Rust unit fixtures; disposable PostgreSQL 17 suite executed green. On 2026-10-12 the copilotmail-control suite passed 73 tests after GET /api/v2/draft-attempts joined the mail-client partition, unauthenticated coverage, and the explicit HEAD rejection. Local, non-CI.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
       "candidate_revision": "post-fence-remediation-2026-08-22",
       "owner": "primary-implementer",

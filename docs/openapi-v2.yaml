@@ -1565,6 +1565,55 @@ paths:
         "401": { $ref: "#/components/responses/MailSessionUnauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v2/draft-attempts:
+    get:
+      operationId: listHumanDraftAttempts
+      summary: List the caller's own unreconciled draft-creation attempts.
+      description: >
+        Human Mail browser-session only. Requires an active Human and
+        mailbox.use. Every row proves a remote provider draft write was
+        attempted while its local record never committed; it is the
+        owner-private orphan-detection surface and performs no remote engine
+        access. Shared-mailbox membership never discloses another
+        principal's attempts. Items carry no body, recipient, provider
+        object reference, or secret. Authorization and every disclosed
+        result are rechecked in the Audit/Outbox transaction before any
+        response is returned. HEAD is intentionally rejected after the Mail
+        session check with 405 so it cannot generate disclosure evidence
+        through an implicit GET fallback.
+      security:
+        - mailBrowserSession: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 25
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            minLength: 39
+            maxLength: 39
+            pattern: "^v1\\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      responses:
+        "200":
+          description: Stable page ordered by descending attempt UUIDv7.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+            Referrer-Policy:
+              schema: { type: string, const: no-referrer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HumanDraftAttemptList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/MailSessionUnauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /api/v2/mailboxes/{mailbox_id}:
     get:
       operationId: getMailbox
@@ -4573,6 +4622,30 @@ components:
           type: array
           maxItems: 50
           items: { $ref: "#/components/schemas/HumanSentListItem" }
+        next_cursor:
+          type: ["string", "null"]
+          minLength: 39
+          maxLength: 39
+          pattern: "^v1\\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        has_more: { type: boolean }
+    HumanDraftAttemptListItem:
+      type: object
+      additionalProperties: false
+      required: [attempt_id, mailbox_id, draft_id, attempted_at]
+      properties:
+        attempt_id: { type: string, format: uuid }
+        mailbox_id: { type: string, format: uuid }
+        draft_id: { type: string, format: uuid }
+        attempted_at: { type: string, format: date-time }
+    HumanDraftAttemptList:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor, has_more]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/HumanDraftAttemptListItem" }
         next_cursor:
           type: ["string", "null"]
           minLength: 39

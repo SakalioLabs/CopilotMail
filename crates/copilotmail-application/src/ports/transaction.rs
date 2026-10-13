@@ -393,6 +393,17 @@ pub trait ControlPlaneTransaction: Send {
         Ok(false)
     }
 
+    /// Final authorization guard for an owner-private unreconciled draft
+    /// attempt list. The proof re-binds every disclosed attempt to the
+    /// presenting Human so a reconcile that lands between the candidate read
+    /// and evidence commit cannot disclose a stale orphan claim.
+    async fn human_draft_attempt_list_still_authorized(
+        &mut self,
+        _proof: &HumanDraftAttemptListRecheck,
+    ) -> Result<bool, StoreError> {
+        Ok(false)
+    }
+
     /// Final authorization guard for the content-free Human accepted-
     /// submission directory. Default deny prevents adapters which have not
     /// implemented the exact ownership and snapshot recheck from disclosing

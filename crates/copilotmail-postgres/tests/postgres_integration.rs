@@ -33,22 +33,22 @@ use copilotmail_application::{
     ControlPlaneTransaction, CreateAgentMailPolicyVersionCommand, CreateApprovalPolicyCommand,
     CreateAuditCheckpointCommand, CreateAuditCheckpointService, CreateHumanSessionCommand,
     CreateMailboxCommand, CreateRetentionPolicyCommand, CreateWebhookSubscriptionCommand,
-    DecideApprovalCommand, DeleteScimGroupCommand, DraftError, DraftService,
-    EnsureAgentProcessingSubscriptionCommand, ExecuteMailSubmissionCommand,
+    DecideApprovalCommand, DeleteScimGroupCommand, DraftCreationAttemptWrite, DraftError,
+    DraftService, EnsureAgentProcessingSubscriptionCommand, ExecuteMailSubmissionCommand,
     ExternalIdentityResolver, GetAgentInspectorCommand, GetAgentMailSubmissionEvidenceCommand,
     GetApprovalRequestCommand, GrantMailboxDelegationCommand, GrantRoleAssignmentCommand,
-    HumanDraftError, HumanDraftListItemRecheck, HumanDraftListQuery, HumanDraftListRecheck,
-    HumanDraftQueryStore, HumanDraftReadRecheck, HumanDraftRestoreQuery, HumanDraftService,
-    HumanLoginFailureQuery, HumanLoginFailureReason, HumanLoginFailureService,
+    HumanDraftAttemptService, HumanDraftError, HumanDraftListItemRecheck, HumanDraftListQuery,
+    HumanDraftListRecheck, HumanDraftQueryStore, HumanDraftReadRecheck, HumanDraftRestoreQuery,
+    HumanDraftService, HumanLoginFailureQuery, HumanLoginFailureReason, HumanLoginFailureService,
     HumanMailContentQueryStore, HumanMailboxDirectoryError, HumanMailboxDirectoryService,
     HumanSentError, HumanSentListItemRecheck, HumanSentListQuery, HumanSentListRecheck,
     HumanSentQueryStore, HumanSentService, HumanSessionClient, HumanSessionError,
     HumanSessionRevocationCause, HumanSessionService, InboundMailEventIngestionService,
     IngestInboundMailEventsCommand, IngestMailEngineEventsCommand, IssueScimTokenCommand,
     IssueScimTokenService, ListAgentProcessingDeadLettersCommand, ListApprovalRequestsCommand,
-    ListHumanDraftsCommand, ListHumanMailboxDirectoryCommand, ListHumanSentSubmissionsCommand,
-    ListRoleAssignmentsCommand, MailDataPlaneFingerprintScheme, MailDeliveryQueryStore,
-    MailDeliveryReconciliationError, MailDeliveryReconciliationResult,
+    ListHumanDraftAttemptsCommand, ListHumanDraftsCommand, ListHumanMailboxDirectoryCommand,
+    ListHumanSentSubmissionsCommand, ListRoleAssignmentsCommand, MailDataPlaneFingerprintScheme,
+    MailDeliveryQueryStore, MailDeliveryReconciliationError, MailDeliveryReconciliationResult,
     MailDeliveryReconciliationService, MailDomainGovernanceError, MailDomainGovernanceService,
     MailDomainQueryStore, MailDraftMetadataStore, MailDraftRecipientEvidence, MailDraftWrite,
     MailEngineEventIngestionService, MailEngineMailboxBindingService, MailEventFingerprintScheme,
@@ -79,10 +79,10 @@ use copilotmail_domain::{
     ApprovalRequestId, ApprovalStatus, AuditActor, AuditArchiveId, AuditCheckpointId, AuditEvent,
     AuditOutcome, AuditResource, AuditRisk, AuthenticationBinding, AuthorizationContext,
     ComplianceCaseId, ComplianceCaseStatus, DelegationId, DnsVerificationChecks,
-    DnsVerificationEvidence, DraftId, HumanLoginFailureId, HumanSessionId, LeaseId,
-    MailDataPlaneId, MailDomainRouteMode, MailDomainStatus, MailEngineProjectionStatus,
-    MailboxAddress, MailboxCapability, MailboxKind, OrganizationId, Permission, PrincipalId,
-    RetentionResourceKind, ScimTokenId, SubscriptionId, SystemRole,
+    DnsVerificationEvidence, DraftCreationAttemptId, DraftId, HumanLoginFailureId, HumanSessionId,
+    LeaseId, MailDataPlaneId, MailDomainRouteMode, MailDomainStatus, MailEngineProjectionStatus,
+    MailboxAddress, MailboxCapability, MailboxId, MailboxKind, OrganizationId, Permission,
+    PrincipalId, RetentionResourceKind, ScimTokenId, SubscriptionId, SystemRole,
 };
 use copilotmail_postgres::{PgControlPlaneStore, WebhookDeliveryOutcome};
 use serde_json::json;
@@ -109,6 +109,31 @@ fn other_mail_data_plane_id() -> MailDataPlaneId {
 
 fn run_unique(prefix: &str) -> String {
     format!("{prefix}-{}", Uuid::new_v4().simple())
+}
+
+/// Mirrors `DraftService`: every remote draft write must already have a local
+/// creation-attempt row, and `record_mail_draft` reconciles it atomically.
+/// The returned id goes into the `MailDraftWrite` literal.
+async fn record_draft_attempt(
+    store: &PgControlPlaneStore,
+    organization_id: OrganizationId,
+    mailbox_id: MailboxId,
+    created_by: PrincipalId,
+    draft_id: DraftId,
+) -> DraftCreationAttemptId {
+    let attempt_id = DraftCreationAttemptId::new();
+    store
+        .record_draft_creation_attempt(&DraftCreationAttemptWrite {
+            attempt_id,
+            organization_id,
+            mailbox_id,
+            created_by,
+            draft_id,
+            data_plane_id: legacy_mail_data_plane_id(),
+        })
+        .await
+        .expect("record draft creation attempt");
+    attempt_id
 }
 
 fn marker_digest(marker: u8, id: &Uuid) -> Vec<u8> {
@@ -9785,6 +9810,299 @@ async fn human_login_failure_ledger_is_bounded_append_only_and_ops_readable() {
     assert!(retained.iter().all(|row| row.occurred_at >= window_start));
 }
 
+/// B-10: a remote draft write that never landed locally stays listed for its
+/// owner only, is audited with a dedicated action, reconciles atomically with
+/// the metadata record, and cannot be mutated outside that reconcile path.
+#[tokio::test]
+#[ignore = "requires a disposable PostgreSQL database"]
+async fn draft_creation_attempts_are_owner_private_audited_and_reconcile_only() {
+    let store = migrated_store().await;
+    let bootstrap = BootstrapOrganizationService::new(store.clone())
+        .execute(bootstrap_command(format!(
+            "draft-attempts-{}",
+            Uuid::new_v4().simple()
+        )))
+        .await
+        .expect("bootstrap draft-attempt tenant");
+    let now = Utc::now();
+    let owner_id = insert_approval_test_owner(
+        &store,
+        bootstrap.organization_id,
+        bootstrap.root_principal_id,
+        now,
+    )
+    .await;
+    let member_id = insert_approval_test_owner(
+        &store,
+        bootstrap.organization_id,
+        bootstrap.root_principal_id,
+        now,
+    )
+    .await;
+    let owner_context = store
+        .resolve_authorization(owner_id, now)
+        .await
+        .expect("resolve owner")
+        .expect("owner is active");
+    let member_context = store
+        .resolve_authorization(member_id, now)
+        .await
+        .expect("resolve member")
+        .expect("member is active");
+    let mailbox = MailboxManagementService::new(store.clone())
+        .create_authorized(
+            &owner_context,
+            CreateMailboxCommand {
+                organization_id: bootstrap.organization_id,
+                kind: MailboxKind::Shared,
+                primary_address: format!("draft-attempts-{}@example.test", Uuid::new_v4().simple()),
+                trace_id: Uuid::now_v7().to_string(),
+                now,
+            },
+        )
+        .await
+        .expect("create shared attempt mailbox");
+    MailboxDelegationService::new(store.clone())
+        .grant_authorized(
+            &owner_context,
+            GrantMailboxDelegationCommand {
+                organization_id: bootstrap.organization_id,
+                mailbox_id: mailbox.mailbox_id,
+                grantee_principal_id: member_id,
+                capabilities: [MailboxCapability::Read, MailboxCapability::Send]
+                    .into_iter()
+                    .collect(),
+                reason: "Shared-mailbox member must not see owner attempts".into(),
+                valid_from: now,
+                valid_until: now + chrono::Duration::hours(4),
+                trace_id: Uuid::now_v7().to_string(),
+                now,
+            },
+        )
+        .await
+        .expect("grant member draft access");
+
+    let attempts = HumanDraftAttemptService::new(store.clone());
+    let attempt_command =
+        |context: AuthorizationContext, cursor: Option<String>| ListHumanDraftAttemptsCommand {
+            context,
+            limit: 25,
+            cursor,
+            trace_id: Uuid::now_v7().to_string(),
+            now: now + chrono::Duration::seconds(1),
+        };
+
+    // An orphaned remote write: the attempt exists but no metadata record
+    // ever reconciled it.
+    let owner_draft_id = DraftId::new();
+    let owner_attempt_id = record_draft_attempt(
+        &store,
+        bootstrap.organization_id,
+        mailbox.mailbox_id,
+        owner_id,
+        owner_draft_id,
+    )
+    .await;
+    let member_draft_id = DraftId::new();
+    let member_attempt_id = record_draft_attempt(
+        &store,
+        bootstrap.organization_id,
+        mailbox.mailbox_id,
+        member_id,
+        member_draft_id,
+    )
+    .await;
+
+    let owner_page = attempts
+        .list(attempt_command(owner_context.clone(), None))
+        .await
+        .expect("list owner attempts");
+    assert_eq!(owner_page.items.len(), 1);
+    assert_eq!(owner_page.items[0].attempt_id, owner_attempt_id);
+    assert_eq!(owner_page.items[0].mailbox_id, mailbox.mailbox_id);
+    assert_eq!(owner_page.items[0].draft_id, owner_draft_id);
+    assert!(owner_page.next_cursor.is_none());
+
+    // The shared-mailbox member sees only their own attempt: full mailbox
+    // delegation never widens the owner-private attempt list.
+    let member_page = attempts
+        .list(attempt_command(member_context.clone(), None))
+        .await
+        .expect("list member attempts");
+    assert_eq!(
+        member_page
+            .items
+            .iter()
+            .map(|item| item.attempt_id)
+            .collect::<Vec<_>>(),
+        vec![member_attempt_id]
+    );
+
+    // A cursor anchor that exists but belongs to another principal is not a
+    // valid continuation for this owner.
+    assert_eq!(
+        attempts
+            .list(attempt_command(
+                owner_context.clone(),
+                Some(format!("v1.{member_attempt_id}")),
+            ))
+            .await,
+        Err(HumanDraftError::InvalidCursor)
+    );
+
+    // Cross-tenant and non-Human queries resolve nothing at the store layer.
+    let foreign_batch = store
+        .list_human_draft_attempts(&copilotmail_application::HumanDraftAttemptListQuery {
+            organization_id: OrganizationId::new(),
+            principal_id: owner_id,
+            after_attempt_id: None,
+            limit: 50,
+            now: now + chrono::Duration::seconds(1),
+        })
+        .await
+        .expect("foreign-tenant attempt query");
+    assert!(!foreign_batch.active_human);
+    assert!(foreign_batch.candidates.is_empty());
+
+    assert_eq!(count_draft_attempt_evidence(&store, owner_id).await, (1, 1));
+    assert_eq!(
+        count_draft_attempt_evidence(&store, member_id).await,
+        (1, 1)
+    );
+
+    // Attempt rows cannot be updated or deleted outside the reconcile path.
+    assert!(
+        sqlx::query("UPDATE mail_draft_creation_attempts SET draft_id = $2 WHERE id = $1")
+            .bind(owner_attempt_id.as_uuid())
+            .bind(Uuid::now_v7())
+            .execute(store.pool())
+            .await
+            .is_err(),
+        "attempt identity must be immutable"
+    );
+    assert!(
+        sqlx::query("DELETE FROM mail_draft_creation_attempts WHERE id = $1")
+            .bind(owner_attempt_id.as_uuid())
+            .execute(store.pool())
+            .await
+            .is_err(),
+        "attempt evidence cannot be deleted"
+    );
+
+    // A metadata write without its own pre-recorded attempt fails closed.
+    let binding_service = MailEngineMailboxBindingService::try_new(
+        store.clone(),
+        legacy_mail_data_plane_id(),
+        "stalwart",
+    )
+    .expect("construct attempt binding service");
+    let account_ref = random_numeric_engine_ref();
+    binding_service
+        .bind_authorized(
+            &owner_context,
+            BindMailEngineMailboxCommand {
+                organization_id: bootstrap.organization_id,
+                mailbox_id: mailbox.mailbox_id,
+                account_ref: account_ref.clone(),
+                expected_version: 0,
+                trace_id: Uuid::now_v7().to_string(),
+                now: now + chrono::Duration::seconds(2),
+            },
+        )
+        .await
+        .expect("bind attempt mailbox account");
+    let unrecorded = store
+        .record_mail_draft(MailDraftWrite {
+            draft_id: DraftId::new(),
+            creation_attempt_id: DraftCreationAttemptId::new(),
+            organization_id: bootstrap.organization_id,
+            mailbox_id: mailbox.mailbox_id,
+            created_by: owner_id,
+            data_plane_id: legacy_mail_data_plane_id(),
+            engine_account_ref: account_ref.clone(),
+            engine_email_ref: format!("attemptless-{}", Uuid::new_v4().simple()),
+            engine_thread_ref: format!("attemptless-thread-{}", Uuid::new_v4().simple()),
+            reply_to_message_id: None,
+            reply_to_automatic: false,
+            body_ref: [91; 32],
+            content_sha256: [92; 32],
+            recipients: vec![MailDraftRecipientEvidence {
+                recipient_ref: [93; 32],
+                domain: "example.test".into(),
+            }],
+            expected_version: None,
+            now: now + chrono::Duration::seconds(3),
+        })
+        .await;
+    assert!(matches!(unrecorded, Err(StoreError::Conflict)));
+
+    // A metadata write reconciles only the matching attempt; the member's
+    // attempt stays listed.
+    store
+        .record_mail_draft(MailDraftWrite {
+            draft_id: owner_draft_id,
+            creation_attempt_id: owner_attempt_id,
+            organization_id: bootstrap.organization_id,
+            mailbox_id: mailbox.mailbox_id,
+            created_by: owner_id,
+            data_plane_id: legacy_mail_data_plane_id(),
+            engine_account_ref: account_ref,
+            engine_email_ref: format!("reconciled-{}", Uuid::new_v4().simple()),
+            engine_thread_ref: format!("reconciled-thread-{}", Uuid::new_v4().simple()),
+            reply_to_message_id: None,
+            reply_to_automatic: false,
+            body_ref: [94; 32],
+            content_sha256: [95; 32],
+            recipients: vec![MailDraftRecipientEvidence {
+                recipient_ref: [96; 32],
+                domain: "example.test".into(),
+            }],
+            expected_version: None,
+            now: now + chrono::Duration::seconds(4),
+        })
+        .await
+        .expect("reconcile owner attempt with draft metadata");
+    let after_reconcile = attempts
+        .list(attempt_command(owner_context, None))
+        .await
+        .expect("list owner attempts after reconcile");
+    assert!(after_reconcile.items.is_empty());
+    let member_after = attempts
+        .list(attempt_command(member_context, None))
+        .await
+        .expect("list member attempts after owner reconcile");
+    assert_eq!(
+        member_after
+            .items
+            .iter()
+            .map(|item| item.attempt_id)
+            .collect::<Vec<_>>(),
+        vec![member_attempt_id]
+    );
+    assert_eq!(count_draft_attempt_evidence(&store, owner_id).await, (2, 2));
+}
+
+async fn count_draft_attempt_evidence(
+    store: &PgControlPlaneStore,
+    principal_id: PrincipalId,
+) -> (i64, i64) {
+    sqlx::query_as::<_, (i64, i64)>(
+        r#"
+        SELECT
+          (SELECT count(*) FROM audit_events
+            WHERE action = 'mail.draft_attempts.queried'
+              AND resource_id = $1),
+          (SELECT count(*) FROM outbox_events
+            WHERE event_type = 'mail.draft_attempts.queried.v1'
+              AND aggregate_id = $1)
+        "#,
+    )
+    .bind(principal_id.to_string())
+    .fetch_one(store.pool())
+    .await
+    .expect("count attempt-list evidence")
+}
+
 #[tokio::test]
 #[ignore = "requires a disposable PostgreSQL database"]
 async fn approval_workflow_enforces_dual_control_scope_and_expiry() {
@@ -11438,9 +11756,18 @@ async fn mail_draft_provenance_is_versioned_frozen_and_submission_bound() {
     .expect("insert exact inbound reply target");
 
     let draft_id = DraftId::new();
+    let first_attempt_id = record_draft_attempt(
+        &store,
+        bootstrap.organization_id,
+        mailbox.mailbox_id,
+        human_id,
+        draft_id,
+    )
+    .await;
     let first = store
         .record_mail_draft(MailDraftWrite {
             draft_id,
+            creation_attempt_id: first_attempt_id,
             organization_id: bootstrap.organization_id,
             mailbox_id: mailbox.mailbox_id,
             created_by: human_id,
@@ -11463,9 +11790,18 @@ async fn mail_draft_provenance_is_versioned_frozen_and_submission_bound() {
         .expect("record first draft");
     assert_eq!(first.version, 1);
     let updated_at = now + chrono::Duration::milliseconds(1);
+    let second_attempt_id = record_draft_attempt(
+        &store,
+        bootstrap.organization_id,
+        mailbox.mailbox_id,
+        human_id,
+        draft_id,
+    )
+    .await;
     let second = store
         .record_mail_draft(MailDraftWrite {
             draft_id,
+            creation_attempt_id: second_attempt_id,
             organization_id: bootstrap.organization_id,
             mailbox_id: mailbox.mailbox_id,
             created_by: human_id,
@@ -11488,9 +11824,18 @@ async fn mail_draft_provenance_is_versioned_frozen_and_submission_bound() {
         .expect("replace draft with CAS");
     assert_eq!(second.version, 2);
     assert_eq!(second.reply_to_message_id, Some(reply_to_message_id));
+    let changed_reply_attempt_id = record_draft_attempt(
+        &store,
+        bootstrap.organization_id,
+        mailbox.mailbox_id,
+        human_id,
+        draft_id,
+    )
+    .await;
     let changed_reply = store
         .record_mail_draft(MailDraftWrite {
             draft_id,
+            creation_attempt_id: changed_reply_attempt_id,
             organization_id: bootstrap.organization_id,
             mailbox_id: mailbox.mailbox_id,
             created_by: human_id,
@@ -12109,9 +12454,18 @@ async fn production_agent_admission_is_approved_bounded_atomic_and_worker_visibl
         domain: "example.test".into(),
     };
     let first_draft_id = DraftId::new();
+    let first_attempt_id = record_draft_attempt(
+        &store,
+        bootstrap.organization_id,
+        mailbox.mailbox_id,
+        agent.principal_id,
+        first_draft_id,
+    )
+    .await;
     store
         .record_mail_draft(MailDraftWrite {
             draft_id: first_draft_id,
+            creation_attempt_id: first_attempt_id,
             organization_id: bootstrap.organization_id,
             mailbox_id: mailbox.mailbox_id,
             created_by: agent.principal_id,
@@ -12484,9 +12838,18 @@ async fn production_agent_admission_is_approved_bounded_atomic_and_worker_visibl
     .await
     .expect("insert automatic reply source");
     let automatic_reply_draft_id = DraftId::new();
+    let automatic_attempt_id = record_draft_attempt(
+        &store,
+        bootstrap.organization_id,
+        mailbox.mailbox_id,
+        agent.principal_id,
+        automatic_reply_draft_id,
+    )
+    .await;
     store
         .record_mail_draft(MailDraftWrite {
             draft_id: automatic_reply_draft_id,
+            creation_attempt_id: automatic_attempt_id,
             organization_id: bootstrap.organization_id,
             mailbox_id: mailbox.mailbox_id,
             created_by: agent.principal_id,
@@ -12540,9 +12903,18 @@ async fn production_agent_admission_is_approved_bounded_atomic_and_worker_visibl
     assert_eq!(automatic_rollback, ("active".into(), 0));
 
     let second_draft_id = DraftId::new();
+    let second_attempt_id = record_draft_attempt(
+        &store,
+        bootstrap.organization_id,
+        mailbox.mailbox_id,
+        agent.principal_id,
+        second_draft_id,
+    )
+    .await;
     store
         .record_mail_draft(MailDraftWrite {
             draft_id: second_draft_id,
+            creation_attempt_id: second_attempt_id,
             organization_id: bootstrap.organization_id,
             mailbox_id: mailbox.mailbox_id,
             created_by: agent.principal_id,
@@ -12702,9 +13074,18 @@ async fn testing_agent_sandbox_freezes_without_creating_a_deliverable_intent() {
         .expect("resolve testing Agent")
         .expect("testing Agent authorization");
     let draft_id = DraftId::new();
+    let draft_attempt_id = record_draft_attempt(
+        &store,
+        bootstrap.organization_id,
+        mailbox.mailbox_id,
+        agent.principal_id,
+        draft_id,
+    )
+    .await;
     store
         .record_mail_draft(MailDraftWrite {
             draft_id,
+            creation_attempt_id: draft_attempt_id,
             organization_id: bootstrap.organization_id,
             mailbox_id: mailbox.mailbox_id,
             created_by: agent.principal_id,
@@ -12843,9 +13224,18 @@ async fn testing_agent_sandbox_freezes_without_creating_a_deliverable_intent() {
     for attempt in 0_u8..=10 {
         let duplicate_draft_id = DraftId::new();
         let attempt_time = now + chrono::Duration::milliseconds(i64::from(attempt));
+        let attempt_id = record_draft_attempt(
+            &store,
+            bootstrap.organization_id,
+            mailbox.mailbox_id,
+            development_agent.principal_id,
+            duplicate_draft_id,
+        )
+        .await;
         store
             .record_mail_draft(MailDraftWrite {
                 draft_id: duplicate_draft_id,
+                creation_attempt_id: attempt_id,
                 organization_id: bootstrap.organization_id,
                 mailbox_id: mailbox.mailbox_id,
                 created_by: development_agent.principal_id,

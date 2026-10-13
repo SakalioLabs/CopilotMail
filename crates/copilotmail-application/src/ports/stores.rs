@@ -200,8 +200,20 @@ pub trait MailDraftMetadataStore: Send + Sync {
     ) -> Result<Option<MailDraftRecord>, StoreError>;
 
     /// Inserts a first remote version or replaces an active version using CAS.
+    /// The write's `creation_attempt_id` must be reconciled inside this same
+    /// transaction so an unreconciled attempt proves the remote write never
+    /// reached local metadata.
     async fn record_mail_draft(&self, write: MailDraftWrite)
     -> Result<MailDraftRecord, StoreError>;
+
+    /// Appends one local draft-creation attempt immediately before the remote
+    /// provider write. The row is stamped by the database clock and stays
+    /// unreconciled until `record_mail_draft` commits the matching draft
+    /// metadata.
+    async fn record_draft_creation_attempt(
+        &self,
+        write: &DraftCreationAttemptWrite,
+    ) -> Result<(), StoreError>;
 }
 
 /// Database-authoritative queries for an active Human's private draft view.
@@ -215,6 +227,14 @@ pub trait HumanDraftQueryStore: Send + Sync {
         &self,
         query: &HumanDraftListQuery,
     ) -> Result<HumanDraftListBatch, StoreError>;
+
+    /// Lists one active Human's own unreconciled draft-creation attempts.
+    /// Like drafts, attempts are owner-private: `created_by` must equal the
+    /// caller and shared mailbox membership must not widen the result.
+    async fn list_human_draft_attempts(
+        &self,
+        query: &HumanDraftAttemptListQuery,
+    ) -> Result<HumanDraftAttemptListBatch, StoreError>;
 
     async fn resolve_human_draft_restore_target(
         &self,

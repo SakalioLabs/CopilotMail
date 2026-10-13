@@ -103,6 +103,11 @@ id_type!(
     DraftId
 );
 id_type!(
+    /// Stable identifier for one local draft-creation attempt recorded
+    /// before the remote provider write.
+    DraftCreationAttemptId
+);
+id_type!(
     /// Stable identifier for one recoverable mail-submission intent.
     MailSubmissionId
 );

@@ -1,12 +1,13 @@
 use crate::mail_ports::{MailDraftStore, MailEngineError, TextDraftInput};
 use crate::{
-    MailDraftMetadataStore, MailDraftRecipientEvidence, MailDraftStatus, MailDraftWrite,
-    MailReplyTargetQueryStore, MailboxAuthorizationStore, MailboxQueryStore, StoreError,
+    DraftCreationAttemptWrite, MailDraftMetadataStore, MailDraftRecipientEvidence, MailDraftStatus,
+    MailDraftWrite, MailReplyTargetQueryStore, MailboxAuthorizationStore, MailboxQueryStore,
+    StoreError,
 };
 use chrono::{DateTime, Utc};
 use copilotmail_domain::{
-    AuthorizationContext, DraftId, MailboxAddress, MailboxCapability, MailboxId, Permission,
-    is_unicode_confusion_mark,
+    AuthorizationContext, DraftCreationAttemptId, DraftId, MailboxAddress, MailboxCapability,
+    MailboxId, Permission, is_unicode_confusion_mark,
 };
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
@@ -232,6 +233,21 @@ where
         let draft_id = previous
             .as_ref()
             .map_or_else(DraftId::new, |previous| previous.draft_id);
+        // The local attempt must exist before the remote write so a crash or
+        // a failed metadata commit leaves owner-visible orphan evidence. It
+        // carries no content and is reconciled inside the record transaction.
+        let creation_attempt_id = DraftCreationAttemptId::new();
+        self.store
+            .record_draft_creation_attempt(&DraftCreationAttemptWrite {
+                attempt_id: creation_attempt_id,
+                organization_id: context.organization_id,
+                mailbox_id: command.mailbox_id,
+                created_by: context.principal_id,
+                draft_id,
+                data_plane_id,
+            })
+            .await
+            .map_err(map_store_error)?;
         let engine_draft = self
             .drafts
             .save_text_draft(
@@ -270,6 +286,7 @@ where
                 body_ref,
                 content_sha256,
                 recipients,
+                creation_attempt_id,
                 expected_version: previous.map(|previous| previous.version),
                 now: command.now,
             })
@@ -452,6 +469,8 @@ mod tests {
         reply_target: Option<MailReplyTarget>,
         draft: Option<MailDraftRecord>,
         writes: Arc<Mutex<Vec<MailDraftWrite>>>,
+        attempts: Arc<Mutex<Vec<DraftCreationAttemptWrite>>>,
+        record_fails: bool,
     }
 
     #[async_trait]
@@ -518,6 +537,9 @@ mod tests {
             &self,
             write: MailDraftWrite,
         ) -> Result<MailDraftRecord, StoreError> {
+            if self.record_fails {
+                return Err(StoreError::Unavailable);
+            }
             let version = write.expected_version.map_or(1, |value| value + 1);
             self.writes.lock().unwrap().push(write.clone());
             Ok(MailDraftRecord {
@@ -540,6 +562,14 @@ mod tests {
                 updated_at: write.now,
             })
         }
+
+        async fn record_draft_creation_attempt(
+            &self,
+            write: &DraftCreationAttemptWrite,
+        ) -> Result<(), StoreError> {
+            self.attempts.lock().unwrap().push(write.clone());
+            Ok(())
+        }
     }
 
     #[async_trait]
@@ -558,6 +588,10 @@ mod tests {
     struct Drafts {
         data_plane_id: copilotmail_domain::MailDataPlaneId,
         calls: Mutex<Vec<(String, Option<String>, TextDraftInput)>>,
+        /// When set, every remote write asserts a local attempt row already
+        /// exists — encoding the required record-before-write ordering.
+        expected_attempts: Option<Arc<Mutex<Vec<DraftCreationAttemptWrite>>>>,
+        fail_save: std::sync::atomic::AtomicBool,
     }
 
     impl Default for Drafts {
@@ -565,6 +599,8 @@ mod tests {
             Self {
                 data_plane_id: crate::mail_ports::test_mail_data_plane_id(),
                 calls: Mutex::new(Vec::new()),
+                expected_attempts: None,
+                fail_save: std::sync::atomic::AtomicBool::new(false),
             }
         }
     }
@@ -587,6 +623,18 @@ mod tests {
             previous_draft_id: Option<&str>,
             input: &TextDraftInput,
         ) -> Result<MailDraft, MailEngineError> {
+            if self
+                .fail_save
+                .swap(false, std::sync::atomic::Ordering::SeqCst)
+            {
+                return Err(MailEngineError::Unavailable);
+            }
+            if let Some(expected_attempts) = &self.expected_attempts {
+                assert!(
+                    !expected_attempts.lock().unwrap().is_empty(),
+                    "remote draft write ran before the local attempt record"
+                );
+            }
             self.calls.lock().unwrap().push((
                 account_ref.into(),
                 previous_draft_id.map(str::to_owned),
@@ -656,6 +704,8 @@ mod tests {
                 reply_target: None,
                 draft: None,
                 writes: writes.clone(),
+                attempts: Arc::new(Mutex::new(Vec::new())),
+                record_fails: false,
             },
             drafts.clone(),
         );
@@ -846,6 +896,8 @@ mod tests {
                 reply_target: None,
                 draft: None,
                 writes: Arc::new(Mutex::new(Vec::new())),
+                attempts: Arc::new(Mutex::new(Vec::new())),
+                record_fails: false,
             },
             drafts.clone(),
         );
@@ -929,6 +981,8 @@ mod tests {
                     updated_at: now,
                 }),
                 writes: writes.clone(),
+                attempts: Arc::new(Mutex::new(Vec::new())),
+                record_fails: false,
             },
             drafts.clone(),
         );
@@ -1007,6 +1061,8 @@ mod tests {
                 }),
                 draft: None,
                 writes: writes.clone(),
+                attempts: Arc::new(Mutex::new(Vec::new())),
+                record_fails: false,
             },
             drafts.clone(),
         );
@@ -1056,6 +1112,8 @@ mod tests {
                 reply_target: None,
                 draft: None,
                 writes: Arc::new(Mutex::new(Vec::new())),
+                attempts: Arc::new(Mutex::new(Vec::new())),
+                record_fails: false,
             },
             drafts.clone(),
         )
@@ -1071,5 +1129,131 @@ mod tests {
         .await;
         assert_eq!(result, Err(DraftError::NotFound));
         assert!(drafts.calls.lock().unwrap().is_empty());
+    }
+
+    #[allow(clippy::type_complexity)]
+    fn attempt_fixture() -> (
+        AuthorizationContext,
+        MailboxId,
+        Store,
+        Arc<Mutex<Vec<DraftCreationAttemptWrite>>>,
+        Arc<Mutex<Vec<MailDraftWrite>>>,
+    ) {
+        let organization_id = OrganizationId::new();
+        let principal_id = PrincipalId::new();
+        let mailbox_id = MailboxId::new();
+        let now = Utc::now();
+        let attempts = Arc::new(Mutex::new(Vec::new()));
+        let writes = Arc::new(Mutex::new(Vec::new()));
+        let store = Store {
+            mail_submission_allowed: true,
+            agent_environment: None,
+            snapshot: Some(MailboxAccessSnapshot {
+                organization_id,
+                mailbox_id,
+                membership: Some(copilotmail_domain::MailboxMembershipRole::Owner),
+                delegations: Vec::new(),
+            }),
+            mailbox: Some(MailboxSummary {
+                mailbox_id,
+                organization_id,
+                kind: MailboxKind::Human,
+                primary_address: MailboxAddress::parse("owner@example.test").unwrap(),
+                created_at: now,
+            }),
+            binding: Some(MailEngineMailboxBinding {
+                organization_id,
+                mailbox_id,
+                data_plane_id: crate::mail_ports::test_mail_data_plane_id(),
+                account_ref: "account-42".into(),
+                version: 1,
+                updated_at: now,
+            }),
+            reply_target: None,
+            draft: None,
+            writes: writes.clone(),
+            attempts: attempts.clone(),
+            record_fails: false,
+        };
+        (
+            AuthorizationContext {
+                principal_id,
+                organization_id,
+                permissions: [Permission::MailboxUse].into_iter().collect(),
+                authentication: None,
+            },
+            mailbox_id,
+            store,
+            attempts,
+            writes,
+        )
+    }
+
+    #[tokio::test]
+    async fn save_records_a_content_free_attempt_before_the_remote_write() {
+        let (context, mailbox_id, store, attempts, writes) = attempt_fixture();
+        let drafts = Arc::new(Drafts {
+            expected_attempts: Some(attempts.clone()),
+            ..Drafts::default()
+        });
+        let saved = DraftService::new(store, drafts)
+            .save(&context, command(mailbox_id, Utc::now()))
+            .await
+            .unwrap();
+
+        let attempts = attempts.lock().unwrap();
+        assert_eq!(attempts.len(), 1);
+        let attempt = &attempts[0];
+        assert_eq!(attempt.organization_id, context.organization_id);
+        assert_eq!(attempt.mailbox_id, mailbox_id);
+        assert_eq!(attempt.created_by, context.principal_id);
+        assert_eq!(attempt.draft_id, saved.draft_id);
+        assert_eq!(
+            attempt.data_plane_id,
+            crate::mail_ports::test_mail_data_plane_id()
+        );
+        // The attempt carries no subject, body, recipient, or provider
+        // reference; `record_mail_draft` reconciles it by that same id.
+        let writes = writes.lock().unwrap();
+        assert_eq!(writes.len(), 1);
+        assert_eq!(writes[0].creation_attempt_id, attempt.attempt_id);
+    }
+
+    #[tokio::test]
+    async fn remote_write_failure_keeps_the_attempt_orphaned() {
+        let (context, mailbox_id, store, attempts, writes) = attempt_fixture();
+        let drafts = Arc::new(Drafts {
+            expected_attempts: Some(attempts.clone()),
+            fail_save: std::sync::atomic::AtomicBool::new(true),
+            ..Drafts::default()
+        });
+        let result = DraftService::new(store, drafts)
+            .save(&context, command(mailbox_id, Utc::now()))
+            .await;
+
+        assert_eq!(result, Err(DraftError::Unavailable));
+        // The attempt row is exactly the owner-visible orphan evidence.
+        assert_eq!(attempts.lock().unwrap().len(), 1);
+        assert!(writes.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn metadata_write_failure_keeps_the_attempt_orphaned() {
+        let (context, mailbox_id, mut store, attempts, writes) = attempt_fixture();
+        store.record_fails = true;
+        let drafts = Arc::new(Drafts {
+            expected_attempts: Some(attempts.clone()),
+            ..Drafts::default()
+        });
+        let result = DraftService::new(store, drafts.clone())
+            .save(&context, command(mailbox_id, Utc::now()))
+            .await;
+
+        assert_eq!(result, Err(DraftError::Unavailable));
+        // The remote write already ran; without a reconciled local record the
+        // attempt stays listed as an orphan candidate for its owner.
+        assert_eq!(drafts.calls.lock().unwrap().len(), 1);
+        assert_eq!(attempts.lock().unwrap().len(), 1);
+        assert!(writes.lock().unwrap().is_empty());
     }
 }

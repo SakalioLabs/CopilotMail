@@ -200,6 +200,12 @@ audit_events!(
     ("mail.message.read", "mail.message", High, true),
     ("mail.drafts.queried", "mailbox", Medium, true),
     ("mail.draft.read", "mail.draft", High, true),
+    (
+        "mail.draft_attempts.queried",
+        "mail.draft_attempt_query",
+        Medium,
+        true
+    ),
     ("mail.submissions.queried", "mailbox", Medium, true),
     ("agent.mail_content.read", "mail.message", High, true),
     (
