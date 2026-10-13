@@ -309,6 +309,62 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v2/auth/admin/sessions:
+    get:
+      operationId: listOwnAdminHumanBrowserSessions
+      summary: List the caller's own still-active browser sessions.
+      description: >
+        Admin browser-session only. The presenting opaque cookie is resolved
+        to its principal exactly like the session endpoint, then only that
+        principal's persisted non-secret attributes are returned: session
+        UUID, client key, creation and expiry times, and a flag marking the
+        presenting session. The raw cookie, OIDC tokens, JTI, and IdP-side
+        device sessions never cross this contract.
+      security:
+        - adminBrowserSession: []
+      responses:
+        "200":
+          description: The caller's own active sessions, newest first.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+            Referrer-Policy:
+              schema: { type: string, const: no-referrer }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HumanBrowserSessionList"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v2/auth/mail/sessions:
+    get:
+      operationId: listOwnMailHumanBrowserSessions
+      summary: List the caller's own still-active browser sessions.
+      description: >
+        Mail browser-session only. The presenting opaque cookie is resolved
+        to its principal exactly like the session endpoint, then only that
+        principal's persisted non-secret attributes are returned: session
+        UUID, client key, creation and expiry times, and a flag marking the
+        presenting session. The raw cookie, OIDC tokens, JTI, and IdP-side
+        device sessions never cross this contract.
+      security:
+        - mailBrowserSession: []
+      responses:
+        "200":
+          description: The caller's own active sessions, newest first.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+            Referrer-Policy:
+              schema: { type: string, const: no-referrer }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HumanBrowserSessionList"
+        "401": { $ref: "#/components/responses/MailSessionUnauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /oauth2/token:
     post:
       operationId: issueAgentAccessToken
@@ -3310,6 +3366,29 @@ components:
         expires_at:
           type: string
           format: date-time
+    HumanBrowserSessionItem:
+      type: object
+      additionalProperties: false
+      required: [session_id, client, created_at, expires_at, current]
+      properties:
+        session_id: { type: string, format: uuid }
+        client:
+          type: string
+          enum: [admin, mail]
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        current:
+          type: boolean
+          description: True only for the session presenting this request.
+    HumanBrowserSessionList:
+      type: object
+      additionalProperties: false
+      required: [sessions]
+      properties:
+        sessions:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/HumanBrowserSessionItem" }
     LogoutAllHumanSessionsRequest:
       type: object
       additionalProperties: false

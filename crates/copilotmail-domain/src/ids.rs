@@ -72,6 +72,10 @@ id_type!(
     HumanSessionRevocationId
 );
 id_type!(
+    /// Stable identifier for one anonymous Human login-failure ledger entry.
+    HumanLoginFailureId
+);
+id_type!(
     /// Stable identifier for a mailbox.
     MailboxId
 );

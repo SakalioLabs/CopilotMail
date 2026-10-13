@@ -10,12 +10,28 @@ pub enum HumanSessionClient {
     Mail,
 }
 
+impl serde::Serialize for HumanSessionClient {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
 impl HumanSessionClient {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Admin => "admin",
             Self::Mail => "mail",
+        }
+    }
+
+    /// Parses the wire value back into the closed client set.
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "admin" => Some(Self::Admin),
+            "mail" => Some(Self::Mail),
+            _ => None,
         }
     }
 }
@@ -107,6 +123,124 @@ impl HumanSessionRevocationCause {
             Self::UpstreamRevoked => "upstream_revoked",
         }
     }
+}
+
+/// Non-secret metadata for one of the owner's own active browser sessions.
+///
+/// This is the only session attribute set the self-service device list may
+/// disclose: opaque identifiers, the client boundary, and lifecycle times.
+/// Token digests, OIDC claims, and revocation internals never cross this port.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HumanSessionListItem {
+    pub session_id: HumanSessionId,
+    pub client_key: HumanSessionClient,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Stable, non-free-form reason recorded for one anonymous login failure.
+///
+/// Provider error strings, OAuth parameters, and principal hints are
+/// deliberately excluded: every variant maps a bounded set of rejection
+/// exits to an opaque code so the ledger cannot leak login material.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HumanLoginFailureReason {
+    /// The per-client fixed-window admission rejected the login start.
+    LoginAdmissionLimited,
+    /// Persisting or initiating the login transaction was rejected.
+    LoginBeginRejected,
+    /// The callback carried no state parameter.
+    CallbackStateMissing,
+    /// The browser login cookie was missing, ambiguous, or malformed.
+    LoginCookieRejected,
+    /// State/nonce lookup, expiry, or single-use consumption failed.
+    LoginTransactionRejected,
+    /// The consumed login transaction belonged to a different client.
+    CallbackClientMismatch,
+    /// Protected login material could not be unsealed or represented.
+    LoginMaterialRejected,
+    /// The identity provider reported an error or token validation failed.
+    OidcCallbackRejected,
+    /// The authenticated subject is not an active Human in the tenant.
+    PrincipalRejected,
+    /// Tenant authorization could not be resolved for the principal.
+    AuthorizationUnavailable,
+    /// Session persistence was rejected after authentication succeeded.
+    SessionEstablishFailed,
+}
+
+impl HumanLoginFailureReason {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::LoginAdmissionLimited => "login_admission_limited",
+            Self::LoginBeginRejected => "login_begin_rejected",
+            Self::CallbackStateMissing => "callback_state_missing",
+            Self::LoginCookieRejected => "login_cookie_rejected",
+            Self::LoginTransactionRejected => "login_transaction_rejected",
+            Self::CallbackClientMismatch => "callback_client_mismatch",
+            Self::LoginMaterialRejected => "login_material_rejected",
+            Self::OidcCallbackRejected => "oidc_callback_rejected",
+            Self::PrincipalRejected => "principal_rejected",
+            Self::AuthorizationUnavailable => "authorization_unavailable",
+            Self::SessionEstablishFailed => "session_establish_failed",
+        }
+    }
+
+    /// Parses one stored or operator-supplied reason code.
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "login_admission_limited" => Some(Self::LoginAdmissionLimited),
+            "login_begin_rejected" => Some(Self::LoginBeginRejected),
+            "callback_state_missing" => Some(Self::CallbackStateMissing),
+            "login_cookie_rejected" => Some(Self::LoginCookieRejected),
+            "login_transaction_rejected" => Some(Self::LoginTransactionRejected),
+            "callback_client_mismatch" => Some(Self::CallbackClientMismatch),
+            "login_material_rejected" => Some(Self::LoginMaterialRejected),
+            "oidc_callback_rejected" => Some(Self::OidcCallbackRejected),
+            "principal_rejected" => Some(Self::PrincipalRejected),
+            "authorization_unavailable" => Some(Self::AuthorizationUnavailable),
+            "session_establish_failed" => Some(Self::SessionEstablishFailed),
+            _ => None,
+        }
+    }
+}
+
+/// Persistence input for one anonymous login-failure ledger entry.
+///
+/// `source_sha256` may only carry a one-way, deployment-salted digest of
+/// request metadata (remote address and/or user agent). Raw OAuth values,
+/// cookies, tokens, `return_to`, e-mail addresses, and plaintext client
+/// metadata never cross this port. The database stamps `occurred_at`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HumanLoginFailureWrite {
+    pub failure_id: HumanLoginFailureId,
+    pub client_key: HumanSessionClient,
+    pub reason: HumanLoginFailureReason,
+    pub source_sha256: Option<[u8; 32]>,
+}
+
+/// One login-failure ledger row read back for platform operations.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HumanLoginFailureRecord {
+    pub failure_id: HumanLoginFailureId,
+    pub client_key: HumanSessionClient,
+    pub reason: HumanLoginFailureReason,
+    pub occurred_at: chrono::DateTime<chrono::Utc>,
+    pub source_sha256: Option<[u8; 32]>,
+}
+
+/// Bounded, tenant-free read of the login-failure ledger.
+///
+/// The ledger is a platform-operations surface: it deliberately has no
+/// organization scope and is never joined into tenant audit queries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HumanLoginFailureQuery {
+    pub reason: Option<HumanLoginFailureReason>,
+    pub client_key: Option<HumanSessionClient>,
+    pub occurred_since: Option<chrono::DateTime<chrono::Utc>>,
+    pub limit: u32,
 }
 
 /// Result of the append-only revocation write.

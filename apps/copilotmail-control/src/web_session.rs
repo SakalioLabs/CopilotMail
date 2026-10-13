@@ -131,7 +131,7 @@ pub(crate) fn human_session_api_route_client(
 ) -> Option<HumanSessionClient> {
     let segments = exact_path_segments(path)?;
     match segments.as_slice() {
-        ["api", "v2", "auth", client, "session"]
+        ["api", "v2", "auth", client, "session" | "sessions"]
             if method == Method::GET || method == Method::HEAD =>
         {
             human_session_client_from_segment(client)

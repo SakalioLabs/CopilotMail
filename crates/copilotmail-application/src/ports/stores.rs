@@ -50,6 +50,45 @@ pub trait HumanSessionQueryStore: Send + Sync {
         token_sha256: &[u8; 32],
         now: chrono::DateTime<chrono::Utc>,
     ) -> Result<Option<HumanSessionRecord>, StoreError>;
+
+    /// Lists the still-active browser sessions of one Human, newest first.
+    ///
+    /// Rows are returned only while the principal remains an active Human in
+    /// the same tenant; expired, revoked, and cross-principal sessions must
+    /// never appear. The result is the self-service device view: identifiers,
+    /// client boundary, and lifecycle times only.
+    async fn list_human_sessions_for_principal(
+        &self,
+        _organization_id: OrganizationId,
+        _principal_id: PrincipalId,
+        _now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<HumanSessionListItem>, StoreError> {
+        Ok(Vec::new())
+    }
+}
+
+/// Append-only anonymous login-failure ledger for platform operations.
+///
+/// Rows carry no tenant identity and no reversible source identifier, so the
+/// write path deliberately runs without an authenticated transaction. Every
+/// append also prunes a bounded number of entries past the retention horizon
+/// in the same transaction.
+#[async_trait]
+pub trait HumanLoginFailureStore: Send + Sync {
+    /// Appends one failure row stamped by the database clock and prunes at
+    /// most `cleanup_limit` expired rows atomically.
+    async fn record_human_login_failure(
+        &self,
+        write: &HumanLoginFailureWrite,
+        cleanup_limit: u32,
+    ) -> Result<(), StoreError>;
+
+    /// Platform-operations-only read. Results are bounded, ordered by the
+    /// database clock newest first, and never expose tenant data.
+    async fn list_human_login_failures(
+        &self,
+        query: &HumanLoginFailureQuery,
+    ) -> Result<Vec<HumanLoginFailureRecord>, StoreError>;
 }
 
 /// Resolves resource-level mailbox grants for an authenticated principal.

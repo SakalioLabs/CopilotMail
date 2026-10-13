@@ -1,5 +1,67 @@
 use crate::*;
 
+/// Platform-operations read of the anonymous Human login-failure ledger.
+///
+/// The ledger deliberately has no tenant scope and no HTTP route: this
+/// command is its only read surface, reachable only by an operator who
+/// already holds control-plane database credentials. Rows print as sanitized
+/// JSON (reason code, database time, opaque salted source digest) and can
+/// never contain OAuth material or plaintext client metadata.
+pub async fn run_list_human_login_failures(
+    store: &PgControlPlaneStore,
+    reason: Option<String>,
+    client: Option<String>,
+    occurred_since: Option<String>,
+    limit: u32,
+) -> Result<()> {
+    let reason = reason
+        .map(|value| {
+            HumanLoginFailureReason::parse(&value)
+                .context("reason is not a known login-failure reason code")
+        })
+        .transpose()?;
+    let client_key = client
+        .map(|value| {
+            HumanSessionClient::parse(&value).context("client is not a known Human browser client")
+        })
+        .transpose()?;
+    let occurred_since = occurred_since
+        .map(|value| {
+            DateTime::parse_from_rfc3339(&value)
+                .map(|value| value.with_timezone(&Utc))
+                .context("--since must be an RFC 3339 timestamp")
+        })
+        .transpose()?;
+    let rows = HumanLoginFailureService::new(store.clone())
+        .list(HumanLoginFailureQuery {
+            reason,
+            client_key,
+            occurred_since,
+            limit,
+        })
+        .await
+        .context("read Human login failure ledger")?;
+    let failures: Vec<serde_json::Value> = rows
+        .iter()
+        .map(|row| {
+            json!({
+                "failure_id": row.failure_id.to_string(),
+                "client": row.client_key.as_str(),
+                "reason": row.reason.as_str(),
+                "occurred_at": row.occurred_at.to_rfc3339(),
+                "source_sha256": row.source_sha256.map(|digest| {
+                    digest.iter().map(|byte| format!("{byte:02x}")).collect::<String>()
+                }),
+            })
+        })
+        .collect();
+    println!(
+        "{}",
+        serde_json::to_string(&json!({ "failures": failures }))?
+    );
+    Ok(())
+}
+
 /// Idempotently creates the initial organization and root service identity.
 pub async fn run_bootstrap_organization(
     store: &PgControlPlaneStore,
@@ -809,6 +871,7 @@ pub(crate) async fn build_human_session_runtime(
         "COPILOTMAIL_HUMAN_SESSION_ENCRYPTION_KEY_FILE must contain exactly 32 bytes"
     );
     let protector = PkceProtector::new(&key_bytes)?;
+    let failure_source_hasher = LoginFailureSourceHasher::new(&key_bytes)?;
     let mut clients = BTreeMap::new();
     let mut session_clients = Vec::new();
     for client in &settings.clients {
@@ -860,6 +923,7 @@ pub(crate) async fn build_human_session_runtime(
         clients: Arc::new(clients),
         session_clients: Arc::new(session_clients),
         protector,
+        failure_source_hasher,
         maximum_lifetime: settings.maximum_lifetime,
         login_requests_per_minute: settings.login_requests_per_minute,
         secure_cookie: !settings.allow_insecure_cookie,

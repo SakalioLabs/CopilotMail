@@ -24,6 +24,7 @@ mod compliance;
 mod draft;
 mod events;
 mod human_draft;
+mod human_login_failure;
 mod human_mailbox_directory;
 mod human_sent;
 mod human_session;
@@ -132,6 +133,9 @@ pub use human_draft::{
     HumanDraftError, HumanDraftListItem, HumanDraftPage, HumanDraftService, ListHumanDraftsCommand,
     RestoreHumanDraftCommand, RestoredHumanDraft,
 };
+pub use human_login_failure::{
+    HumanLoginFailureError, HumanLoginFailureService, RecordHumanLoginFailureCommand,
+};
 pub use human_mailbox_directory::{
     HumanMailboxDirectoryError, HumanMailboxDirectoryItem, HumanMailboxDirectoryPage,
     HumanMailboxDirectoryService, ListHumanMailboxDirectoryCommand,
@@ -142,8 +146,9 @@ pub use human_sent::{
 };
 pub use human_session::{
     BeginHumanLoginCommand, ConsumeHumanLoginCommand, ConsumedHumanLogin,
-    CreateHumanSessionCommand, HumanSessionError, HumanSessionService, ResolveHumanSessionCommand,
-    RevokeHumanSessionCommand, RevokedHumanSession,
+    CreateHumanSessionCommand, HumanSessionError, HumanSessionService, ListOwnHumanSessionsCommand,
+    OwnHumanSessionListEntry, ResolveHumanSessionCommand, RevokeHumanSessionCommand,
+    RevokedHumanSession,
 };
 pub use human_session_governance::{
     AcceptedBrowserSessionRevocation, HumanSessionGovernanceError, HumanSessionGovernanceService,
@@ -208,23 +213,25 @@ pub use ports::{
     HumanDraftListCandidate, HumanDraftListItemRecheck, HumanDraftListQuery, HumanDraftListRecheck,
     HumanDraftQueryStore, HumanDraftReadRecheck, HumanDraftRestoreQuery,
     HumanDraftRestoreResolution, HumanDraftRestoreTarget, HumanLoginAdmissionResult,
-    HumanLoginTransactionRecord, HumanLoginTransactionStore, HumanLoginTransactionWrite,
-    HumanMailContentQueryStore, HumanMailContentTarget, HumanMailMessageProjection,
-    HumanMailboxDirectoryBatch, HumanMailboxDirectoryCandidate, HumanMailboxDirectoryQuery,
-    HumanMailboxDirectoryStore, HumanSentDeliveryEvidence, HumanSentListBatch,
-    HumanSentListCandidate, HumanSentListItemRecheck, HumanSentListQuery, HumanSentListRecheck,
-    HumanSentQueryStore, HumanSessionClient, HumanSessionGovernanceExecution,
-    HumanSessionGovernanceExecutionWrite, HumanSessionQueryStore, HumanSessionRecord,
-    HumanSessionRevocationCause, HumanSessionRevocationResult, HumanSessionWrite,
-    InboundMailEventInsert, InboundMailEventRecord, LegalHoldObjectEvidence,
-    MailDeliveryQueryStore, MailDeliveryRecipientState, MailDeliveryRecipientWrite,
-    MailDeliveryReconciliationTarget, MailDeliverySnapshotInsert, MailDeliverySnapshotRecord,
-    MailDeliverySnapshotWrite, MailDomainDnsObservation, MailDomainQueryStore, MailDomainSummary,
-    MailDraftMetadataStore, MailDraftRecipientEvidence, MailDraftRecord, MailDraftStatus,
-    MailDraftWrite, MailEngineMailboxBinding, MailEngineMailboxBindingWrite,
-    MailEventIngestionStore, MailEventIngestionTransaction, MailReplyTarget,
-    MailReplyTargetQueryStore, MailSubmissionIntentCreation, MailSubmissionIntentRecord,
-    MailSubmissionIntentWrite, MailSubmissionLease, MailSubmissionQueryStore, MailSubmissionStatus,
+    HumanLoginFailureQuery, HumanLoginFailureReason, HumanLoginFailureRecord,
+    HumanLoginFailureStore, HumanLoginFailureWrite, HumanLoginTransactionRecord,
+    HumanLoginTransactionStore, HumanLoginTransactionWrite, HumanMailContentQueryStore,
+    HumanMailContentTarget, HumanMailMessageProjection, HumanMailboxDirectoryBatch,
+    HumanMailboxDirectoryCandidate, HumanMailboxDirectoryQuery, HumanMailboxDirectoryStore,
+    HumanSentDeliveryEvidence, HumanSentListBatch, HumanSentListCandidate,
+    HumanSentListItemRecheck, HumanSentListQuery, HumanSentListRecheck, HumanSentQueryStore,
+    HumanSessionClient, HumanSessionGovernanceExecution, HumanSessionGovernanceExecutionWrite,
+    HumanSessionListItem, HumanSessionQueryStore, HumanSessionRecord, HumanSessionRevocationCause,
+    HumanSessionRevocationResult, HumanSessionWrite, InboundMailEventInsert,
+    InboundMailEventRecord, LegalHoldObjectEvidence, MailDeliveryQueryStore,
+    MailDeliveryRecipientState, MailDeliveryRecipientWrite, MailDeliveryReconciliationTarget,
+    MailDeliverySnapshotInsert, MailDeliverySnapshotRecord, MailDeliverySnapshotWrite,
+    MailDomainDnsObservation, MailDomainQueryStore, MailDomainSummary, MailDraftMetadataStore,
+    MailDraftRecipientEvidence, MailDraftRecord, MailDraftStatus, MailDraftWrite,
+    MailEngineMailboxBinding, MailEngineMailboxBindingWrite, MailEventIngestionStore,
+    MailEventIngestionTransaction, MailReplyTarget, MailReplyTargetQueryStore,
+    MailSubmissionIntentCreation, MailSubmissionIntentRecord, MailSubmissionIntentWrite,
+    MailSubmissionLease, MailSubmissionQueryStore, MailSubmissionStatus,
     MailSubmissionTerminalTransition, MailSubmissionTerminalWrite, MailboxAuthorizationStore,
     MailboxQueryStore, MailboxSummary, OrganizationQueryStore, OrganizationSummary,
     OutboundMailEventInsert, OutboundMailEventKind, OutboundMailEventRecord,

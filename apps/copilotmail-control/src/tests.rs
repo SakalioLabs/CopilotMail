@@ -258,6 +258,26 @@ fn human_session_cookies_and_routes_are_strictly_client_partitioned() {
         "/api/v2/auth/mail/logout"
     ));
     assert!(human_client_route_permitted(
+        HumanSessionClient::Mail,
+        &Method::GET,
+        "/api/v2/auth/mail/sessions"
+    ));
+    assert!(!human_client_route_permitted(
+        HumanSessionClient::Admin,
+        &Method::GET,
+        "/api/v2/auth/mail/sessions"
+    ));
+    assert!(human_client_route_permitted(
+        HumanSessionClient::Admin,
+        &Method::GET,
+        "/api/v2/auth/admin/sessions"
+    ));
+    assert!(!human_client_route_permitted(
+        HumanSessionClient::Mail,
+        &Method::GET,
+        "/api/v2/auth/admin/sessions"
+    ));
+    assert!(human_client_route_permitted(
         HumanSessionClient::Admin,
         &Method::POST,
         "/api/v2/auth/admin/logout-all"
@@ -1163,6 +1183,8 @@ fn inspector_http_admin_session_runtime() -> HumanSessionRuntime {
         session_clients: Arc::new(vec![HumanSessionClient::Admin]),
         protector: PkceProtector::new(&[0x3a; 32])
             .expect("create Agent Inspector HTTP session protector"),
+        failure_source_hasher: LoginFailureSourceHasher::new(&[0x3a; 32])
+            .expect("create Agent Inspector HTTP login failure hasher"),
         maximum_lifetime: std::time::Duration::from_secs(60 * 60),
         login_requests_per_minute: 100,
         secure_cookie: false,
@@ -1253,6 +1275,8 @@ async fn agent_evidence_csrf_admin_session_runtime(
             session_clients: Arc::new(vec![HumanSessionClient::Admin]),
             protector: PkceProtector::new(&[0x3a; 32])
                 .expect("create Agent evidence CSRF session protector"),
+            failure_source_hasher: LoginFailureSourceHasher::new(&[0x3a; 32])
+                .expect("create Agent evidence CSRF login failure hasher"),
             maximum_lifetime: std::time::Duration::from_secs(60 * 60),
             login_requests_per_minute: 100,
             secure_cookie: false,

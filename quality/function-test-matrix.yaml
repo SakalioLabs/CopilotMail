@@ -2193,27 +2193,32 @@
         "consume_login",
         "create_session",
         "resolve_session",
-        "revoke_session"
+        "revoke_session",
+        "list_own_sessions"
       ],
       "risk": "critical",
       "mutates": true,
       "concurrent": true,
       "invariants": [
         "Sessions persist only digests; login tickets consume exactly once",
-        "Login admission is cluster-wide and bounded"
+        "Login admission is cluster-wide and bounded",
+        "The own-session list stays owner scoped and content free"
       ],
       "cases": {
         "normal": [
-          "digest"
+          "digest",
+          "ownlist"
         ],
         "boundary": [
           "bounds"
         ],
         "failure": [
-          "ratelimit"
+          "ratelimit",
+          "ownlist_closed"
         ],
         "authorization": [
-          "digest"
+          "digest",
+          "ownlist"
         ],
         "transaction": [
           "digest"
@@ -2243,6 +2248,16 @@
           "symbol": "session_creation_and_revocation_write_sanitized_evidence_once",
           "execution": "passed"
         },
+        "ownlist": {
+          "path": "crates/copilotmail-application/src/human_session.rs",
+          "symbol": "own_session_list_stays_owner_scoped_bounded_and_marks_current",
+          "execution": "passed"
+        },
+        "ownlist_closed": {
+          "path": "crates/copilotmail-application/src/human_session.rs",
+          "symbol": "own_session_list_fails_closed_on_store_anomalies",
+          "execution": "passed"
+        },
         "admission": {
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "human_login_admission_is_cluster_wide_and_recovers_at_the_next_window",
@@ -2257,6 +2272,78 @@
       "environment": "Earlier disposable PostgreSQL evidence stays passed. On 2026-10-12 a dirty local PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, made the whole-table login count assert fail: cleanup deletes other tenants' expired rows, and the observed counts were 5 and 12. The assertion now counts only the two state_sha256 values this test submitted and still expects exactly 1. Rate-limit, window count 3, and recovery asserts were not changed. Login state and session digests are unique per run. Both later ignored-suite runs on that same dirty database passed this test inside 45 passed, 0 failed.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
       "candidate_revision": "local-pg17-batch9-2026-10-12",
+      "owner": "primary-implementer",
+      "review_status": "in_progress"
+    },
+    {
+      "capability_id": "platform.human_login_failure_ledger",
+      "module": "crates/copilotmail-application/src/human_login_failure.rs",
+      "entrypoints": [
+        "record",
+        "list"
+      ],
+      "risk": "high",
+      "mutates": true,
+      "concurrent": false,
+      "invariants": [
+        "Rows store only a closed reason code, database time, and a salted source digest",
+        "Reads and prunes stay bounded and tenant audit data is never written"
+      ],
+      "cases": {
+        "normal": [
+          "append",
+          "query"
+        ],
+        "boundary": [
+          "closed",
+          "bounded"
+        ],
+        "failure": [
+          "pg"
+        ],
+        "authorization": [
+          "pg"
+        ],
+        "transaction": [
+          "prune",
+          "pg"
+        ]
+      },
+      "test_refs": {
+        "append": {
+          "path": "crates/copilotmail-application/src/human_login_failure.rs",
+          "symbol": "ledger_records_only_reason_codes_database_time_and_salted_source",
+          "execution": "passed"
+        },
+        "query": {
+          "path": "crates/copilotmail-application/src/human_login_failure.rs",
+          "symbol": "ledger_queries_stay_bounded_and_filterable",
+          "execution": "passed"
+        },
+        "prune": {
+          "path": "crates/copilotmail-application/src/human_login_failure.rs",
+          "symbol": "ledger_write_prunes_expired_rows_without_touching_live_ones",
+          "execution": "passed"
+        },
+        "closed": {
+          "path": "crates/copilotmail-application/src/human_login_failure.rs",
+          "symbol": "reason_codes_are_closed_stable_and_round_trip",
+          "execution": "passed"
+        },
+        "bounded": {
+          "path": "crates/copilotmail-application/src/human_login_failure.rs",
+          "symbol": "ledger_queries_stay_bounded_and_filterable",
+          "execution": "passed"
+        },
+        "pg": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "human_login_failure_ledger_is_bounded_append_only_and_ops_readable",
+          "execution": "passed"
+        }
+      },
+      "environment": "On 2026-10-12 a clean disposable PostgreSQL 17.11 database named copilotmail_test_<suffix>, non-CI and non-superuser, ran the serial ignored suite: 48 passed, 0 failed, including human_login_failure_ledger_is_bounded_append_only_and_ops_readable. The unit ledger tests ran inside the 178-test copilotmail-application suite. The only read surface is the platform-operations CLI; no HTTP route exists. Local, non-CI.",
+      "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
+      "candidate_revision": "local-pg17-batch15-2026-10-12",
       "owner": "primary-implementer",
       "review_status": "in_progress"
     },
@@ -4633,6 +4720,7 @@
         "run_revoke_agent_credential",
         "run_create_mailbox",
         "run_grant_mailbox_delegation",
+        "run_list_human_login_failures",
         "parse_mailbox_kind",
         "parse_approval_action",
         "parse_agent_scopes",
@@ -4643,11 +4731,13 @@
       "concurrent": false,
       "invariants": [
         "Wire parsers accept only the exact catalog and reject lookalikes",
-        "Admin commands delegate to authorized application services"
+        "Admin commands delegate to authorized application services",
+        "The login-failure ledger read stays ops-only and emits sanitized JSON"
       ],
       "cases": {
         "normal": [
-          "wire"
+          "wire",
+          "ledger"
         ],
         "boundary": [
           "action"
@@ -4656,10 +4746,12 @@
           "scope"
         ],
         "authorization": [
-          "fence"
+          "fence",
+          "ledger"
         ],
         "transaction": [
-          "fence"
+          "fence",
+          "ledger"
         ]
       },
       "test_refs": {
@@ -4682,9 +4774,14 @@
           "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
           "symbol": "request_authentication_fences_scim_token_revocation",
           "execution": "passed"
+        },
+        "ledger": {
+          "path": "crates/copilotmail-postgres/tests/postgres_integration.rs",
+          "symbol": "human_login_failure_ledger_is_bounded_append_only_and_ops_readable",
+          "execution": "passed"
         }
       },
-      "environment": "Rust unit fixtures; disposable PostgreSQL 17 suite executed green",
+      "environment": "Rust unit fixtures; disposable PostgreSQL 17 suite executed green. On 2026-10-12 the serial ignored suite on a clean disposable PostgreSQL 17.11 database named copilotmail_test_<suffix> passed 48 of 48, including the ops-only login-failure ledger read exercised by human_login_failure_ledger_is_bounded_append_only_and_ops_readable. Local, non-CI.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
       "candidate_revision": "post-fence-remediation-2026-08-22",
       "owner": "primary-implementer",
@@ -5953,6 +6050,7 @@
         "begin_human_login",
         "complete_human_login",
         "get_human_session",
+        "list_own_human_sessions",
         "logout_human_session",
         "logout_all_human_sessions",
         "revoke_principal_browser_sessions"
@@ -5962,11 +6060,13 @@
       "concurrent": false,
       "invariants": [
         "Route handlers enforce authentication before any storage or engine access",
-        "Cursors and filters are versioned, tenant-scoped and canonical"
+        "Cursors and filters are versioned, tenant-scoped and canonical",
+        "Login rejections append only sanitized ledger rows on a best-effort basis"
       ],
       "cases": {
         "normal": [
-          "t0"
+          "t0",
+          "partition"
         ],
         "boundary": [
           "t1"
@@ -5975,7 +6075,8 @@
           "t1"
         ],
         "authorization": [
-          "t0"
+          "t0",
+          "partition"
         ],
         "transaction": [
           "t0"
@@ -5996,9 +6097,14 @@
           "path": "apps/copilotmail-control/src/tests.rs",
           "symbol": "pkce_protection_is_authenticated_and_state_bound",
           "execution": "passed"
+        },
+        "partition": {
+          "path": "apps/copilotmail-control/src/tests.rs",
+          "symbol": "human_session_cookies_and_routes_are_strictly_client_partitioned",
+          "execution": "passed"
         }
       },
-      "environment": "Rust unit fixtures; disposable PostgreSQL 17 suite executed green",
+      "environment": "Rust unit fixtures; disposable PostgreSQL 17 suite executed green. On 2026-10-12 the copilotmail-control suite passed 73 tests after /api/v2/auth/{client}/sessions joined the per-client session partition and login rejections began appending best-effort ledger rows. Local, non-CI.",
       "evidence_ref": "docs/ENGINEERING_AUDIT.zh-CN.md",
       "candidate_revision": "post-fence-remediation-2026-08-22",
       "owner": "primary-implementer",

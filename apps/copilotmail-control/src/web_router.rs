@@ -53,6 +53,10 @@ pub(crate) fn router_with_state(state: AppState, scim_identity_provider: Option<
             get(get_human_session),
         )
         .route(
+            "/api/v2/auth/{client}/sessions",
+            get(list_own_human_sessions),
+        )
+        .route(
             "/api/v2/auth/{client}/logout",
             axum::routing::post(logout_human_session),
         )

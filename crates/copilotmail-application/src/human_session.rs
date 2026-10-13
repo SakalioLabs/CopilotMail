@@ -25,6 +25,9 @@ const MAX_RETURN_TO_BYTES: usize = 1024;
 const MAX_OIDC_JTI_BYTES: usize = 200;
 const MAX_LOGIN_ADMISSION_LIMIT: u32 = 100_000;
 const MAX_LOGIN_CLEANUP_LIMIT: u32 = 1_000;
+/// Self-service device list bound: an account holding more active sessions
+/// than this is already an anomaly worth cutting off.
+const MAX_OWN_SESSION_LIST: usize = 50;
 
 /// Starts an unauthenticated OIDC login transaction.
 ///
@@ -81,6 +84,15 @@ pub struct ResolveHumanSessionCommand {
     pub now: DateTime<Utc>,
 }
 
+/// Lists the caller's own still-active browser sessions.
+///
+/// The raw opaque cookie value exists only in this command; it is reduced to
+/// a SHA-256 digest before persistence is consulted.
+pub struct ListOwnHumanSessionsCommand {
+    pub session_token: String,
+    pub now: DateTime<Utc>,
+}
+
 /// Revokes one opaque cookie value without accepting a client-selected session
 /// or Principal identifier.
 pub struct RevokeHumanSessionCommand {
@@ -100,6 +112,18 @@ pub struct RevokedHumanSession {
     pub cause: HumanSessionRevocationCause,
     pub revoked_at: DateTime<Utc>,
     pub newly_revoked: bool,
+}
+
+/// One entry of the self-service device list. It carries only persisted,
+/// non-secret session attributes; the `current` flag lets the owner identify
+/// the presenting session without comparing opaque values.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct OwnHumanSessionListEntry {
+    pub session_id: HumanSessionId,
+    pub client_key: HumanSessionClient,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub current: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -323,6 +347,67 @@ where
             .ok_or(HumanSessionError::NotFound)
     }
 
+    /// Lists the caller's own active browser sessions, newest first.
+    ///
+    /// The session token is resolved exactly like `resolve_session`, so the
+    /// list can only ever contain sessions of the presenting Human; other
+    /// principals' devices are unreachable through this surface.
+    pub async fn list_own_sessions(
+        &self,
+        command: ListOwnHumanSessionsCommand,
+    ) -> Result<Vec<OwnHumanSessionListEntry>, HumanSessionError> {
+        if !valid_browser_secret(&command.session_token, MIN_SESSION_TOKEN_BYTES) {
+            return Err(HumanSessionError::NotFound);
+        }
+        let current = self
+            .store
+            .resolve_human_session_by_token_sha256(
+                &sha256(command.session_token.as_bytes()),
+                command.now,
+            )
+            .await
+            .map_err(map_store_error)?
+            .ok_or(HumanSessionError::NotFound)?;
+        let sessions = self
+            .store
+            .list_human_sessions_for_principal(
+                current.organization_id,
+                current.principal_id,
+                command.now,
+            )
+            .await
+            .map_err(map_store_error)?;
+        if sessions.len() > MAX_OWN_SESSION_LIST {
+            return Err(HumanSessionError::Unavailable);
+        }
+        let mut entries = Vec::with_capacity(sessions.len());
+        for session in sessions {
+            if session.session_id.as_uuid().is_nil()
+                || session.expires_at <= command.now
+                || session.expires_at < session.created_at
+            {
+                return Err(HumanSessionError::Unavailable);
+            }
+            entries.push(OwnHumanSessionListEntry {
+                session_id: session.session_id,
+                client_key: session.client_key,
+                created_at: session.created_at,
+                expires_at: session.expires_at,
+                current: session.session_id == current.session_id,
+            });
+        }
+        if !entries.iter().any(|entry| entry.current) {
+            return Err(HumanSessionError::Unavailable);
+        }
+        entries.sort_by(|left, right| {
+            right
+                .created_at
+                .cmp(&left.created_at)
+                .then(right.session_id.cmp(&left.session_id))
+        });
+        Ok(entries)
+    }
+
     pub async fn revoke_session(
         &self,
         command: RevokeHumanSessionCommand,
@@ -466,17 +551,27 @@ const fn map_domain_error(_: copilotmail_domain::DomainError) -> HumanSessionErr
 mod tests {
     use super::*;
     use crate::{
-        ControlPlaneTransaction, ExistingOrganizationBootstrap, HumanSessionRevocationResult,
+        ControlPlaneTransaction, ExistingOrganizationBootstrap, HumanSessionListItem,
+        HumanSessionRevocationResult,
     };
     use async_trait::async_trait;
     use copilotmail_domain::{Organization, OrganizationSlug, Principal, Role, RoleAssignment};
     use std::sync::{Arc, Mutex};
+
+    #[derive(Clone)]
+    struct ListedSession {
+        item: HumanSessionListItem,
+        organization_id: OrganizationId,
+        principal_id: PrincipalId,
+        active: bool,
+    }
 
     #[derive(Default)]
     struct MemoryState {
         login: Option<HumanLoginTransactionWrite>,
         login_consumed: bool,
         session: Option<HumanSessionWrite>,
+        session_list: Vec<ListedSession>,
         revocation: Option<HumanSessionRevocationResult>,
         audits: Vec<AuditEvent>,
         events: Vec<PendingEvent>,
@@ -577,6 +672,26 @@ mod tests {
             }
             Ok(Some(session_record(session)))
         }
+
+        async fn list_human_sessions_for_principal(
+            &self,
+            organization_id: OrganizationId,
+            principal_id: PrincipalId,
+            now: DateTime<Utc>,
+        ) -> Result<Vec<HumanSessionListItem>, StoreError> {
+            let state = self.state.lock().unwrap();
+            Ok(state
+                .session_list
+                .iter()
+                .filter(|session| {
+                    session.active
+                        && session.organization_id == organization_id
+                        && session.principal_id == principal_id
+                        && session.item.expires_at > now
+                })
+                .map(|session| session.item.clone())
+                .collect())
+        }
     }
 
     #[async_trait]
@@ -644,6 +759,18 @@ mod tests {
             {
                 return Err(StoreError::MissingReference);
             }
+            let record = session_record(write);
+            state.session_list.push(ListedSession {
+                item: HumanSessionListItem {
+                    session_id: record.session_id,
+                    client_key: record.client_key,
+                    created_at: record.created_at,
+                    expires_at: record.expires_at,
+                },
+                organization_id: record.organization_id,
+                principal_id: record.principal_id,
+                active: true,
+            });
             state.session = Some(write.clone());
             state.writes.push("session");
             Ok(())
@@ -665,6 +792,13 @@ mod tests {
             }
             let session = session_record(session);
             state.writes.push("revocation");
+            if let Some(listed) = state
+                .session_list
+                .iter_mut()
+                .find(|listed| listed.item.session_id == session.session_id)
+            {
+                listed.active = false;
+            }
             if let Some(existing) = state.revocation.as_ref() {
                 return Ok(Some(HumanSessionRevocationResult {
                     session,
@@ -1040,5 +1174,215 @@ mod tests {
         assert!(!rendered.contains("Location:"));
         assert!(!rendered.contains('\u{202e}'));
         assert!(store.state.lock().unwrap().login.is_none());
+    }
+
+    #[tokio::test]
+    async fn own_session_list_stays_owner_scoped_bounded_and_marks_current() {
+        let store = MemoryStore::with_active_human();
+        let service = HumanSessionService::new(store.clone());
+        let now = now();
+        let login = consumed_login(&service, &"s".repeat(48), &"n".repeat(48), now).await;
+        let organization_id = OrganizationId::new();
+        let principal_id = PrincipalId::new();
+        let raw_session_token = "t".repeat(64);
+        let created = service
+            .create_session(CreateHumanSessionCommand {
+                organization_id,
+                principal_id,
+                login_transaction_id: login.login_transaction_id,
+                client_key: login.client_key,
+                session_token: raw_session_token.clone(),
+                oidc_access_token: "header.payload.signature".into(),
+                oidc_jti: None,
+                upstream_expires_at: now + Duration::hours(2),
+                expires_at: now + Duration::hours(1),
+                trace_id: "trace-device-list".into(),
+                now,
+            })
+            .await
+            .unwrap();
+
+        // Rows belonging to another principal or tenant, expired rows, and
+        // revoked rows are excluded at the store boundary.
+        {
+            let mut state = store.state.lock().unwrap();
+            let item = |created_at, expires_at| HumanSessionListItem {
+                session_id: HumanSessionId::new(),
+                client_key: HumanSessionClient::Mail,
+                created_at,
+                expires_at,
+            };
+            state.session_list.push(ListedSession {
+                item: item(now, now + Duration::hours(1)),
+                organization_id,
+                principal_id: PrincipalId::new(),
+                active: true,
+            });
+            state.session_list.push(ListedSession {
+                item: item(now - Duration::hours(2), now - Duration::hours(1)),
+                organization_id,
+                principal_id,
+                active: true,
+            });
+            state.session_list.push(ListedSession {
+                item: item(now, now + Duration::hours(1)),
+                organization_id,
+                principal_id,
+                active: false,
+            });
+            state.session_list.push(ListedSession {
+                item: item(now, now + Duration::hours(1)),
+                organization_id: OrganizationId::new(),
+                principal_id,
+                active: true,
+            });
+        }
+
+        let entries = service
+            .list_own_sessions(ListOwnHumanSessionsCommand {
+                session_token: raw_session_token.clone(),
+                now: now + Duration::minutes(1),
+            })
+            .await
+            .unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].session_id, created.session_id);
+        assert!(entries[0].current);
+        assert_eq!(entries[0].client_key, HumanSessionClient::Admin);
+        // The list discloses only persisted non-secret attributes.
+        let rendered = serde_json::to_string(&entries).unwrap();
+        assert!(!rendered.contains(&raw_session_token));
+        assert!(!rendered.contains("header.payload.signature"));
+
+        // A caller without a resolvable session sees nothing.
+        assert_eq!(
+            service
+                .list_own_sessions(ListOwnHumanSessionsCommand {
+                    session_token: "u".repeat(64),
+                    now,
+                })
+                .await,
+            Err(HumanSessionError::NotFound)
+        );
+        assert_eq!(
+            service
+                .list_own_sessions(ListOwnHumanSessionsCommand {
+                    session_token: "short".into(),
+                    now,
+                })
+                .await,
+            Err(HumanSessionError::NotFound)
+        );
+    }
+
+    #[tokio::test]
+    async fn own_session_list_fails_closed_on_store_anomalies() {
+        let store = MemoryStore::with_active_human();
+        let service = HumanSessionService::new(store.clone());
+        let now = now();
+        let login = consumed_login(&service, &"s".repeat(48), &"n".repeat(48), now).await;
+        let organization_id = OrganizationId::new();
+        let principal_id = PrincipalId::new();
+        let raw_session_token = "t".repeat(64);
+        let created = service
+            .create_session(CreateHumanSessionCommand {
+                organization_id,
+                principal_id,
+                login_transaction_id: login.login_transaction_id,
+                client_key: login.client_key,
+                session_token: raw_session_token.clone(),
+                oidc_access_token: "header.payload.signature".into(),
+                oidc_jti: None,
+                upstream_expires_at: now + Duration::hours(2),
+                expires_at: now + Duration::hours(1),
+                trace_id: "trace-device-list-anomaly".into(),
+                now,
+            })
+            .await
+            .unwrap();
+
+        // An inverted-lifetime row the store boundary should have rejected is
+        // cut off again by the service instead of being disclosed.
+        store
+            .state
+            .lock()
+            .unwrap()
+            .session_list
+            .push(ListedSession {
+                item: HumanSessionListItem {
+                    session_id: HumanSessionId::new(),
+                    client_key: HumanSessionClient::Admin,
+                    created_at: now + Duration::hours(2),
+                    expires_at: now + Duration::hours(1),
+                },
+                organization_id,
+                principal_id,
+                active: true,
+            });
+        assert_eq!(
+            service
+                .list_own_sessions(ListOwnHumanSessionsCommand {
+                    session_token: raw_session_token.clone(),
+                    now,
+                })
+                .await,
+            Err(HumanSessionError::Unavailable)
+        );
+        // Restore the sane list, then overflow the bound.
+        {
+            let mut state = store.state.lock().unwrap();
+            state
+                .session_list
+                .retain(|listed| listed.item.session_id == created.session_id);
+            while state.session_list.len() <= MAX_OWN_SESSION_LIST {
+                state.session_list.push(ListedSession {
+                    item: HumanSessionListItem {
+                        session_id: HumanSessionId::new(),
+                        client_key: HumanSessionClient::Admin,
+                        created_at: now,
+                        expires_at: now + Duration::hours(1),
+                    },
+                    organization_id,
+                    principal_id,
+                    active: true,
+                });
+            }
+        }
+        assert_eq!(
+            service
+                .list_own_sessions(ListOwnHumanSessionsCommand {
+                    session_token: raw_session_token.clone(),
+                    now,
+                })
+                .await,
+            Err(HumanSessionError::Unavailable)
+        );
+
+        // A list that resolves the presenter but omits its own row is an
+        // integrity anomaly and must not silently succeed.
+        {
+            let mut state = store.state.lock().unwrap();
+            state.session_list.clear();
+            state.session_list.push(ListedSession {
+                item: HumanSessionListItem {
+                    session_id: HumanSessionId::new(),
+                    client_key: HumanSessionClient::Admin,
+                    created_at: now,
+                    expires_at: now + Duration::hours(1),
+                },
+                organization_id,
+                principal_id,
+                active: true,
+            });
+        }
+        assert_eq!(
+            service
+                .list_own_sessions(ListOwnHumanSessionsCommand {
+                    session_token: raw_session_token,
+                    now,
+                })
+                .await,
+            Err(HumanSessionError::Unavailable)
+        );
     }
 }

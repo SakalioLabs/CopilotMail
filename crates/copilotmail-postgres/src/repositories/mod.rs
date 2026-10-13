@@ -15,6 +15,7 @@ mod draft_metadata;
 mod external_identity;
 mod human_drafts;
 mod human_login;
+mod human_login_failures;
 mod human_mail_content;
 mod human_mailboxes;
 mod human_sent;

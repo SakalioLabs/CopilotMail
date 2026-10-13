@@ -68,6 +68,7 @@ pub(crate) struct HumanSessionRuntime {
     // synthetic OIDC provider.
     pub(crate) session_clients: Arc<Vec<HumanSessionClient>>,
     pub(crate) protector: PkceProtector,
+    pub(crate) failure_source_hasher: LoginFailureSourceHasher,
     pub(crate) maximum_lifetime: std::time::Duration,
     pub(crate) login_requests_per_minute: u32,
     pub(crate) secure_cookie: bool,
@@ -179,6 +180,65 @@ impl PkceProtector {
             "PKCE verifier is invalid"
         );
         Ok(verifier.to_owned())
+    }
+}
+
+/// One-way, deployment-salted hasher for login-failure source evidence.
+///
+/// The ledger may keep an opaque hint of where a rejected attempt came from
+/// (peer address and/or user agent), but raw client metadata must never be
+/// persisted. The HMAC key is derived inside this type from the configured
+/// Human session secret so rotating that secret also rotates the pepper.
+#[derive(Clone)]
+pub(crate) struct LoginFailureSourceHasher {
+    key: [u8; 32],
+}
+
+impl LoginFailureSourceHasher {
+    pub(crate) fn new(secret: &[u8]) -> Result<Self> {
+        anyhow::ensure!(
+            (32..=128).contains(&secret.len()),
+            "login failure source salt must be 32-128 bytes"
+        );
+        // Domain-separated derivation: the stored key never equals any other
+        // use of the Human session secret (e.g. PKCE encryption).
+        let mut hasher = Sha256::new();
+        hasher.update(b"copilotmail.login-failure-source.v1");
+        hasher.update(u32::try_from(secret.len()).unwrap_or(0).to_be_bytes());
+        hasher.update(secret);
+        Ok(Self {
+            key: hasher.finalize().into(),
+        })
+    }
+
+    /// Hashes the raw source metadata and immediately discards the input.
+    /// Returns `None` when neither a peer address nor a user agent is
+    /// available, or when any supplied value exceeds its bound; an
+    /// unattributed row is preferable to storing oversized input.
+    pub(crate) fn hash(
+        &self,
+        peer_address: Option<&str>,
+        user_agent: Option<&str>,
+    ) -> Option<[u8; 32]> {
+        let peer_address = peer_address.filter(|value| !value.is_empty() && value.len() <= 64);
+        let user_agent = user_agent.filter(|value| !value.is_empty() && value.len() <= 512);
+        if peer_address.is_none() && user_agent.is_none() {
+            return None;
+        }
+        let mut mac =
+            <Hmac<Sha256> as Mac>::new_from_slice(&self.key).expect("HMAC accepts any key length");
+        mac.update(b"source.v1");
+        if let Some(value) = peer_address {
+            mac.update(&[0x01]);
+            mac.update(&u16::try_from(value.len()).unwrap_or(0).to_be_bytes());
+            mac.update(value.as_bytes());
+        }
+        if let Some(value) = user_agent {
+            mac.update(&[0x02]);
+            mac.update(&u16::try_from(value.len()).unwrap_or(0).to_be_bytes());
+            mac.update(value.as_bytes());
+        }
+        Some(mac.finalize().into_bytes().into())
     }
 }
 

@@ -39,6 +39,7 @@ use copilotmail_application::{
     GetApprovalRequestCommand, GrantMailboxDelegationCommand, GrantRoleAssignmentCommand,
     HumanDraftError, HumanDraftListItemRecheck, HumanDraftListQuery, HumanDraftListRecheck,
     HumanDraftQueryStore, HumanDraftReadRecheck, HumanDraftRestoreQuery, HumanDraftService,
+    HumanLoginFailureQuery, HumanLoginFailureReason, HumanLoginFailureService,
     HumanMailContentQueryStore, HumanMailboxDirectoryError, HumanMailboxDirectoryService,
     HumanSentError, HumanSentListItemRecheck, HumanSentListQuery, HumanSentListRecheck,
     HumanSentQueryStore, HumanSentService, HumanSessionClient, HumanSessionError,
@@ -57,14 +58,14 @@ use copilotmail_application::{
     NackAgentMessageCommand, OpenAgentEventStreamCommand, PendingEvent, ProvisionScimGroupCommand,
     ProvisionScimUserCommand, PullAgentEventsCommand, ReconcileMailDeliveryCommand,
     RecordAuditArchiveCommand, RecordAuditArchiveService, RecordAuditExportDownloadCommand,
-    RecordMailDomainDnsCommand, RegisterAgentCommand, RegisterAgentService,
-    RegisterMailDomainCommand, ReplaceScimGroupCommand, ReplaceScimUserCommand,
-    ReplayWebhookDeadLetterCommand, RequestApprovalCommand, RequestMailSubmissionCommand,
-    ResolveAuditExportObjectCommand, ResolveHumanSessionCommand, RestoreHumanDraftCommand,
-    RetentionPolicyQueryStore, RetentionPolicyService, RevokeAgentCredentialCommand,
-    RevokeAgentCredentialService, RevokeHumanSessionCommand, RevokeMailboxDelegationCommand,
-    RevokeRoleAssignmentCommand, RevokeScimTokenCommand, RevokeScimTokenService,
-    RoleGovernanceError, RoleGovernanceQueryStore, RoleGovernanceService,
+    RecordHumanLoginFailureCommand, RecordMailDomainDnsCommand, RegisterAgentCommand,
+    RegisterAgentService, RegisterMailDomainCommand, ReplaceScimGroupCommand,
+    ReplaceScimUserCommand, ReplayWebhookDeadLetterCommand, RequestApprovalCommand,
+    RequestMailSubmissionCommand, ResolveAuditExportObjectCommand, ResolveHumanSessionCommand,
+    RestoreHumanDraftCommand, RetentionPolicyQueryStore, RetentionPolicyService,
+    RevokeAgentCredentialCommand, RevokeAgentCredentialService, RevokeHumanSessionCommand,
+    RevokeMailboxDelegationCommand, RevokeRoleAssignmentCommand, RevokeScimTokenCommand,
+    RevokeScimTokenService, RoleGovernanceError, RoleGovernanceQueryStore, RoleGovernanceService,
     RotateMailDomainChallengeCommand, SaveTextDraftCommand, SavedTextDraft,
     ScimDirectoryQueryStore, ScimGroupService, ScimUserService, SearchAuditEventsCommand,
     StoreError, SuspendMailDomainCommand, UpdateMailDomainRouteCommand,
@@ -78,10 +79,10 @@ use copilotmail_domain::{
     ApprovalRequestId, ApprovalStatus, AuditActor, AuditArchiveId, AuditCheckpointId, AuditEvent,
     AuditOutcome, AuditResource, AuditRisk, AuthenticationBinding, AuthorizationContext,
     ComplianceCaseId, ComplianceCaseStatus, DelegationId, DnsVerificationChecks,
-    DnsVerificationEvidence, DraftId, HumanSessionId, LeaseId, MailDataPlaneId,
-    MailDomainRouteMode, MailDomainStatus, MailEngineProjectionStatus, MailboxAddress,
-    MailboxCapability, MailboxKind, OrganizationId, Permission, PrincipalId, RetentionResourceKind,
-    ScimTokenId, SubscriptionId, SystemRole,
+    DnsVerificationEvidence, DraftId, HumanLoginFailureId, HumanSessionId, LeaseId,
+    MailDataPlaneId, MailDomainRouteMode, MailDomainStatus, MailEngineProjectionStatus,
+    MailboxAddress, MailboxCapability, MailboxKind, OrganizationId, Permission, PrincipalId,
+    RetentionResourceKind, ScimTokenId, SubscriptionId, SystemRole,
 };
 use copilotmail_postgres::{PgControlPlaneStore, WebhookDeliveryOutcome};
 use serde_json::json;
@@ -9653,6 +9654,135 @@ async fn human_drafts_are_private_authorized_binding_safe_and_finally_rechecked(
     .await
     .expect("query successful draft-read evidence");
     assert_eq!(successful_evidence, (1, 1));
+}
+
+/// B-07: the anonymous login-failure ledger accepts only closed reason codes,
+/// stamps time from the database clock, prunes only rows past the 30-day
+/// horizon in bounded batches, and rejects mutation of retained rows.
+#[tokio::test]
+#[ignore = "requires a disposable PostgreSQL database"]
+async fn human_login_failure_ledger_is_bounded_append_only_and_ops_readable() {
+    let store = migrated_store().await;
+    let service = HumanLoginFailureService::new(store.clone());
+    let window_start = Utc::now() - chrono::Duration::seconds(5);
+
+    service
+        .record(RecordHumanLoginFailureCommand {
+            client_key: HumanSessionClient::Admin,
+            reason: HumanLoginFailureReason::OidcCallbackRejected,
+            source_sha256: Some([0x7a; 32]),
+        })
+        .await
+        .expect("record Admin login failure");
+    service
+        .record(RecordHumanLoginFailureCommand {
+            client_key: HumanSessionClient::Mail,
+            reason: HumanLoginFailureReason::SessionEstablishFailed,
+            source_sha256: None,
+        })
+        .await
+        .expect("record Mail login failure");
+
+    // An expired row that the bounded prune may delete; its id is unique so
+    // unrelated dirty-database rows cannot satisfy the assertion.
+    let expired_id = HumanLoginFailureId::new();
+    sqlx::query(
+        r#"
+        INSERT INTO human_login_failures(id, client_key, reason, occurred_at)
+        VALUES ($1, 'admin', 'login_begin_rejected',
+                clock_timestamp() - interval '31 days')
+        "#,
+    )
+    .bind(expired_id.as_uuid())
+    .execute(store.pool())
+    .await
+    .expect("insert expired ledger row");
+
+    let filtered = service
+        .list(HumanLoginFailureQuery {
+            reason: Some(HumanLoginFailureReason::OidcCallbackRejected),
+            client_key: Some(HumanSessionClient::Admin),
+            occurred_since: Some(window_start),
+            limit: 10,
+        })
+        .await
+        .expect("list filtered ledger rows");
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].client_key, HumanSessionClient::Admin);
+    assert_eq!(
+        filtered[0].reason,
+        HumanLoginFailureReason::OidcCallbackRejected
+    );
+    assert_eq!(filtered[0].source_sha256, Some([0x7a; 32]));
+
+    let fresh_id = filtered[0].failure_id;
+    assert!(
+        sqlx::query("UPDATE human_login_failures SET reason = 'principal_rejected' WHERE id = $1")
+            .bind(fresh_id.as_uuid())
+            .execute(store.pool())
+            .await
+            .is_err(),
+        "a retained ledger row must reject updates"
+    );
+    assert!(
+        sqlx::query("DELETE FROM human_login_failures WHERE id = $1")
+            .bind(fresh_id.as_uuid())
+            .execute(store.pool())
+            .await
+            .is_err(),
+        "a retained ledger row must reject deletes"
+    );
+    assert!(
+        sqlx::query(
+            "INSERT INTO human_login_failures(id, client_key, reason)
+             VALUES ($1, 'admin', 'open_text_reason')"
+        )
+        .bind(HumanLoginFailureId::new().as_uuid())
+        .execute(store.pool())
+        .await
+        .is_err(),
+        "the reason code set must stay closed at the schema boundary"
+    );
+
+    // The next append prunes expired rows inside the same transaction while
+    // retained rows stay untouched.
+    assert!(
+        sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM human_login_failures WHERE id = $1)"
+        )
+        .bind(expired_id.as_uuid())
+        .fetch_one(store.pool())
+        .await
+        .expect("check expired row before prune")
+    );
+    service
+        .record(RecordHumanLoginFailureCommand {
+            client_key: HumanSessionClient::Mail,
+            reason: HumanLoginFailureReason::CallbackStateMissing,
+            source_sha256: None,
+        })
+        .await
+        .expect("record pruning append");
+    assert!(
+        !sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM human_login_failures WHERE id = $1)"
+        )
+        .bind(expired_id.as_uuid())
+        .fetch_one(store.pool())
+        .await
+        .expect("check expired row after prune")
+    );
+    let retained = service
+        .list(HumanLoginFailureQuery {
+            reason: None,
+            client_key: None,
+            occurred_since: Some(window_start),
+            limit: 500,
+        })
+        .await
+        .expect("list retained ledger rows");
+    assert!(retained.iter().any(|row| row.failure_id == fresh_id));
+    assert!(retained.iter().all(|row| row.occurred_at >= window_start));
 }
 
 #[tokio::test]

@@ -43,11 +43,12 @@ pub use identity::{
 pub use ids::{
     AgentMailPolicyActivationId, ApprovalRequestId, ApprovalStepId, AuditArchiveId,
     AuditCheckpointId, AuditEventId, AuditExportDownloadId, AuditExportId, ComplianceCaseId,
-    CredentialId, DelegationId, DnsVerificationId, DraftId, HumanLoginTransactionId,
-    HumanSessionId, HumanSessionRevocationId, LeaseId, LegalHoldId, MailDataPlaneId, MailDomainId,
-    MailSubmissionId, MailboxId, MessageId, OrganizationId, PolicyId, PolicyVersionId, PrincipalId,
-    RetentionPolicyActivationId, RetentionPolicyId, RetentionPolicyVersionId, RoleAssignmentId,
-    RoleId, ScimGroupId, ScimTokenId, SubscriptionId, WebhookSubscriptionId,
+    CredentialId, DelegationId, DnsVerificationId, DraftId, HumanLoginFailureId,
+    HumanLoginTransactionId, HumanSessionId, HumanSessionRevocationId, LeaseId, LegalHoldId,
+    MailDataPlaneId, MailDomainId, MailSubmissionId, MailboxId, MessageId, OrganizationId,
+    PolicyId, PolicyVersionId, PrincipalId, RetentionPolicyActivationId, RetentionPolicyId,
+    RetentionPolicyVersionId, RoleAssignmentId, RoleId, ScimGroupId, ScimTokenId, SubscriptionId,
+    WebhookSubscriptionId,
 };
 pub use mail_domain::{
     DnsVerificationChecks, DnsVerificationEvidence, MailDomain, MailDomainName, MailDomainRoute,

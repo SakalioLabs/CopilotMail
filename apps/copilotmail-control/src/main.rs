@@ -7,9 +7,9 @@ use copilotmail_control::{
     run_check_domain_dns, run_check_mail_engine, run_close_compliance_case,
     run_create_approval_policy, run_create_audit_checkpoint, run_create_compliance_case,
     run_create_mailbox, run_export_audit_checkpoint, run_grant_mailbox_delegation, run_http,
-    run_issue_scim_token, run_migrations, run_register_agent, run_release_audit_legal_hold,
-    run_revoke_agent_credential, run_revoke_mailbox_delegation, run_revoke_scim_token,
-    run_verify_audit_chain, run_verify_audit_export, run_worker,
+    run_issue_scim_token, run_list_human_login_failures, run_migrations, run_register_agent,
+    run_release_audit_legal_hold, run_revoke_agent_credential, run_revoke_mailbox_delegation,
+    run_revoke_scim_token, run_verify_audit_chain, run_verify_audit_export, run_worker,
 };
 use copilotmail_platform::{ControlPlaneSettings, init_observability};
 
@@ -38,6 +38,21 @@ enum Command {
     Migrate,
     /// Check PostgreSQL connectivity and migration readiness.
     Check,
+    /// Platform-operations read of the anonymous Human login-failure ledger.
+    ListHumanLoginFailures {
+        /// Only rows with this reason code are returned.
+        #[arg(long)]
+        reason: Option<String>,
+        /// Only rows for this Human browser client (`admin` or `mail`) are returned.
+        #[arg(long)]
+        client: Option<String>,
+        /// Only rows at or after this RFC 3339 timestamp are returned.
+        #[arg(long)]
+        since: Option<String>,
+        /// Maximum rows returned (1-500).
+        #[arg(long, default_value_t = 100, value_parser = clap::value_parser!(u32).range(1..=500))]
+        limit: u32,
+    },
     /// Check the configured mail engine through authenticated JMAP discovery.
     CheckMailEngine,
     /// Resolve and evaluate one mail domain without changing control-plane state.
@@ -370,6 +385,12 @@ async fn main() -> Result<()> {
         Command::AuditMaintenanceWorker => run_audit_maintenance_worker(&settings, store).await,
         Command::Migrate => run_migrations(&settings, &store).await,
         Command::Check => run_check(&settings, &store).await,
+        Command::ListHumanLoginFailures {
+            reason,
+            client,
+            since,
+            limit,
+        } => run_list_human_login_failures(&store, reason, client, since, limit).await,
         Command::CheckMailEngine => unreachable!("handled after database connection"),
         Command::CheckDomainDns { .. } => unreachable!("handled before configuration"),
         Command::VerifyAuditChain { organization_id } => {

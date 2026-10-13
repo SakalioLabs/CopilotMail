@@ -47,6 +47,26 @@ pub struct HumanSessionResponse {
     pub expires_at: String,
 }
 
+/// One entry of the owner's self-service device list.
+///
+/// Only persisted non-secret session attributes are disclosed. `current`
+/// identifies the presenting session so the owner never has to compare
+/// opaque cookie values.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HumanBrowserSessionItemResponse {
+    pub session_id: String,
+    pub client: String,
+    pub created_at: String,
+    pub expires_at: String,
+    pub current: bool,
+}
+
+/// Owner-private list of still-active browser sessions.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HumanBrowserSessionListResponse {
+    pub sessions: Vec<HumanBrowserSessionItemResponse>,
+}
+
 /// Offline organization-bootstrap result printed by the control-plane CLI.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OrganizationBootstrapResponse {
