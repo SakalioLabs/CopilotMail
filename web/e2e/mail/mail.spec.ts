@@ -190,8 +190,8 @@ test.describe("Mail built-artifact browser contracts", () => {
     await mailApp.goto();
 
     await page.locator(".mail-topbar__menu").click();
-    const scope = page.getByRole("dialog", { name: "Mail navigation" })
-      .locator(".mobile-mailbox-scope");
+    const drawer = page.getByRole("dialog", { name: "Mail navigation" });
+    const scope = drawer.locator(".mobile-mailbox-scope");
     const summary = scope.locator("summary");
     await expect(scope).not.toHaveAttribute("open", "");
     await expect(summary).toContainText("alex.chen@copilotmail.test");
@@ -204,9 +204,13 @@ test.describe("Mail built-artifact browser contracts", () => {
 
     await expect(scope).toHaveAttribute("open", "");
     await expect(scope.getByRole("combobox", { name: "Switch mailbox" })).toBeVisible();
-    await expect(scope.getByRole("combobox", { name: "Language" })).toBeVisible();
-    await expect(scope.getByRole("button", { name: "Sign out" })).toBeVisible();
-    await expect(scope.getByText("Sign out", { exact: true })).toBeVisible();
+    const accountCard = drawer.locator(".identity-card");
+    await expect(accountCard).toContainText("alex.chen@copilotmail.test");
+    await expect(drawer.getByRole("menu")).toHaveCount(0);
+    await accountCard.click();
+    const accountMenu = drawer.getByRole("menu", { name: "Account" });
+    await expect(accountMenu.getByRole("menuitem", { name: "Settings" })).toBeVisible();
+    await expect(accountMenu.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
     expect(mailApp.fixture.state.detailRequestCount).toBe(0);
     await expect(page).toHaveScreenshot("mail-mobile-scope-390.png", {
       animations: "disabled",
@@ -224,8 +228,8 @@ test.describe("Mail built-artifact browser contracts", () => {
     await mailApp.goto();
 
     await page.locator(".mail-topbar__menu").click();
-    const scope = page.getByRole("dialog", { name: "Mail navigation" })
-      .locator(".mobile-mailbox-scope");
+    const drawer = page.getByRole("dialog", { name: "Mail navigation" });
+    const scope = drawer.locator(".mobile-mailbox-scope");
     const summary = scope.locator("summary");
     await expect(summary).toContainText("alex.chen@copilotmail.test");
     await expect(summary).toContainText("Personal");
@@ -233,8 +237,12 @@ test.describe("Mail built-artifact browser contracts", () => {
     await summary.click();
     await expect(scope).toHaveAttribute("open", "");
     await expect(scope.getByRole("combobox", { name: "Switch mailbox" })).toBeVisible();
-    await expect(scope.getByRole("combobox", { name: "Language" })).toBeVisible();
-    await expect(scope.getByText("Sign out", { exact: true })).toBeVisible();
+    const accountCard = drawer.locator(".identity-card");
+    await expect(accountCard).toContainText("alex.chen@copilotmail.test");
+    await accountCard.click();
+    const accountMenu = drawer.getByRole("menu", { name: "Account" });
+    await expect(accountMenu.getByRole("menuitem", { name: "Settings" })).toBeVisible();
+    await expect(accountMenu.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
     expect(mailApp.fixture.state.detailRequestCount).toBe(0);
     expect(await page.locator("html").evaluate((html) => html.scrollWidth <= window.innerWidth))
       .toBe(true);

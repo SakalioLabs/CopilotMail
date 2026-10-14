@@ -11,10 +11,10 @@ afterEach(cleanup);
 function navigationActions() {
   return {
     onCompose: vi.fn(),
-    onLocaleChange: vi.fn(),
     onMailboxChange: vi.fn(),
     onMailboxLoadMore: vi.fn(),
     onOpenCommandPalette: vi.fn(),
+    onOpenSettings: vi.fn(),
     onSignOut: vi.fn(),
     onViewChange: vi.fn(),
   };
@@ -64,6 +64,13 @@ describe("mail navigation mailbox identity", () => {
     );
     expect(screen.getByRole("button", { name: "Compose" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Compose" })).toHaveClass("button", "compose");
+    const card = screen.getByRole("button", { name: /reader@example\.test/ });
+    expect(card).toHaveClass("identity-card");
+    expect(card).toHaveAttribute("aria-haspopup", "menu");
+    fireEvent.click(card);
+    const menu = screen.getByRole("menu", { name: "Account" });
+    expect(within(menu).getByRole("menuitem", { name: "Settings" })).toBeEnabled();
+    expect(within(menu).getByRole("menuitem", { name: "Sign out" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Inbox" }).querySelector("[data-icon='inbox']"))
       .toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sent" }).querySelector("[data-icon='sent']"))
@@ -115,8 +122,12 @@ describe("mail navigation mailbox identity", () => {
     expect(within(scope!).getByRole("combobox", { name: "Switch mailbox" })).toHaveValue(
       mailbox.mailbox_id,
     );
-    expect(within(scope!).getByRole("combobox", { name: "Language" })).toBeEnabled();
-    expect(within(scope!).getByRole("button", { name: "Sign out" })).toBeEnabled();
+    expect(within(scope!).queryByRole("combobox", { name: "Language" })).not.toBeInTheDocument();
+    expect(within(scope!).queryByRole("button", { name: "Sign out" })).not.toBeInTheDocument();
+    const card = within(drawer).getByRole("button", { name: /triage-agent@example\.test/ });
+    expect(card).toHaveClass("identity-card");
+    fireEvent.click(card);
+    expect(within(drawer).getByRole("menu", { name: "Account" })).toBeInTheDocument();
     expect(within(drawer).getByRole("button", { name: "Compose" })).toBeDisabled();
     expect(document.querySelector<HTMLButtonElement>(".compose-fab")).toBeDisabled();
     expect(within(drawer).getByRole("button", { name: "Inbox" }).querySelector("[data-icon='inbox']"))
@@ -151,7 +162,6 @@ describe("mail navigation mailbox identity", () => {
 
     expect(scope).toHaveAttribute("open");
     expect(within(scope!).getByRole("combobox", { name: "Switch mailbox" })).toBeDisabled();
-    expect(within(scope!).getByRole("combobox", { name: "Language" })).toBeEnabled();
-    expect(within(scope!).getByRole("button", { name: "Sign out" })).toBeEnabled();
+    expect(within(drawer).getByRole("button", { name: /writer@example\.test/ })).toBeDisabled();
   });
 });

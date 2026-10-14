@@ -1,10 +1,8 @@
 import type { FormEvent, RefObject } from "react";
-import { CloseIcon, Icon, IconButton, MenuIcon, SearchIcon } from "@copilotmail/design-system";
-import type { Locale, Translator } from "../i18n";
-import { LanguagePicker } from "./LanguagePicker";
+import { CloseIcon, IconButton, MenuIcon, SearchIcon } from "@copilotmail/design-system";
+import type { Translator } from "../i18n";
 
 interface MailTopbarProps {
-  locale: Locale;
   navigationOpen: boolean;
   activeSearch?: string;
   searchBusy: boolean;
@@ -12,21 +10,18 @@ interface MailTopbarProps {
   searchInputRef?: RefObject<HTMLInputElement | null>;
   t: Translator;
   onClearSearch: () => void;
-  onLocaleChange: (locale: Locale) => void;
   onOpenMenu: () => void;
   onSearch: () => void;
   onSearchTextChange: (value: string) => void;
-  onSignOut: () => void;
 }
 
 /**
- * Gmail-style top bar: text wordmark, a rounded search omnibox, and the
- * session controls (language + sign out). The hamburger only appears at the
- * mobile breakpoint via CSS; the search stays reachable because it owns the
- * same input the command palette focuses.
+ * Gmail-style top bar: bold text wordmark and a rounded search omnibox. The
+ * hamburger only appears at the mobile breakpoint via CSS; the search stays
+ * reachable because it owns the same input the command palette focuses.
+ * Account and locale controls live in the identity card menu instead.
  */
 export function MailTopbar({
-  locale,
   navigationOpen,
   activeSearch,
   searchBusy,
@@ -34,11 +29,9 @@ export function MailTopbar({
   searchInputRef,
   t,
   onClearSearch,
-  onLocaleChange,
   onOpenMenu,
   onSearch,
   onSearchTextChange,
-  onSignOut,
 }: MailTopbarProps) {
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -87,17 +80,6 @@ export function MailTopbar({
           />
         ) : null}
       </form>
-      <div
-        aria-label={t("topbar.sessionRegion")}
-        className="mail-topbar__session"
-        role="group"
-      >
-        <LanguagePicker locale={locale} onChange={onLocaleChange} t={t} />
-        <button className="topbar-sign-out" type="button" onClick={onSignOut}>
-          <Icon aria-hidden name="sign-out" size={17} />
-          {t("nav.signOut")}
-        </button>
-      </div>
     </header>
   );
 }

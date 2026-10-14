@@ -9,7 +9,7 @@ import {
   StatusIndicator,
   type IconName,
 } from "@copilotmail/design-system";
-import { LanguagePicker } from "./LanguagePicker";
+import { IdentityCardMenu } from "./IdentityCardMenu";
 import { MailboxPicker } from "./MailboxPicker";
 
 export type MailView = "inbox" | "sent" | "drafts";
@@ -26,13 +26,13 @@ interface MailNavigationProps {
   sessionLocked?: boolean;
   activeView: MailView;
   unreadInboxCount?: number;
-  onLocaleChange: (locale: Locale) => void;
   onMailboxChange: (mailboxId: string) => void;
   onMailboxLoadMore: () => void;
   onCompose: () => void;
   onOpenCommandPalette: (trigger: HTMLElement) => void;
+  onOpenSettings: (trigger: HTMLElement | null) => void;
   onViewChange: (view: MailView) => void;
-  onSignOut: () => void;
+  onSignOut: (trigger: HTMLElement | null) => void;
   t: Translator;
 }
 
@@ -199,17 +199,14 @@ function MobileMailboxScopeSummary({
 }
 
 function MailboxScopeControls({
-  locale,
   activeMailbox,
   mailboxes,
   mailboxHasMore,
   mailboxLoadMoreBusy,
   mailboxLoadMoreError,
   sessionLocked = false,
-  onLocaleChange,
   onMailboxChange,
   onMailboxLoadMore,
-  onSignOut,
   t,
 }: MailNavigationProps) {
   return (
@@ -231,17 +228,6 @@ function MailboxScopeControls({
         onLoadMore={onMailboxLoadMore}
         t={t}
       />
-      <div className="mobile-mailbox-scope__session-controls">
-        <LanguagePicker locale={locale} onChange={onLocaleChange} t={t} />
-        <button
-          className="topbar-sign-out mobile-sign-out"
-          aria-label={t("nav.signOut")}
-          onClick={onSignOut}
-        >
-          <Icon aria-hidden name="sign-out" size={18} />
-          <span className="mobile-action-label">{t("nav.signOut")}</span>
-        </button>
-      </div>
     </>
   );
 }
@@ -263,6 +249,8 @@ export function DesktopNavigation(props: MailNavigationProps) {
     onMailboxLoadMore,
     onCompose,
     onOpenCommandPalette,
+    onOpenSettings,
+    onSignOut,
     onViewChange,
     t,
   } = props;
@@ -309,6 +297,13 @@ export function DesktopNavigation(props: MailNavigationProps) {
         <span>{t("command.title")}</span>
         <kbd aria-hidden="true">{t("command.triggerShortcut")}</kbd>
       </button>
+      <IdentityCardMenu
+        activeMailbox={activeMailbox}
+        sessionLocked={sessionLocked}
+        t={t}
+        onOpenSettings={onOpenSettings}
+        onSignOut={onSignOut}
+      />
     </aside>
   );
 }
@@ -419,6 +414,24 @@ export function MobileNavigation(props: MobileNavigationProps) {
               <span>{t("command.title")}</span>
               <kbd aria-hidden="true">{t("command.triggerShortcut")}</kbd>
             </button>
+            <IdentityCardMenu
+              activeMailbox={props.activeMailbox}
+              sessionLocked={props.sessionLocked}
+              t={t}
+              onOpenSettings={(trigger) => {
+                // The drawer unmounts as the settings dialog opens, so focus
+                // returns to the always-mounted top bar menu button instead
+                // of the about-to-be-removed card.
+                const home = document.querySelector<HTMLElement>(".mail-topbar__menu");
+                onDrawerClose();
+                props.onOpenSettings(home ?? trigger);
+              }}
+              onSignOut={(trigger) => {
+                const home = document.querySelector<HTMLElement>(".mail-topbar__menu");
+                onDrawerClose();
+                props.onSignOut(home ?? trigger);
+              }}
+            />
           </div>
         </Dialog>
       ) : null}

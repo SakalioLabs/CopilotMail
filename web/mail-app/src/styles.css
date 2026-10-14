@@ -202,14 +202,6 @@ body,
   min-width: 120px;
 }
 
-.mail-topbar__session {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: var(--cm-space-2);
-  margin-left: auto;
-}
-
 
 /* Navigation rail ----------------------------------------------------- */
 
@@ -308,6 +300,128 @@ body,
   color: var(--cm-critical);
   font-size: 0.75rem;
   line-height: 1.45;
+}
+
+/* Identity card + account popover --------------------------------------- */
+
+.identity-menu-wrap {
+  position: relative;
+  margin-top: var(--cm-space-2);
+}
+
+.identity-card {
+  display: grid;
+  width: 100%;
+  min-height: var(--mail-touch);
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--cm-space-2);
+  padding: var(--cm-space-2) var(--cm-space-3);
+  border: 1px solid var(--cm-line);
+  border-radius: var(--cm-radius-panel);
+  color: var(--cm-ink);
+  background: var(--cm-surface);
+  text-align: left;
+  cursor: pointer;
+  transition: var(--cm-motion-interactive);
+}
+
+.identity-card:enabled:hover { background-color: var(--cm-state-hover); }
+.identity-card:enabled:active { background-color: var(--cm-state-pressed); }
+.identity-card:focus-visible { box-shadow: var(--cm-focus-ring); }
+.identity-card:disabled { color: var(--cm-disabled-content); cursor: not-allowed; }
+
+.identity-card__avatar {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--cm-info);
+  background-color: var(--cm-info-soft);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.identity-card__text {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.identity-card__name,
+.identity-card__email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identity-card__name { font-size: 0.82rem; font-weight: 650; }
+.identity-card__email { color: var(--cm-muted); font-size: 0.72rem; }
+
+.identity-card__chevron {
+  color: var(--cm-muted);
+  transition: transform var(--cm-motion-spring-snappy);
+}
+
+.identity-card[aria-expanded="true"] .identity-card__chevron { transform: rotate(180deg); }
+
+.identity-menu {
+  position: absolute;
+  z-index: var(--cm-z-floating);
+  right: 0;
+  bottom: calc(100% + var(--cm-space-2));
+  left: 0;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--cm-line);
+  border-radius: var(--cm-radius-panel);
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-2);
+  transform-origin: 50% 100%;
+  animation: identity-menu-in var(--cm-motion-spring-gentle);
+}
+
+.identity-menu__item {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  padding: 0 var(--cm-space-3);
+  border: 0;
+  border-radius: var(--cm-radius-control);
+  color: var(--cm-ink);
+  background: transparent;
+  font-size: var(--cm-text-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.identity-menu__item:enabled:hover { background-color: var(--cm-state-hover); }
+.identity-menu__item:focus-visible { box-shadow: var(--cm-focus-ring); }
+
+@keyframes identity-menu-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+}
+
+/* Settings dialog -------------------------------------------------------- */
+
+.settings-dialog { width: min(430px, 100%); }
+
+.settings-dialog__body { padding: var(--cm-space-5); }
+
+.settings-dialog .language-picker { display: grid; gap: 6px; }
+
+.language-picker__label {
+  color: var(--cm-muted-strong);
+  font-size: var(--cm-text-micro);
+  font-weight: 730;
+}
+
+.settings-dialog .language-picker select {
+  width: 100%;
+  min-height: var(--mail-touch);
 }
 
 /* The tonal compose action keeps Gmail's filled-soft treatment and inherits
@@ -434,9 +548,11 @@ body,
 }
 
 .dialog.mail-nav-drawer {
+  display: flex;
   width: min(340px, calc(100vw - 56px));
   min-height: 100dvh;
   max-height: 100dvh;
+  flex-direction: column;
   align-self: stretch;
   border: 0;
   border-right: 1px solid var(--cm-line);
@@ -448,10 +564,16 @@ body,
 }
 
 .mail-nav-drawer__body {
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
   gap: var(--cm-space-3);
   padding: 0 var(--cm-space-3) var(--cm-space-5);
+}
+
+.mail-nav-drawer__body .identity-menu-wrap {
+  margin-top: auto;
 }
 
 .mail-nav-drawer__body nav {
@@ -543,28 +665,6 @@ body,
 .mobile-mailbox-picker select { min-width: var(--mail-touch); min-height: var(--mail-touch); }
 .mobile-mailbox-picker .mailbox-load-more { width: fit-content; min-height: var(--mail-touch); }
 .mobile-mailbox-picker .mailbox-page-error { margin: 0; }
-
-.mobile-mailbox-scope__session-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-}
-
-.mobile-mailbox-scope__session-controls .language-picker { width: 100%; margin: 0; }
-
-.mobile-mailbox-scope__session-controls .language-picker select {
-  min-width: var(--mail-touch);
-  min-height: var(--mail-touch);
-}
-
-/* The drawer sign-out reuses the shared .topbar-sign-out chrome; the hook
-   only guarantees the touch target and ink colour inside the drawer. */
-.mobile-sign-out {
-  min-width: var(--mail-touch);
-  min-height: var(--mail-touch);
-  color: var(--cm-ink);
-}
 
 .inbox {
   display: flex;
@@ -1211,15 +1311,6 @@ body,
     min-height: var(--mail-touch);
   }
 
-  .mail-topbar .topbar-sign-out {
-    min-width: var(--mail-touch);
-    min-height: var(--mail-touch);
-  }
-
-  .mail-topbar .language-picker select {
-    min-height: var(--mail-touch);
-  }
-
   .composer input {
     min-height: var(--mail-touch);
   }
@@ -1250,13 +1341,12 @@ body,
 }
 
 /*
- * At the phone breakpoint the language and sign-out controls leave the top
- * bar; the navigation drawer carries the same session controls instead, so
- * the search omnibox keeps the width it needs.
+ * At the phone breakpoint the wordmark leaves the top bar so the search
+ * omnibox keeps the width it needs; account and locale controls live in the
+ * identity card menu instead.
  */
 @media (max-width: 768px) {
   .mail-topbar { padding: 0 var(--cm-space-3) 0 var(--cm-space-2); }
-  .mail-topbar__session,
   .mail-topbar__start .app-wordmark { display: none; }
 }
 
@@ -1269,13 +1359,6 @@ body,
   }
   .session-check__actions { grid-column: 1 / -1; }
   .session-check__actions .button { flex: 1 1 0; }
-  .mobile-mailbox-scope__session-controls {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .mobile-mailbox-scope__session-controls .mobile-sign-out {
-    justify-self: start;
-    padding-inline: 10px;
-  }
   .mobile-mailbox-scope__summary { gap: 5px 7px; padding: 8px 10px; }
   .mobile-mailbox-scope__summary-address { font-size: 0.74rem; }
   .mobile-mailbox-scope__summary-status { font-size: 0.69rem; }

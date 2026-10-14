@@ -84,16 +84,10 @@ describe("mobile touch target contract", () => {
     expect(selectorRule(mailStyles, ".mobile-mailbox-picker select")).toContain(
       "min-height: var(--mail-touch);",
     );
-    expect(selectorRule(
-      mailStyles,
-      ".mobile-mailbox-scope__session-controls .language-picker select",
-    )).toContain(
-      "min-width: var(--mail-touch);",
+    expect(selectorRule(mailStyles, ".identity-card")).toContain(
+      "min-height: var(--mail-touch);",
     );
-    expect(selectorRule(
-      mailStyles,
-      ".mobile-mailbox-scope__session-controls .language-picker select",
-    )).toContain(
+    expect(selectorRule(mailStyles, ".settings-dialog .language-picker select")).toContain(
       "min-height: var(--mail-touch);",
     );
     expect(selectorRule(mobileMailStyles, ".detail-back")).toContain(
@@ -132,15 +126,6 @@ describe("mobile touch target contract", () => {
         "min-height: var(--mail-touch);",
       );
     }
-    expect(selectorRule(mobileMailStyles, ".mail-topbar .topbar-sign-out")).toContain(
-      "min-width: var(--mail-touch);",
-    );
-    expect(selectorRule(mobileMailStyles, ".mail-topbar .topbar-sign-out")).toContain(
-      "min-height: var(--mail-touch);",
-    );
-    expect(selectorRule(mobileMailStyles, ".mail-topbar .language-picker select")).toContain(
-      "min-height: var(--mail-touch);",
-    );
     expect(selectorRule(mobileMailStyles, ".composer input")).toContain(
       "min-height: var(--mail-touch);",
     );
@@ -188,10 +173,10 @@ describe("mobile touch target contract", () => {
         sessionLocked={false}
         onCompose={vi.fn()}
         onDrawerClose={vi.fn()}
-        onLocaleChange={vi.fn()}
         onMailboxChange={vi.fn()}
         onMailboxLoadMore={vi.fn()}
         onOpenCommandPalette={vi.fn()}
+        onOpenSettings={vi.fn()}
         onSignOut={vi.fn()}
         onViewChange={vi.fn()}
         t={t}
@@ -201,8 +186,8 @@ describe("mobile touch target contract", () => {
     const drawer = screen.getByRole("dialog", { name: "Mail navigation" });
     expect(drawer.querySelector<HTMLSelectElement>(".mobile-mailbox-picker select"))
       .toHaveAccessibleName("Switch mailbox");
-    expect(drawer.querySelector<HTMLSelectElement>(".language-picker select"))
-      .toHaveAccessibleName("Language");
+    expect(within(drawer).getByRole("button", { name: /reader@example\.test/ }))
+      .toHaveClass("identity-card");
     expect(document.querySelector<HTMLButtonElement>(".compose-fab"))
       .toBeInstanceOf(HTMLButtonElement);
     expect(within(drawer).getByRole("button", { name: "Open command palette" }))
@@ -216,17 +201,14 @@ describe("mobile touch target contract", () => {
 
     const { container: topbar } = render(
       <MailTopbar
-        locale="en"
         navigationOpen={false}
         searchBusy={false}
         searchText=""
         t={t}
         onClearSearch={vi.fn()}
-        onLocaleChange={vi.fn()}
         onOpenMenu={vi.fn()}
         onSearch={vi.fn()}
         onSearchTextChange={vi.fn()}
-        onSignOut={vi.fn()}
       />,
     );
     expect(topbar.querySelector<HTMLInputElement>(".mail-search input"))

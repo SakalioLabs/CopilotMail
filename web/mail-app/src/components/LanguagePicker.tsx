@@ -2,14 +2,16 @@ import type { Locale, Translator } from "../i18n";
 
 interface LanguagePickerProps {
   locale: Locale;
+  /** Render the label visibly instead of screen-reader-only (settings surface). */
+  showLabel?: boolean;
   onChange: (locale: Locale) => void;
   t: Translator;
 }
 
-export function LanguagePicker({ locale, onChange, t }: LanguagePickerProps) {
+export function LanguagePicker({ locale, showLabel = false, onChange, t }: LanguagePickerProps) {
   return (
     <label className="language-picker">
-      <span className="sr-only">{t("locale.label")}</span>
+      <span className={showLabel ? "language-picker__label" : "sr-only"}>{t("locale.label")}</span>
       <select
         className="control"
         aria-label={t("locale.label")}

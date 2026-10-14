@@ -75,8 +75,12 @@ test.describe("Mail localized browser state", () => {
     const { page } = mailApp;
     await mailApp.goto();
 
-    await page.locator(".mail-topbar").getByRole("combobox", { name: "Language" })
-      .selectOption("zh-CN");
+    await page.locator(".identity-card").click();
+    await page.getByRole("menuitem", { name: "Settings" }).click();
+    const settings = page.getByRole("dialog", { name: "Settings" });
+    await settings.getByRole("combobox", { name: "Language" }).selectOption("zh-CN");
+    await settings.getByRole("button", { name: "Close settings" }).click();
+    await expect(settings).toBeHidden();
 
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
     await expect(page.getByRole("heading", { name: "收件箱", exact: true })).toBeVisible();
@@ -536,8 +540,7 @@ test.describe("Mail narrow-screen interaction cost", () => {
     await expect(mailboxScope).toHaveAttribute("open", "");
     for (const [label, locator] of [
       ["mailbox selector", drawer.getByRole("combobox", { name: "Switch mailbox" })],
-      ["language selector", drawer.getByRole("combobox", { name: "Language" })],
-      ["sign out", drawer.getByRole("button", { name: "Sign out" })],
+      ["account card", drawer.locator(".identity-card")],
     ] as const) {
       await expectMinimumTouchTarget(locator, label);
     }

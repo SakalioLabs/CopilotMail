@@ -27,6 +27,7 @@ import { MessageDetail as MessageDetailView } from "./components/MessageDetail";
 import { MailTopbar } from "./components/MailTopbar";
 import { MessageList } from "./components/MessageList";
 import { SentList } from "./components/SentList";
+import { SettingsDialog } from "./components/SettingsDialog";
 import { SessionVerificationNotice } from "./components/SessionVerificationNotice";
 import { readRuntimeConfig } from "./config";
 import {
@@ -287,6 +288,7 @@ function AuthenticatedWorkspace({
   const [mailboxDirectoryPageError, setMailboxDirectoryPageError] = useState<UiErrorKey>();
   const [mailboxDirectoryRetry, setMailboxDirectoryRetry] = useState(0);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [pendingComposerTransition, setPendingComposerTransition] = useState<
     PendingComposerTransition
   >();
@@ -315,6 +317,7 @@ function AuthenticatedWorkspace({
   const inboxHeading = useRef<HTMLHeadingElement>(null);
   const inboxSearchInput = useRef<HTMLInputElement>(null);
   const commandPaletteReturnFocus = useRef<HTMLElement | null>(null);
+  const menuActionReturnFocus = useRef<HTMLElement | null>(null);
   const messageButtons = useRef(new Map<string, HTMLButtonElement>());
   const selectedMessageId = selected?.message_id;
   pageRef.current = page;
@@ -934,6 +937,14 @@ function AuthenticatedWorkspace({
     }
     onSignOut();
   };
+  const openSettings = (trigger: HTMLElement | null) => {
+    menuActionReturnFocus.current = trigger;
+    setSettingsOpen(true);
+  };
+  const requestSignOutFromMenu = (trigger: HTMLElement | null) => {
+    menuActionReturnFocus.current = trigger;
+    requestSignOut();
+  };
   const confirmComposerTransition = () => {
     if (sessionLocked) return;
     const transition = pendingComposerTransition;
@@ -1220,6 +1231,7 @@ function AuthenticatedWorkspace({
     enabled: authenticated && !sessionLocked && activeMailbox !== undefined,
     modalOpen: commandPaletteOpen
       || composeOpen
+      || settingsOpen
       || pendingDraftRestore !== undefined
       || pendingComposerTransition !== undefined,
     onOpenCommandPalette: openCommandPalette,
@@ -1295,12 +1307,12 @@ function AuthenticatedWorkspace({
       ? t(mailboxDirectoryPageError)
       : undefined,
     unreadInboxCount,
-    onLocaleChange,
     onMailboxChange: switchMailbox,
     onMailboxLoadMore: () => { void loadMoreMailboxes(); },
     onCompose: openComposer,
     onOpenCommandPalette: (trigger: HTMLElement) => { openCommandPalette(trigger); },
-    onSignOut: requestSignOut,
+    onOpenSettings: openSettings,
+    onSignOut: requestSignOutFromMenu,
     onViewChange: switchView,
     t,
   };
@@ -1312,18 +1324,15 @@ function AuthenticatedWorkspace({
       topbar={(
         <MailTopbar
         activeSearch={activeSearch}
-        locale={locale}
         navigationOpen={navDrawerOpen}
         searchBusy={searchBusy}
         searchInputRef={inboxSearchInput}
         searchText={searchText}
         t={t}
         onClearSearch={() => void clearSearch()}
-        onLocaleChange={onLocaleChange}
         onOpenMenu={() => setNavDrawerOpen(true)}
         onSearch={() => void submitSearch()}
         onSearchTextChange={setSearchText}
-        onSignOut={requestSignOut}
         />
       )}
       navigation={(
@@ -1445,6 +1454,7 @@ function AuthenticatedWorkspace({
           closeLabel={t("compose.transitionCloseAria")}
           confirmLabel={t("compose.transitionConfirm")}
           description={t("compose.transitionDescription")}
+          returnFocusRef={menuActionReturnFocus}
           role="alertdialog"
           showCloseButton={false}
           title={t("compose.transitionTitle")}
@@ -1455,6 +1465,15 @@ function AuthenticatedWorkspace({
           onConfirm={confirmComposerTransition}
             />
           )}
+          {settingsOpen && !sessionLocked ? (
+            <SettingsDialog
+          locale={locale}
+          returnFocusRef={menuActionReturnFocus}
+          t={t}
+          onClose={() => setSettingsOpen(false)}
+          onLocaleChange={onLocaleChange}
+            />
+          ) : null}
           <CommandPalette
         closeHint={t("command.closeHint")}
         commands={commandPaletteCommands}

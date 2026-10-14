@@ -233,8 +233,12 @@ test.describe("mail queue reachability", () => {
     const { page } = mailApp;
     await page.setViewportSize(DESKTOP);
     await mailApp.goto();
-    await page.getByRole("combobox", { name: "Language", exact: true })
-      .selectOption("zh-CN");
+    await page.locator(".identity-card").click();
+    await page.getByRole("menuitem", { name: "Settings" }).click();
+    const settings = page.getByRole("dialog", { name: "Settings" });
+    await settings.getByRole("combobox", { name: "Language" }).selectOption("zh-CN");
+    await settings.getByRole("button", { name: "Close settings" }).click();
+    await expect(settings).toBeHidden();
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
 
     const inboxStatus = page.locator(".inbox").getByRole("status");

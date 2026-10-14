@@ -498,9 +498,12 @@ describe("human mail application shell", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Close composer" }));
 
-    const signOut = within(container.querySelector<HTMLElement>(".mail-topbar")!)
-      .getByRole("button", { name: "Sign out" });
-    fireEvent.click(signOut);
+    const identityCard = container.querySelector<HTMLElement>(".identity-card")!;
+    const requestSignOut = () => {
+      fireEvent.click(identityCard);
+      fireEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
+    };
+    requestSignOut();
     const warning = await screen.findByRole("alertdialog", {
       name: "Leave the current writing context?",
     });
@@ -512,7 +515,7 @@ describe("human mail application shell", () => {
     await waitFor(() => expect(within(reopenedComposer).getByLabelText("To")).toHaveFocus());
     fireEvent.click(within(reopenedComposer).getByRole("button", { name: "Close composer" }));
 
-    fireEvent.click(signOut);
+    requestSignOut();
     fireEvent.click(await screen.findByRole("button", { name: "Leave and continue" }));
     await waitFor(() => expect(auth.logout).toHaveBeenCalledTimes(1));
   });
@@ -756,7 +759,7 @@ describe("human mail application shell", () => {
     });
   });
 
-  it("keeps compose, sign-out, and locale controls reachable in the mobile drawer", async () => {
+  it("keeps compose and the account menu reachable in the mobile drawer", async () => {
     setNarrowViewport(true);
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "收件箱" });
@@ -767,12 +770,15 @@ describe("human mail application shell", () => {
     fireEvent.click(container.querySelector<HTMLButtonElement>(".mail-topbar__menu")!);
     const drawer = await screen.findByRole("dialog", { name: "邮件导航" });
     fireEvent.click(drawer.querySelector<HTMLElement>(".mobile-mailbox-scope summary")!);
-    expect(drawer.querySelector<HTMLButtonElement>(".mobile-sign-out"))
-      .toHaveAccessibleName("退出登录");
-    expect(drawer.querySelector(".language-picker select"))
-      .toHaveAccessibleName("语言");
     expect(drawer.querySelector(".mobile-mailbox-picker select"))
       .toHaveAccessibleName("切换邮箱");
+
+    const identityCard = within(drawer).getByRole("button", { name: /reader@example\.com/ });
+    expect(identityCard).toHaveClass("identity-card");
+    fireEvent.click(identityCard);
+    const accountMenu = within(drawer).getByRole("menu", { name: "账户" });
+    expect(within(accountMenu).getByRole("menuitem", { name: "设置" })).toBeEnabled();
+    expect(within(accountMenu).getByRole("menuitem", { name: "退出登录" })).toBeEnabled();
 
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -792,8 +798,17 @@ describe("human mail application shell", () => {
     await screen.findByRole("heading", { name: "收件箱" });
     expect(document.documentElement.lang).toBe("zh-CN");
 
-    const localeSelectors = screen.getAllByRole("combobox", { name: "语言" });
-    fireEvent.change(localeSelectors[0], { target: { value: "en" } });
+    const identityCard = screen.getByRole("button", { name: /reader@example\.com/ });
+    fireEvent.click(identityCard);
+    fireEvent.click(screen.getByRole("menuitem", { name: "设置" }));
+    const settings = await screen.findByRole("dialog", { name: "设置" });
+    fireEvent.change(within(settings).getByRole("combobox", { name: "语言" }), {
+      target: { value: "en" },
+    });
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(identityCard).toHaveFocus();
 
     await screen.findByRole("heading", { name: "Inbox" });
     expect(document.documentElement.lang).toBe("en");
