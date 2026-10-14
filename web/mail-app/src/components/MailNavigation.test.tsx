@@ -44,11 +44,20 @@ describe("mail navigation mailbox identity", () => {
     };
 
     render(
-      <DesktopNavigation
-        {...commonProps(mailbox)}
-        canCompose
-        composeBusy
-      />,
+      <>
+        <DesktopNavigation
+          {...commonProps(mailbox)}
+          canCompose
+          composeBusy
+        />
+        <MobileNavigation
+          {...commonProps(mailbox)}
+          canCompose
+          composeBusy
+          drawerOpen={false}
+          onDrawerClose={vi.fn()}
+        />
+      </>,
     );
 
     const identity = screen.getByRole("region", { name: "Current mailbox identity" });
@@ -63,7 +72,7 @@ describe("mail navigation mailbox identity", () => {
       mailbox.mailbox_id,
     );
     expect(screen.getByRole("button", { name: "Compose" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Compose" })).toHaveClass("button", "compose");
+    expect(screen.getByRole("button", { name: "Compose" })).toHaveClass("compose-fab");
     const card = screen.getByRole("button", { name: /reader@example\.test/ });
     expect(card).toHaveClass("identity-card");
     expect(card).toHaveAttribute("aria-haspopup", "menu");
@@ -128,7 +137,7 @@ describe("mail navigation mailbox identity", () => {
     expect(card).toHaveClass("identity-card");
     fireEvent.click(card);
     expect(within(drawer).getByRole("menu", { name: "Account" })).toBeInTheDocument();
-    expect(within(drawer).getByRole("button", { name: "Compose" })).toBeDisabled();
+    expect(within(drawer).queryByRole("button", { name: "Compose" })).not.toBeInTheDocument();
     expect(document.querySelector<HTMLButtonElement>(".compose-fab")).toBeDisabled();
     expect(within(drawer).getByRole("button", { name: "Inbox" }).querySelector("[data-icon='inbox']"))
       .toBeInTheDocument();

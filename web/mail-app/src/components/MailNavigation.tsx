@@ -240,14 +240,12 @@ export function DesktopNavigation(props: MailNavigationProps) {
     mailboxLoadMoreBusy,
     mailboxLoadMoreError,
     canCompose,
-    composeBusy = false,
     sessionLocked = false,
     activeView,
     locale,
     unreadInboxCount,
     onMailboxChange,
     onMailboxLoadMore,
-    onCompose,
     onOpenCommandPalette,
     onOpenSettings,
     onSignOut,
@@ -257,15 +255,6 @@ export function DesktopNavigation(props: MailNavigationProps) {
 
   return (
     <aside className="sidebar" data-dialog-background>
-      <button
-        className="button compose"
-        disabled={!canCompose || composeBusy}
-        title={!canCompose ? t("mailbox.composeUnavailable") : undefined}
-        onClick={onCompose}
-      >
-        <Icon aria-hidden name="compose" size={18} />
-        {t("nav.compose")}
-      </button>
       <MailViewNavigation
         activeView={activeView}
         canCompose={canCompose}
@@ -314,10 +303,10 @@ interface MobileNavigationProps extends MailNavigationProps {
 }
 
 /**
- * Narrow-viewport navigation: a floating compose action plus a left drawer
- * that carries the same view list, mailbox scope, and session controls as the
- * desktop rail. The drawer closes itself if the viewport grows past the
- * mobile breakpoint while it is open.
+ * Floating compose action plus the narrow-viewport left drawer that carries
+ * the same view list, mailbox scope, and session controls as the desktop
+ * rail. The drawer closes itself if the viewport grows past the mobile
+ * breakpoint while it is open.
  */
 export function MobileNavigation(props: MobileNavigationProps) {
   const {
@@ -373,18 +362,6 @@ export function MobileNavigation(props: MobileNavigationProps) {
           onClose={onDrawerClose}
         >
           <div className="mail-nav-drawer__body">
-            <button
-              className="button compose"
-              disabled={!canCompose || composeBusy}
-              title={!canCompose ? t("mailbox.composeUnavailable") : undefined}
-              onClick={() => {
-                onCompose();
-                onDrawerClose();
-              }}
-            >
-              <Icon aria-hidden name="compose" size={18} />
-              {t("nav.compose")}
-            </button>
             <MailViewNavigation
               activeView={activeView}
               canCompose={canCompose}

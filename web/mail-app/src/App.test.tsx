@@ -438,7 +438,7 @@ describe("human mail application shell", () => {
     const sidebar = container.querySelector<HTMLElement>(".sidebar")!;
     const mailboxSelect = within(sidebar).getByRole("combobox", { name: "Switch mailbox" });
 
-    fireEvent.click(within(sidebar).getByRole("button", { name: "Compose" }));
+    fireEvent.click(screen.getByRole("button", { name: "Compose" }));
     fireEvent.change(screen.getByLabelText("Message body"), {
       target: { value: "Local content that has no recipient and cannot autosave" },
     });
@@ -460,7 +460,7 @@ describe("human mail application shell", () => {
     fireEvent.change(mailboxSelect, { target: { value: secondMailbox.mailbox_id } });
     fireEvent.click(await screen.findByRole("button", { name: "Leave and continue" }));
     await waitFor(() => expect(mailboxSelect).toHaveValue(secondMailbox.mailbox_id));
-    fireEvent.click(within(sidebar).getByRole("button", { name: "Compose" }));
+    fireEvent.click(screen.getByRole("button", { name: "Compose" }));
     expect(screen.getByLabelText("Message body")).toHaveValue("");
   });
 
@@ -476,8 +476,7 @@ describe("human mail application shell", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Close composer" }));
 
-    const compose = within(container.querySelector<HTMLElement>(".sidebar")!)
-      .getByRole("button", { name: "Compose" });
+    const compose = container.querySelector<HTMLButtonElement>(".compose-fab")!;
     fireEvent.click(compose);
     const warning = await screen.findByRole("alertdialog", {
       name: "Leave the current writing context?",
@@ -494,7 +493,7 @@ describe("human mail application shell", () => {
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
     const sidebar = container.querySelector<HTMLElement>(".sidebar")!;
-    fireEvent.click(within(sidebar).getByRole("button", { name: "Compose" }));
+    fireEvent.click(screen.getByRole("button", { name: "Compose" }));
     fireEvent.change(screen.getByLabelText("Message body"), {
       target: { value: "Do not lose this on an accidental sign-out" },
     });
@@ -628,7 +627,7 @@ describe("human mail application shell", () => {
     vi.mocked(api.restoreDraft).mockReturnValueOnce(restoreResponse.promise);
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "someone@example.com" },
     });
@@ -832,7 +831,7 @@ describe("human mail application shell", () => {
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
 
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     vi.useFakeTimers();
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "old-session@example.com" },
@@ -872,7 +871,7 @@ describe("human mail application shell", () => {
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
 
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "alice@example.com" },
     });
@@ -909,7 +908,7 @@ describe("human mail application shell", () => {
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
 
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     vi.useFakeTimers();
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "alice@example.com" },
@@ -950,7 +949,7 @@ describe("human mail application shell", () => {
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
 
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "alice@example.com" },
     });
@@ -994,7 +993,7 @@ describe("human mail application shell", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Alice/ }));
     await screen.findByText("The safe plain-text message body.");
 
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "frozen@example.com" },
     });
@@ -1052,7 +1051,7 @@ describe("human mail application shell", () => {
       .mockResolvedValueOnce(deliveredSubmission);
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "alice@example.com" },
     });
@@ -1072,7 +1071,7 @@ describe("human mail application shell", () => {
     )).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Close composer" }));
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     fireEvent.click(screen.getByRole("button", {
       name: "Confirm same submission (no duplicate email)",
     }));
@@ -1094,7 +1093,7 @@ describe("human mail application shell", () => {
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
 
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "alice@example.com" },
     });
@@ -1140,7 +1139,7 @@ describe("human mail application shell", () => {
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
 
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "alice@example.com" },
     });
@@ -1160,7 +1159,7 @@ describe("human mail application shell", () => {
     expect(vi.mocked(api.listInbox).mock.calls.at(-1)?.[0].mailboxId).toBe(
       mailboxDirectory.items[0].mailbox_id,
     );
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
 
     expect(composerIdentity(screen.getByRole("dialog"))).toHaveTextContent("reader@example.com");
     expect(screen.getByLabelText("To")).toBeDisabled();
@@ -1196,7 +1195,7 @@ describe("human mail application shell", () => {
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
 
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     vi.useFakeTimers();
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "old@example.com" },
@@ -1211,7 +1210,7 @@ describe("human mail application shell", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Leave and continue" }));
     await waitFor(() => expect(vi.mocked(api.listInbox).mock.calls.at(-1)?.[0].mailboxId)
       .toBe("019b0000-0000-7000-8000-000000000021"));
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     expect(composerIdentity(screen.getByRole("dialog"))).toHaveTextContent("support@example.com");
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "new@example.com" },
@@ -1254,7 +1253,7 @@ describe("human mail application shell", () => {
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
 
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     fireEvent.change(screen.getByLabelText("To"), { target: { value: "old@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await waitFor(() => expect(api.requestSubmission).toHaveBeenCalledTimes(1));
@@ -1264,7 +1263,7 @@ describe("human mail application shell", () => {
     )!;
     expect(mailboxPicker).toBeDisabled();
     fireEvent.change(mailboxPicker, { target: { value: sharedMailboxId } });
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     expect(composerIdentity(screen.getByRole("dialog"))).toHaveTextContent("reader@example.com");
     expect(screen.getByLabelText("To")).toHaveValue("old@example.com");
     expect(screen.getByLabelText("To")).toBeDisabled();
@@ -1289,7 +1288,7 @@ describe("human mail application shell", () => {
     await screen.findByRole("heading", { name: "Inbox" });
 
     vi.useFakeTimers();
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "alice@example.com" },
     });
@@ -1301,7 +1300,7 @@ describe("human mail application shell", () => {
 
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     expect(screen.getByRole("dialog", { name: "New message" })).toBeInTheDocument();
 
     await act(async () => {
@@ -1754,7 +1753,7 @@ describe("human mail application shell", () => {
 
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
 
     const composer = await screen.findByRole("dialog", { name: "New message" });
     const identity = composerIdentity(composer);
@@ -1968,7 +1967,7 @@ describe("human mail application shell", () => {
     );
     fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .mailbox-load-more")!);
     await waitFor(() => expect(api.listMailboxes).toHaveBeenCalledTimes(3));
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "alice@example.com" },
     });
@@ -2201,7 +2200,6 @@ describe("human mail application shell", () => {
     const { container } = render(<App />);
 
     await screen.findByRole("heading", { name: "Inbox" });
-    expect(container.querySelector<HTMLButtonElement>(".sidebar .compose")).toBeDisabled();
     expect(container.querySelector<HTMLButtonElement>(".compose-fab")).toBeDisabled();
     const sidebarNav = container.querySelector<HTMLElement>(".sidebar")!;
     expect(within(sidebarNav).getByRole("button", { name: "Drafts" })).toBeDisabled();
@@ -2301,7 +2299,7 @@ describe("human mail application shell", () => {
       .mockReturnValueOnce(retry.promise);
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     fireEvent.change(screen.getByLabelText("Message body"), {
       target: { value: "Private local body retained across a 502" },
     });
@@ -2353,7 +2351,7 @@ describe("human mail application shell", () => {
       });
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     fireEvent.change(screen.getByLabelText("Message body"), {
       target: { value: "Do not remount this workspace on an expiry-only renewal" },
     });
@@ -2380,7 +2378,7 @@ describe("human mail application shell", () => {
     await screen.findByRole("heading", { name: "Inbox" });
     fireEvent.click(await screen.findByRole("button", { name: /Alice/ }));
     expect(await screen.findByText(detail.text_body)).toBeVisible();
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "private@example.test" },
     });
@@ -2397,7 +2395,7 @@ describe("human mail application shell", () => {
     await screen.findByText(detail.text_body);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     expect(await screen.findByRole("dialog", { name: "New message" })).toBeVisible();
     expect(screen.getByLabelText("To")).toHaveValue("");
     expect(screen.getByLabelText("Message body")).toHaveValue("");
@@ -2423,7 +2421,7 @@ describe("human mail application shell", () => {
       });
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     vi.useFakeTimers();
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "old-identity@example.test" },
@@ -2445,7 +2443,7 @@ describe("human mail application shell", () => {
       await flushMicrotasks();
     });
 
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     vi.useFakeTimers();
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: "new-identity@example.test" },

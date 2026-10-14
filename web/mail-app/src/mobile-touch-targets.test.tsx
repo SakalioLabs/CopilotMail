@@ -69,7 +69,15 @@ describe("mobile touch target contract", () => {
     expect(selectorRule(mobileMailStyles, ".mail-topbar__menu")).toContain(
       "display: inline-grid;",
     );
-    expect(selectorRule(mobileMailStyles, ".compose-fab")).toContain("display: grid;");
+    // The floating compose action renders at every width, so its base rule is
+    // outside the media block; the breakpoint keeps the 44px floor below.
+    expect(selectorRule(mailStyles, ".compose-fab")).toContain("display: grid;");
+    expect(selectorRule(mailStyles, ".compose-fab")).toContain(
+      "bottom: max(var(--cm-space-5), env(safe-area-inset-bottom));",
+    );
+    expect(selectorRule(mobileMailStyles, ".compose-fab")).toContain(
+      "min-height: var(--mail-touch);",
+    );
     // Drawer scope chrome keeps its 44px floor as base styles because the
     // drawer only ever opens below the mobile breakpoint.
     expect(selectorRule(mailStyles, ".mobile-mailbox-scope__summary")).toContain(

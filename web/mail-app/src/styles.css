@@ -420,36 +420,6 @@ body,
   min-height: var(--mail-touch);
 }
 
-/* The tonal compose action keeps Gmail's filled-soft treatment and inherits
-   the shared .button state grammar via the layer variables. */
-.compose {
-  --_hover: var(--cm-info-hover);
-  --_pressed: var(--cm-info-pressed);
-  --_hover-shadow: var(--cm-shadow-2);
-  width: auto;
-  min-height: 56px;
-  align-self: flex-start;
-  gap: var(--cm-space-3);
-  margin: 4px 0 16px 4px;
-  padding: 0 var(--cm-space-6);
-  border-radius: var(--cm-radius-panel);
-  color: var(--cm-info);
-  background-color: var(--cm-info-soft);
-  box-shadow: var(--cm-shadow-1);
-}
-
-.compose:disabled {
-  color: var(--cm-disabled-content);
-  background-color: var(--cm-disabled-container);
-}
-
-/* transition-property limits animation to transform while focused so the ring
-   paints on the same style recalc instead of interpolating from the resting
-   shadow (box-shadow otherwise resolves to its start value until a frame
-   ticks, which made the keyboard-focus assertion read stale shadow-1). */
-.compose:focus-visible,
-.compose-fab:focus-visible { box-shadow: var(--cm-focus-ring); transition-property: transform; }
-
 .detail-back { display: inline-flex; align-items: center; margin: 0 0 18px; }
 
 .command-trigger {
@@ -499,13 +469,16 @@ body,
   font-size: 0.78rem;
 }
 
-/* Floating compose + navigation drawer (narrow viewports) ------------- */
+/* Floating compose action ------------------------------------------------
+   The single compose entry lives at the bottom-right on every viewport. Its
+   offsets respect the device safe areas, and the list/detail surfaces keep
+   matching bottom padding so the button never covers the last row. */
 
 .compose-fab {
-  display: none;
+  display: grid;
   position: fixed;
   z-index: var(--cm-z-floating);
-  right: var(--cm-space-5);
+  right: max(var(--cm-space-5), env(safe-area-inset-right));
   bottom: max(var(--cm-space-5), env(safe-area-inset-bottom));
   width: 56px;
   height: 56px;
@@ -537,6 +510,12 @@ body,
   box-shadow: none;
   cursor: not-allowed;
 }
+
+/* transition-property limits animation to transform while focused so the ring
+   paints on the same style recalc instead of interpolating from the resting
+   shadow (box-shadow otherwise resolves to its start value until a frame
+   ticks, which made the keyboard-focus assertion read stale shadow-1). */
+.compose-fab:focus-visible { box-shadow: var(--cm-focus-ring); transition-property: transform; }
 
 .mail-nav-backdrop {
   padding: 0;
@@ -575,14 +554,6 @@ body,
 .mail-nav-drawer__body nav {
   display: grid;
   gap: 2px;
-}
-
-.mail-nav-drawer__body .compose {
-  min-height: 48px;
-  margin: 4px 0 4px;
-  padding: 0 20px;
-  border-radius: var(--cm-radius-pill);
-  box-shadow: none;
 }
 
 .mail-nav-drawer__body .command-trigger {
@@ -1222,7 +1193,6 @@ body,
   }
 
   .sidebar { padding: 0 8px 14px 10px; }
-  .compose { min-height: 48px; padding: 0 18px; }
   .app-nav-item { padding: 0 var(--cm-space-3); }
   .mailbox-identity.context-bar { gap: 7px; padding: 8px; }
   .mailbox-identity .context-bar__title { font-size: 0.76rem; }
@@ -1256,8 +1226,6 @@ body,
   .mail-topbar__start { width: auto; }
   .mail-topbar__menu { display: inline-grid; }
 
-  .compose-fab { display: grid; }
-
   .mail-shell > .inbox,
   .mail-shell > .detail {
     grid-column: 1;
@@ -1281,7 +1249,6 @@ body,
 
   .mail-access__action,
   .session-check .button,
-  .compose,
   .compose-fab,
   .mail-nav-drawer button,
   .load-more,
@@ -1378,11 +1345,9 @@ body,
 @media (pointer: coarse) {
   .mail-access__action,
   .session-check .button,
-  .compose,
   .compose-fab,
   .command-trigger,
   .app-nav-item,
-  .topbar-sign-out,
   .mailbox-picker select,
   .language-picker select,
   .mailbox-load-more,
@@ -1392,7 +1357,6 @@ body,
   .dialog[role="alertdialog"] button,
   .composer footer button,
   .detail-back,
-  .mobile-sign-out,
   .mail-nav-drawer button {
     min-height: var(--mail-touch);
   }
