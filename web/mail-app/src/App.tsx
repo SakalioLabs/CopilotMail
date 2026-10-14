@@ -146,6 +146,16 @@ function narrowViewport() {
     && window.matchMedia("(max-width: 1007px)").matches;
 }
 
+/**
+ * Message details are routed with a `…#/message/<id>` hash so the detail view
+ * is a real URL: directly reachable, refreshable, and compatible with the
+ * browser Back/Forward buttons. The list occupies `#/` (or no hash).
+ */
+function routeMessageIdFromLocation(): string | undefined {
+  const match = /^#\/message\/([^/]+)$/.exec(window.location.hash);
+  return match ? decodeURIComponent(match[1]) : undefined;
+}
+
 function preferredMailbox(
   items: readonly MailboxDirectoryItem[],
   preferredId?: string,
@@ -298,7 +308,9 @@ function AuthenticatedWorkspace({
   const [navDrawerOpen, setNavDrawerOpen] = useState(false);
   const [searchBusy, setSearchBusy] = useState(false);
   const [selected, setSelected] = useState<MessageSummary>();
-  const [openedMessageId, setOpenedMessageId] = useState<string>();
+  const [openedMessageId, setOpenedMessageId] = useState<string | undefined>(
+    routeMessageIdFromLocation,
+  );
   const [detail, setDetail] = useState<MessageDetail>();
   const [detailLoadError, setDetailLoadError] = useState<DetailLoadError>();
   const [detailActionError, setDetailActionError] = useState<DetailActionError>();
@@ -319,11 +331,14 @@ function AuthenticatedWorkspace({
   const commandPaletteReturnFocus = useRef<HTMLElement | null>(null);
   const menuActionReturnFocus = useRef<HTMLElement | null>(null);
   const messageButtons = useRef(new Map<string, HTMLButtonElement>());
+  const inboxScroller = useRef<HTMLDivElement | null>(null);
+  const listScrollPosition = useRef(0);
+  const readRequests = useRef(new Set<string>());
+  const focusedDetailRoute = useRef<string | undefined>(undefined);
   const selectedMessageId = selected?.message_id;
   pageRef.current = page;
   selectedMessageIdRef.current = selectedMessageId;
   openedMessageIdRef.current = openedMessageId;
-  const openedMessage = openedMessageId === selectedMessageId ? selected : undefined;
   const draftRestoreInFlight = isDraftRestoreInFlight();
   const registerMessageButton = useCallback(
     (messageId: string) => (node: HTMLButtonElement | null) => {
@@ -335,6 +350,12 @@ function AuthenticatedWorkspace({
     },
     [],
   );
+  // Stable callback ref: re-pin the remembered scroll offset when the list
+  // remounts after a detail route closes.
+  const restoreListScroll = useCallback((node: HTMLDivElement | null) => {
+    inboxScroller.current = node;
+    if (node) node.scrollTop = listScrollPosition.current;
+  }, []);
   const commitInboxPage = useCallback((nextPage: InboxPage) => {
     const previousPage = pageRef.current;
     const currentSelectedId = selectedMessageIdRef.current;
@@ -363,6 +384,9 @@ function AuthenticatedWorkspace({
     );
     const fallback = nextPage.items[fallbackIndex];
     selectedMessageIdRef.current = fallback?.message_id;
+    if (currentOpenedId) {
+      window.history.pushState(null, "", "#/");
+    }
     openedMessageIdRef.current = undefined;
     detailRequests.current.invalidate();
     setSelected(fallback);
@@ -499,6 +523,12 @@ function AuthenticatedWorkspace({
         if (detailRequests.current.accepts(token, nextDetail)) {
           setDetail(nextDetail);
           setDetailLoadError(undefined);
+          // A message opened through its URL (deep link, refresh, browser
+          // history) has no list click to carry the read-state write; issue
+          // the same authoritative PATCH once the detail is confirmed.
+          if (!nextDetail.message.is_read) {
+            markMessageRead(nextDetail.message);
+          }
         }
       })
       .catch(() => {
@@ -520,6 +550,22 @@ function AuthenticatedWorkspace({
   const selectedDetail = detailMatchesSelection(detail, openedMessageId)
     ? detail
     : undefined;
+  // The detail header renders from the list summary while a click-launched
+  // fetch is in flight; deep links (fresh URL, refresh, history) fall back to
+  // the detail payload itself once it arrives.
+  const openedMessage = openedMessageId === selectedMessageId
+    ? selected
+    : selectedDetail?.message;
+
+  useEffect(() => {
+    if (!openedMessageId) {
+      focusedDetailRoute.current = undefined;
+      return;
+    }
+    if (!openedMessage || focusedDetailRoute.current === openedMessageId) return;
+    focusedDetailRoute.current = openedMessageId;
+    window.requestAnimationFrame(() => detailHeading.current?.focus());
+  }, [openedMessageId, openedMessage]);
   const applyState = (
     messageId: string,
     update: Partial<Pick<MessageSummary, "is_read" | "is_flagged">>,
@@ -541,6 +587,85 @@ function AuthenticatedWorkspace({
       ? { ...current, message: { ...current.message, ...update } }
       : current);
   };
+  const markMessageRead = (message: MessageSummary) => {
+    if (!authenticated || !mailboxSettings || message.is_read) return;
+    if (readRequests.current.has(message.message_id)) return;
+    readRequests.current.add(message.message_id);
+    const requestMailboxId = mailboxSettings.mailboxId;
+    updateMessageState(mailboxSettings, message.message_id, { is_read: true })
+      .then((state) => {
+        if (activeMailboxIdRef.current !== requestMailboxId) return;
+        applyState(state.message_id, { is_read: state.is_read });
+        setDetailActionError((current) => current?.messageId === state.message_id
+          && current.operation === "read"
+          ? undefined
+          : current);
+      })
+      .catch(() => {
+        readRequests.current.delete(message.message_id);
+        if (activeMailboxIdRef.current === requestMailboxId) {
+          setDetailActionError({
+            messageId: message.message_id,
+            operation: "read",
+            key: "error.updateReadState",
+          });
+        }
+      });
+  };
+
+  // The URL is the source of truth for the open message. Entering a detail
+  // stores the list scroll offset and pushes a history entry so Back/Forward
+  // restore the list; leaving a detail returns focus to the selected row.
+  const enterMessageRoute = (messageId: string) => {
+    if (openedMessageIdRef.current === messageId) return;
+    listScrollPosition.current = inboxScroller.current?.scrollTop ?? 0;
+    window.history.pushState(null, "", `#/message/${encodeURIComponent(messageId)}`);
+    openedMessageIdRef.current = messageId;
+    setOpenedMessageId(messageId);
+  };
+
+  const leaveMessageRoute = () => {
+    if (!openedMessageIdRef.current) return;
+    window.history.pushState(null, "", "#/");
+    openedMessageIdRef.current = undefined;
+    setOpenedMessageId(undefined);
+  };
+
+  useEffect(() => {
+    const syncRoute = () => {
+      const nextId = routeMessageIdFromLocation();
+      if (nextId === openedMessageIdRef.current) return;
+      detailRequests.current.invalidate();
+      setDetail(undefined);
+      setDetailLoadError(undefined);
+      setDetailActionError(undefined);
+      if (nextId) {
+        listScrollPosition.current = inboxScroller.current?.scrollTop ?? 0;
+        const summary = pageRef.current?.items.find(
+          (item) => item.message_id === nextId,
+        );
+        if (summary) {
+          selectedMessageIdRef.current = summary.message_id;
+          setSelected(summary);
+          if (!sessionLocked) markMessageRead(summary);
+        }
+      } else {
+        const focusId = selectedMessageIdRef.current;
+        window.requestAnimationFrame(() => {
+          (focusId ? messageButtons.current.get(focusId) : inboxHeading.current)?.focus();
+        });
+      }
+      openedMessageIdRef.current = nextId;
+      setOpenedMessageId(nextId);
+    };
+    window.addEventListener("hashchange", syncRoute);
+    window.addEventListener("popstate", syncRoute);
+    return () => {
+      window.removeEventListener("hashchange", syncRoute);
+      window.removeEventListener("popstate", syncRoute);
+    };
+  }, [authenticated, mailboxSettings, sessionLocked]);
+
   const openMessage = (message: MessageSummary) => {
     if (sessionLocked || !mailboxSettings) return;
     if (openedMessageId !== message.message_id) {
@@ -554,33 +679,9 @@ function AuthenticatedWorkspace({
       setDetailRetryGeneration((generation) => generation + 1);
     }
     selectedMessageIdRef.current = message.message_id;
-    openedMessageIdRef.current = message.message_id;
     setSelected(message);
-    setOpenedMessageId(message.message_id);
-    if (narrowViewport()) {
-      window.requestAnimationFrame(() => detailHeading.current?.focus());
-    }
-    if (!message.is_read && authenticated) {
-      const requestMailboxId = mailboxSettings.mailboxId;
-      updateMessageState(mailboxSettings, message.message_id, { is_read: true })
-        .then((state) => {
-          if (activeMailboxIdRef.current !== requestMailboxId) return;
-          applyState(state.message_id, { is_read: state.is_read });
-          setDetailActionError((current) => current?.messageId === state.message_id
-            && current.operation === "read"
-            ? undefined
-            : current);
-        })
-        .catch(() => {
-          if (activeMailboxIdRef.current === requestMailboxId) {
-            setDetailActionError({
-              messageId: message.message_id,
-              operation: "read",
-              key: "error.updateReadState",
-            });
-          }
-        });
-    }
+    enterMessageRoute(message.message_id);
+    markMessageRead(message);
   };
   const refreshMessages = async () => {
     if (!authenticated || sessionLocked || !mailboxSettings) return;
@@ -607,9 +708,8 @@ function AuthenticatedWorkspace({
   const clearMessageSelection = (restoreFocus = false) => {
     const messageId = selectedMessageId;
     detailRequests.current.invalidate();
-    openedMessageIdRef.current = undefined;
     selectedMessageIdRef.current = undefined;
-    setOpenedMessageId(undefined);
+    leaveMessageRoute();
     setSelected(undefined);
     setDetail(undefined);
     setDetailLoadError(undefined);
@@ -621,13 +721,14 @@ function AuthenticatedWorkspace({
   const closeMessageDetail = (restoreFocus = false) => {
     const messageId = selectedMessageId;
     detailRequests.current.invalidate();
-    openedMessageIdRef.current = undefined;
-    setOpenedMessageId(undefined);
+    leaveMessageRoute();
     setDetail(undefined);
     setDetailLoadError(undefined);
     setDetailActionError(undefined);
-    if (restoreFocus && messageId) {
-      window.requestAnimationFrame(() => messageButtons.current.get(messageId)?.focus());
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => {
+        (messageId ? messageButtons.current.get(messageId) : inboxHeading.current)?.focus();
+      });
     }
   };
   const switchView = (nextView: MailView) => {
@@ -1318,8 +1419,6 @@ function AuthenticatedWorkspace({
   };
   return (
     <MailWorkspaceShell
-      messageOpen={mailView === "inbox" && Boolean(openedMessage)}
-      directoryView={mailView !== "inbox"}
       sessionLocked={sessionLocked}
       topbar={(
         <MailTopbar
@@ -1346,24 +1445,7 @@ function AuthenticatedWorkspace({
         </>
       )}
       content={mailView === "inbox" ? (
-        <>
-          <MessageList
-            activeSearch={activeSearch}
-            error={error ? t(error) : undefined}
-            headingRef={inboxHeading}
-            locale={locale}
-            page={page}
-            searchBusy={searchBusy}
-            searchText={searchText}
-            selectedMessageId={selectedMessageId}
-            t={t}
-            onLoadMore={() => void loadMore()}
-            onOpenMessage={openMessage}
-            onRefresh={() => void refreshMessages()}
-            onSearch={() => void submitSearch()}
-            onToggleFlag={requestFlagUpdate}
-            messageButtonRef={registerMessageButton}
-          />
+        openedMessageId ? (
           <MessageDetailView
             actionError={detailActionError && detailActionError.messageId === openedMessageId
               ? t(detailActionError.key)
@@ -1382,7 +1464,26 @@ function AuthenticatedWorkspace({
             onRetry={retryMessageDetail}
             onToggleFlag={toggleFlag}
           />
-        </>
+        ) : (
+          <MessageList
+            activeSearch={activeSearch}
+            error={error ? t(error) : undefined}
+            headingRef={inboxHeading}
+            locale={locale}
+            page={page}
+            scrollerRef={restoreListScroll}
+            searchBusy={searchBusy}
+            searchText={searchText}
+            selectedMessageId={selectedMessageId}
+            t={t}
+            onLoadMore={() => void loadMore()}
+            onOpenMessage={openMessage}
+            onRefresh={() => void refreshMessages()}
+            onSearch={() => void submitSearch()}
+            onToggleFlag={requestFlagUpdate}
+            messageButtonRef={registerMessageButton}
+          />
+        )
       ) : mailView === "drafts" ? (
         <DraftList
           draftButtonRef={registerDraftButton}

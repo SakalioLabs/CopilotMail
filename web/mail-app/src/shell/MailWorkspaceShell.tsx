@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
 
 interface MailWorkspaceShellProps {
-  messageOpen: boolean;
-  directoryView: boolean;
   sessionLocked: boolean;
   topbar: ReactNode;
   navigation: ReactNode;
@@ -18,8 +16,6 @@ interface MailWorkspaceShellProps {
  * all state transitions remain with the authenticated workspace controller.
  */
 export function MailWorkspaceShell({
-  messageOpen,
-  directoryView,
   sessionLocked,
   topbar,
   navigation,
@@ -28,11 +24,7 @@ export function MailWorkspaceShell({
 }: MailWorkspaceShellProps) {
   return (
     <main
-      className={[
-        "mail-shell",
-        messageOpen ? "message-open" : "",
-        directoryView ? "mail-shell--directory" : "",
-      ].filter(Boolean).join(" ")}
+      className="mail-shell"
       aria-busy={sessionLocked || undefined}
       data-dialog-background
       inert={sessionLocked || undefined}

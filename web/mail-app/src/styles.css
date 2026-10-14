@@ -150,13 +150,13 @@ body,
 .mail-shell {
   display: grid;
   /*
-   * Gmail-style workspace: a persistent top bar over a navigation rail, a
-   * scan queue, and a reading column. The reading column has a real lower
-   * bound; narrower widths fall back to the list-detail stack instead of
-   * making the third column look present while becoming unreadable.
+   * A persistent top bar over a navigation rail and a single content column.
+   * The inbox list is full width; opening a message routes to a full-page
+   * detail view that replaces it (…#/message/<id>), so both surfaces share
+   * the same slot at every width.
    */
   --mail-rail: 264px;
-  grid-template-columns: var(--mail-rail) minmax(300px, 1fr) minmax(460px, 1.6fr);
+  grid-template-columns: var(--mail-rail) minmax(0, 1fr);
   grid-template-rows: 64px minmax(0, 1fr);
   width: 100%;
   height: 100vh;
@@ -164,10 +164,6 @@ body,
   min-height: 0;
   overflow: hidden;
   background: var(--cm-canvas);
-}
-
-.mail-shell--directory {
-  grid-template-columns: var(--mail-rail) minmax(0, 1fr);
 }
 
 /* Top bar ------------------------------------------------------------- */
@@ -454,7 +450,7 @@ body,
 .compose:focus-visible,
 .compose-fab:focus-visible { box-shadow: var(--cm-focus-ring); transition-property: transform; }
 
-.detail-back { display: none; }
+.detail-back { display: inline-flex; align-items: center; margin: 0 0 18px; }
 
 .command-trigger {
   display: grid;
@@ -673,16 +669,12 @@ body,
   grid-column: 2;
   grid-row: 2;
   flex-direction: column;
-  margin: 0 var(--cm-space-1) var(--cm-space-3) 0;
+  margin: 0 var(--cm-space-4) var(--cm-space-3) var(--cm-space-2);
   overflow: hidden;
   border: 1px solid var(--cm-line);
   border-radius: var(--cm-radius-panel);
   background: var(--cm-surface);
   box-shadow: var(--cm-shadow-1);
-}
-
-.mail-shell--directory .inbox {
-  margin-right: var(--cm-space-4);
 }
 
 .inbox-header {
@@ -712,6 +704,7 @@ body,
 .messages {
   min-height: 0;
   flex: 1 1 auto;
+  padding-bottom: calc(56px + var(--cm-space-5) + env(safe-area-inset-bottom) + var(--cm-space-3));
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -943,10 +936,11 @@ body,
 .detail {
   min-width: 0;
   min-height: 0;
-  grid-column: 3;
+  grid-column: 2;
   grid-row: 2;
-  margin: 0 var(--cm-space-4) var(--cm-space-4) var(--cm-space-2);
+  margin: 0 var(--cm-space-4) var(--cm-space-3) var(--cm-space-2);
   padding: clamp(28px, 4vw, 52px);
+  padding-bottom: calc(56px + var(--cm-space-5) + env(safe-area-inset-bottom) + var(--cm-space-3));
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -956,7 +950,11 @@ body,
   box-shadow: var(--cm-shadow-1);
 }
 
-.detail > div { width: min(100%, 760px); }
+/* A centered reading column inside the full-width detail surface. */
+.detail > div {
+  width: min(100%, 760px);
+  margin-inline: auto;
+}
 
 .reading-header,
 .error--actionable > span,
@@ -983,8 +981,7 @@ body,
 
 /* Empty and error surfaces reuse the shared .empty-state and .button chrome;
    Mail keeps only the container hooks its tests and layouts reference. */
-.empty.empty-state,
-.empty-detail.empty-state {
+.empty.empty-state {
   min-height: 100%;
 }
 
@@ -1244,14 +1241,12 @@ body,
 }
 
 /*
- * Below the mathematically viable three-column width, the rail collapses into
- * the top bar's drawer and the workspace uses the explicit list-detail stack.
- * This keeps disclosure, focus return, and touch targets coherent with the
- * controller's `narrowViewport` decision.
+ * Below the rail-plus-content width, the rail collapses into the top bar's
+ * drawer. The routed list/detail swap stays identical; only the grid column
+ * the content occupies changes.
  */
 @media (max-width: 1007px) {
-  .mail-shell,
-  .mail-shell--directory {
+  .mail-shell {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 64px minmax(0, 1fr);
   }
@@ -1267,23 +1262,11 @@ body,
   .mail-shell > .detail {
     grid-column: 1;
     grid-row: 2;
-  }
-
-  .mail-shell > .inbox {
     margin: 0 var(--cm-space-3) var(--cm-space-3);
   }
 
-  .mail-shell > .detail {
-    display: none;
-    margin: 0 var(--cm-space-3) var(--cm-space-3);
-  }
-
-  .mail-shell.message-open > .inbox { display: none; }
-  .mail-shell.message-open > .detail { display: block; }
-
-  .detail { padding: 22px clamp(18px, 5vw, 40px) 40px; }
-  .detail > div { margin-inline: auto; }
-  .detail-back { display: inline-flex; min-width: var(--mail-touch); min-height: var(--mail-touch); margin: 0 0 18px; }
+  .detail { padding: 22px clamp(18px, 5vw, 40px) calc(56px + var(--cm-space-5) + env(safe-area-inset-bottom)); }
+  .detail-back { min-width: var(--mail-touch); min-height: var(--mail-touch); }
 
   .mail-topbar .icon-button,
   .inbox-header .inbox-refresh,
@@ -1369,7 +1352,7 @@ body,
   .inbox h1 { font-size: 1.16rem; }
   .message__sender { flex-basis: clamp(84px, 30%, 140px); }
   .message { gap: var(--cm-space-2); padding-right: var(--cm-space-3); }
-  .detail { padding: 18px 16px max(32px, env(safe-area-inset-bottom)); }
+  .detail { padding: 18px 16px calc(56px + var(--cm-space-5) + env(safe-area-inset-bottom)); }
   .dialog-layer { align-items: stretch; justify-items: stretch; padding: 0; }
   .composer, .dialog-layer > .composer { position: fixed; width: 100%; height: 100dvh; max-height: none; inset: 0; border: 0; border-radius: 0; }
   .composer label { grid-template-columns: 62px minmax(0, 1fr); }

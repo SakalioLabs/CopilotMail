@@ -17,6 +17,8 @@ interface MessageListProps {
   headingRef?: RefObject<HTMLHeadingElement | null>;
   locale: Locale;
   page?: InboxPage;
+  /** Callback ref on the scrollable queue; used to restore scroll on return. */
+  scrollerRef?: RefCallback<HTMLDivElement>;
   searchBusy: boolean;
   searchText: string;
   selectedMessageId?: string;
@@ -35,6 +37,7 @@ export function MessageList({
   headingRef,
   locale,
   page,
+  scrollerRef,
   searchBusy,
   searchText,
   selectedMessageId,
@@ -87,7 +90,7 @@ export function MessageList({
           )}
         </div>
       )}
-      <div className="messages" aria-busy={inboxBusy || undefined}>
+      <div ref={scrollerRef} className="messages" aria-busy={inboxBusy || undefined}>
         {page?.items.map((message) => (
           <MessageQueueItem
             key={message.message_id}

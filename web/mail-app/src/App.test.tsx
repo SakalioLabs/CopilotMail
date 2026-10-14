@@ -213,6 +213,7 @@ beforeEach(() => {
   localStorage.clear();
   localStorage.setItem(LOCALE_STORAGE_KEY, "zh-CN");
   document.documentElement.lang = "";
+  window.history.replaceState(null, "", "/");
   window.__COPILOTMAIL_MAIL_CONFIG__ = {
     apiBaseUrl: "",
     mailboxId: "019b0000-0000-7000-8000-000000000020",
@@ -240,6 +241,7 @@ afterEach(() => {
   cleanup();
   document.body.replaceChildren();
   localStorage.clear();
+  window.history.replaceState(null, "", "/");
   vi.clearAllMocks();
 });
 
@@ -744,18 +746,19 @@ describe("human mail application shell", () => {
     fireEvent.click(messageButton);
 
     await waitFor(() => {
-      expect(container.querySelector(".mail-shell")).toHaveClass("message-open");
+      expect(window.location.hash).toBe(`#/message/${message.message_id}`);
       expect(screen.getByRole("heading", { name: "Quarterly review" }))
         .toHaveFocus();
     });
     expect(await screen.findByText("The safe plain-text message body."))
       .toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Alice/ })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /返回收件箱/ }));
 
     await waitFor(() => {
-      expect(container.querySelector(".mail-shell")).not.toHaveClass("message-open");
-      expect(messageButton).toHaveFocus();
+      expect(window.location.hash).toBe("#/");
+      expect(screen.getByRole("button", { name: /Alice/ })).toHaveFocus();
     });
   });
 
@@ -1390,7 +1393,10 @@ describe("human mail application shell", () => {
       await flushMicrotasks();
     });
     expect(within(detailPane).getByRole("button", { name: "Remove star" })).toBeInTheDocument();
-    expect(container.querySelector(".message")).not.toHaveClass("unread");
+    fireEvent.click(within(detailPane).getByRole("button", { name: "Back to inbox" }));
+    const listRow = await screen.findByRole("button", { name: /Alice/ });
+    await waitFor(() => expect(listRow).not.toHaveClass("unread"));
+    expect(within(listRow).getByText("Starred")).toBeInTheDocument();
   });
 
   it("does not let the initial inbox response overwrite a newer search", async () => {
@@ -1462,7 +1468,12 @@ describe("human mail application shell", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /Quarterly review/ }));
     expect(await screen.findByText(detail.text_body)).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    // The routed detail replaces the list surface, so the list refresh
+    // control is unmounted; refresh the inbox through the command palette.
+    fireEvent.keyDown(document, { key: "k", ctrlKey: true });
+    const refreshCommand = await screen.findByRole("combobox", { name: "Search commands" });
+    fireEvent.change(refreshCommand, { target: { value: "refresh current" } });
+    fireEvent.keyDown(refreshCommand, { key: "Enter" });
 
     expect(await screen.findByRole("heading", {
       name: "Quarterly review — updated",
@@ -1504,13 +1515,18 @@ describe("human mail application shell", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /Quarterly review/ }));
     expect(await screen.findByText(detail.text_body)).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    // The routed detail replaces the list surface, so refresh the inbox
+    // through the command palette while the detail stays open.
+    fireEvent.keyDown(document, { key: "k", ctrlKey: true });
+    const refreshCommand = await screen.findByRole("combobox", { name: "Search commands" });
+    fireEvent.change(refreshCommand, { target: { value: "refresh current" } });
+    fireEvent.keyDown(refreshCommand, { key: "Enter" });
 
     const fallback = await screen.findByRole("button", { name: /Roadmap after refresh/ });
     await waitFor(() => expect(fallback).toHaveAttribute("aria-current", "true"));
     await waitFor(() => expect(fallback).toHaveFocus());
     expect(screen.queryByText(detail.text_body)).not.toBeInTheDocument();
-    expect(container.querySelector(".mail-shell")).not.toHaveClass("message-open");
+    expect(window.location.hash).toBe("#/");
 
     fireEvent.keyDown(document, { key: "Enter" });
     expect(await screen.findByText("The surviving message body.")).toBeVisible();
@@ -1631,9 +1647,9 @@ describe("human mail application shell", () => {
     const { container } = render(<App />);
 
     const row = await screen.findByRole("button", { name: /Quarterly review/ });
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
     fireEvent.click(row);
     await screen.findByText("The safe plain-text message body.");
-    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
     fireEvent.click(within(container.querySelector<HTMLElement>(".detail")!)
       .getByRole("button", { name: "Add star" }));
     await waitFor(() => expect(api.updateMessageState).toHaveBeenCalledWith(
@@ -1641,6 +1657,7 @@ describe("human mail application shell", () => {
       message.message_id,
       { is_flagged: true },
     ));
+    fireEvent.click(screen.getByRole("button", { name: "Back to inbox" }));
 
     await act(async () => {
       more.resolve({ items: [olderMessage], next_cursor: null, has_more: false });
@@ -1648,7 +1665,8 @@ describe("human mail application shell", () => {
     });
 
     expect(await screen.findByText("Older message remains appended")).toBeInTheDocument();
-    expect(within(row).getByText("Starred")).toBeInTheDocument();
+    const listRow = await screen.findByRole("button", { name: /Quarterly review/ });
+    expect(within(listRow).getByText("Starred")).toBeInTheDocument();
   });
 
   it("fails closed without changing the inbox when a later page repeats an identity", async () => {
@@ -2372,9 +2390,11 @@ describe("human mail application shell", () => {
 
     act(() => window.dispatchEvent(new Event("focus")));
     await waitFor(() => expect(auth.loadSession).toHaveBeenCalledTimes(2));
-    await screen.findByRole("heading", { name: "Inbox" });
     await waitFor(() => expect(api.listMailboxes).toHaveBeenCalledTimes(2));
-    expect(screen.queryByText(detail.text_body)).not.toBeInTheDocument();
+    // The detail URL is the source of truth: the rebuilt workspace re-fetches
+    // the routed message instead of leaking the rotated session's state.
+    await waitFor(() => expect(api.getMessage).toHaveBeenCalledTimes(2));
+    await screen.findByText(detail.text_body);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
     fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .compose")!);

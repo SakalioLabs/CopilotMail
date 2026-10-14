@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { EmptyState, Icon, SelectMessageArt } from "@copilotmail/design-system";
+import { Icon } from "@copilotmail/design-system";
 import type { Locale, Translator } from "../i18n";
 import { formatKilobytes } from "../i18n";
 import type { MessageDetail as MessageDetailValue, MessageSummary } from "../types";
@@ -36,12 +36,12 @@ export function MessageDetail({
 }: MessageDetailProps) {
   return (
     <section className="detail" data-dialog-background>
-      {selected ? (
-        <div className="reading">
-          <button className="button button--secondary detail-back" onClick={onBack}>
-            <Icon aria-hidden name="arrow-left" size={17} />
-            {t("detail.backToInbox")}
-          </button>
+      <div className="reading">
+        <button className="button button--secondary detail-back" onClick={onBack}>
+          <Icon aria-hidden name="arrow-left" size={17} />
+          {t("detail.backToInbox")}
+        </button>
+        {selected && (
           <MessageReadingHeader
             canReply={canReply}
             detail={detail}
@@ -52,52 +52,44 @@ export function MessageDetail({
             onReply={onReply}
             onToggleFlag={onToggleFlag}
           />
-          {actionError && <p className="detail-action-error" role="alert">{actionError}</p>}
-          {loadError ? (
-            <div className="detail-load-error">
-              <p role="alert">{loadError}</p>
-              <button className="button button--secondary" type="button" onClick={onRetry}>{t("detail.retry")}</button>
+        )}
+        {actionError && <p className="detail-action-error" role="alert">{actionError}</p>}
+        {loadError ? (
+          <div className="detail-load-error">
+            <p role="alert">{loadError}</p>
+            <button className="button button--secondary" type="button" onClick={onRetry}>{t("detail.retry")}</button>
+          </div>
+        ) : !detail ? (
+          <p className="detail-preview" role="status" aria-live="polite">
+            {t("detail.loading")}
+          </p>
+        ) : (
+          <>
+            <div className="detail-body">
+              {detail.text_body || t("detail.noSafeText")}
             </div>
-          ) : !detail ? (
-            <p className="detail-preview" role="status" aria-live="polite">
-              {t("detail.loading")}
-            </p>
-          ) : (
-            <>
-              <div className="detail-body">
-                {detail.text_body || t("detail.noSafeText")}
-              </div>
-              {detail.text_body_truncated && (
-                <p className="notice">{t("detail.bodyTruncated")}</p>
-              )}
-              {detail.attachments.length > 0 && (
-                <section className="attachments">
-                  <h3>{t("detail.attachments")}</h3>
-                  {detail.attachments.map((item, index) => (
-                    <div key={`${item.name}-${index}`}>
-                      <span>{item.name || t("detail.unnamedAttachment")}</span>
-                      <small>
-                        {t("detail.attachmentMeta", {
-                          mediaType: item.media_type,
-                          size: formatKilobytes(locale, item.size_bytes),
-                        })}
-                      </small>
-                    </div>
-                  ))}
-                </section>
-              )}
-            </>
-          )}
-        </div>
-      ) : (
-        <EmptyState
-          art={<SelectMessageArt />}
-          className="empty-detail"
-          headingLevel={2}
-          title={t("detail.selectMessage")}
-          description={t("detail.selectMessageHint")}
-        />
-      )}
+            {detail.text_body_truncated && (
+              <p className="notice">{t("detail.bodyTruncated")}</p>
+            )}
+            {detail.attachments.length > 0 && (
+              <section className="attachments">
+                <h3>{t("detail.attachments")}</h3>
+                {detail.attachments.map((item, index) => (
+                  <div key={`${item.name}-${index}`}>
+                    <span>{item.name || t("detail.unnamedAttachment")}</span>
+                    <small>
+                      {t("detail.attachmentMeta", {
+                        mediaType: item.media_type,
+                        size: formatKilobytes(locale, item.size_bytes),
+                      })}
+                    </small>
+                  </div>
+                ))}
+              </section>
+            )}
+          </>
+        )}
+      </div>
     </section>
   );
 }
