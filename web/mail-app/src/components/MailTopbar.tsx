@@ -1,5 +1,5 @@
 import type { FormEvent, RefObject } from "react";
-import { BrandMark, CloseIcon, Icon, IconButton, MenuIcon, SearchIcon } from "@copilotmail/design-system";
+import { CloseIcon, Icon, IconButton, MenuIcon, SearchIcon } from "@copilotmail/design-system";
 import type { Locale, Translator } from "../i18n";
 import { LanguagePicker } from "./LanguagePicker";
 
@@ -56,7 +56,10 @@ export function MailTopbar({
           label={t("nav.openMenu")}
           onClick={onOpenMenu}
         />
-        <span className="app-wordmark"><BrandMark />{t("app.name")}</span>
+        <span className="app-wordmark">
+          <b className="app-wordmark__name">{t("app.name")}</b>
+          <small>{t("app.tagline")}</small>
+        </span>
       </div>
       <form className="mail-search search-omnibox" role="search" onSubmit={submit}>
         <IconButton

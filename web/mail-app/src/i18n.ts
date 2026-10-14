@@ -6,7 +6,8 @@ export const LOCALE_STORAGE_KEY = "copilotmail.mail.locale.v1";
 export const TRANSLATION_FALLBACK = "—";
 
 const zhCN = {
-  "app.name": "CopilotMail",
+  "app.name": "IMail",
+  "app.tagline": "智能邮箱",
   "common.emptyValue": "—",
   "common.retry": "重试",
   "common.recipientSeparator": "、",
@@ -260,7 +261,8 @@ const zhCN = {
 export type MessageKey = keyof typeof zhCN;
 
 const en = {
-  "app.name": "CopilotMail",
+  "app.name": "IMail",
+  "app.tagline": "Smart Mail",
   "common.emptyValue": "—",
   "common.retry": "Retry",
   "common.recipientSeparator": ", ",

@@ -191,6 +191,13 @@ body,
   flex: 0 0 auto;
 }
 
+/* Text-only wordmark: the product name carries the weight, the tagline stays
+   quiet metadata (shared `.app-wordmark small` styling). */
+.mail-topbar .app-wordmark__name {
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
 .mail-search {
   min-width: 120px;
 }

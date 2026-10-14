@@ -66,7 +66,7 @@ test.describe("Mail access entry", () => {
       exact: true,
     });
     await expect(access).toBeVisible();
-    await expect(access.getByRole("heading", { name: "CopilotMail", exact: true })).toBeVisible();
+    await expect(access.getByRole("heading", { name: "IMail", exact: true })).toBeVisible();
     await expect(access.locator(".mail-access__visual img")).toHaveAttribute("alt", "");
     await expect(page.locator("[data-mail-access='directory']")).toHaveCount(0);
     await expect(page.locator(".mail-shell")).toHaveCount(0);
