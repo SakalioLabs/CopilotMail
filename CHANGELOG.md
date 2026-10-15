@@ -89,6 +89,12 @@ implementation evidence remains in
 
 ### Changed
 
+- Human Mail's "current mailbox" rail section is removed: mailbox switching,
+  the active mailbox's kind badge, and its server sendability now live inside
+  the bottom-left identity card's account menu as grouped radio rows, keeping
+  the same directory facts and keyboard/ARIA semantics without a permanent
+  sidebar block.
+
 - Both Web applications now share one control grammar: button variants, the
   `.control` input/select chrome, icon buttons, the search omnibox, nav
   items, and `EmptyState` read Material-style state-layer, geometry,

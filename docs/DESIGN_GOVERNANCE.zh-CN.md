@@ -70,13 +70,13 @@ Web Vitest 共 428 条（共享设计系统 19、Admin 217、Mail 192），Chrom
   精确请求重放，以及搜索专用无结果、详情 `503` 原位重试、草稿恢复 `409` 冲突，均有
   对应状态契约；真实 `manual_review` 还锁定精确 Submission UUID 与写信内容，关闭只隐藏
   证据、重新打开仍恢复同一冻结上下文，并只在该真实状态显示登记的 Image 2 人工复核素材；
-- Mail 邮箱选择器按 Human、Agent、Shared、Group 四类真实 `optgroup` 分组；切换到 Agent
+- Mail 邮箱切换收纳在身份卡片账户菜单中，按 Human、Agent、Shared、Group 四类真实 `role="group"` + `menuitemradio` 分组并标记当前项；切换到 Agent
   后，身份、地址与后续收件箱请求精确绑定所选邮箱；已有本地编辑内容时恢复草稿必须先
   确认覆盖，首次 `409` 后刷新到 metadata v5，再只用该精确版本执行 CAS 恢复；
 - Mail 的 `/`、`c`、`j`/`k`、`Enter`、`Escape`、`r`、`s`、`g i`/`g d`/`g s`
   完整首批键盘路径，以及 Admin 查询/刷新与焦点保持；
 - D4A Mail 在 1084/1083/1008/1007px 的 rail、Queue、Reading 与列表—详情切换几何；移动
-  Scope 关闭态仍显示实际地址、身份和可发送性，展开后才显示邮箱、语言和退出控件，且不发起
+  抽屉通过身份卡片账户菜单提供邮箱切换、语言与退出入口，未展开菜单时不发起
   详情预取；
 - D4B Queue 在 1440/1008/390px 下的真实扫描层级、未读非色彩线索和无横向溢出；`j`/`k`
   不产生详情读取或状态写入，Reading 的真实元数据与既有动作行位于安全正文之前；
@@ -228,7 +228,7 @@ Gmail 风格外壳，仅表现层与布局改动，API 调用、权限、审计�
   `-snappy`(240ms) 为 duration+easing 复合令牌。
 - **弹簧应用**：`.button`/`.icon-button` 按下 `scale(0.97/0.9)` 回弹（transition 的
   transform 通道用 snappy 弹簧，其余通道仍走 `--cm-motion-interactive`）；
-  `.evidence-inspector`/`mobile-mailbox-scope` 的展开箭头用 snappy 旋转；
+  `.evidence-inspector` 的展开箭头用 snappy 旋转；
   浮层 `.dialog`、Mail 撰写窗 `.composer`、Admin `.toast` 用
   `@keyframes cm-surface-in`（位移 10px + 轻微缩放 + 淡入，gentle 弹簧）；Admin 侧栏
   抽屉用 `cm-drawer-in`（translateX(-14px)，gentle）。

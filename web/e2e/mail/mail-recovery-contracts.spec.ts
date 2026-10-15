@@ -64,31 +64,39 @@ test.describe("Mail grouped mailbox directory", () => {
     await page.setViewportSize(DESKTOP);
     await mailApp.goto();
 
-    const selector = page.locator(".sidebar")
-      .getByRole("combobox", { name: "Switch mailbox", exact: true });
-    await expect(selector.locator("optgroup")).toHaveCount(4);
-    await expect.poll(() => selector.locator("optgroup").evaluateAll((groups) =>
-      groups.map((group) => group.getAttribute("label"))))
+    const card = page.locator(".sidebar .identity-card");
+    await card.click();
+    const menu = page.getByRole("menu", { name: "Account", exact: true });
+    const section = menu.getByRole("group", { name: "Switch mailbox", exact: true });
+    const groups = section.getByRole("group");
+    await expect(groups).toHaveCount(4);
+    await expect.poll(() => groups.evaluateAll((items) =>
+      items.map((group) => group.getAttribute("aria-label"))))
       .toEqual([
         "Human mailboxes",
         "Agent mailboxes",
         "Shared mailboxes",
         "Group mailboxes",
       ]);
-    await expect(selector.locator("option")).toHaveCount(4);
+    await expect(section.getByRole("menuitemradio")).toHaveCount(4);
 
     const agentMailbox = GROUPED_MAILBOXES[1];
     const switchedInbox = page.waitForResponse((response) =>
       response.request().method() === "GET"
         && new URL(response.url()).pathname
           === `/api/v2/mailboxes/${agentMailbox.mailbox_id}/messages`);
-    await selector.selectOption(agentMailbox.mailbox_id);
+    await section.getByRole("menuitemradio", {
+      name: agentMailbox.primary_address,
+      exact: true,
+    }).click();
     await switchedInbox;
-    await expect(selector).toHaveValue(agentMailbox.mailbox_id);
-    await expect(page.locator(".sidebar .mailbox-identity"))
-      .toContainText("triage-agent@copilotmail.test");
-    await expect(page.locator(".sidebar .mailbox-identity"))
-      .toContainText("Agent");
+    await expect(card.locator(".identity-card__email"))
+      .toHaveText(agentMailbox.primary_address);
+    await card.click();
+    const switchedSection = page.getByRole("menu", { name: "Account", exact: true })
+      .getByRole("group", { name: "Switch mailbox", exact: true });
+    await expect(switchedSection).toContainText("Agent");
+    await expect(switchedSection).toContainText("Can send email");
     await expect.poll(() => fixture.state.inboxMailboxIds.at(-1))
       .toBe(agentMailbox.mailbox_id);
 

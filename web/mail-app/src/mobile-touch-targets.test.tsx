@@ -2,7 +2,7 @@
 /// <reference types="vite/client" />
 
 import { createRef } from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import detailStyles from "./detail.css?raw";
 import searchStyles from "./search.css?raw";
@@ -78,18 +78,12 @@ describe("mobile touch target contract", () => {
     expect(selectorRule(mobileMailStyles, ".compose-fab")).toContain(
       "min-height: var(--mail-touch);",
     );
-    // Drawer scope chrome keeps its 44px floor as base styles because the
-    // drawer only ever opens below the mobile breakpoint.
-    expect(selectorRule(mailStyles, ".mobile-mailbox-scope__summary {")).toContain(
-      "min-height: var(--mail-touch);",
-    );
+    // Drawer menus keep their 44px floor as base styles because the drawer
+    // only ever opens below the mobile breakpoint.
     expect(selectorRule(mobileMailStyles, ".mail-nav-drawer button")).toContain(
       "min-height: var(--mail-touch);",
     );
-    expect(selectorRule(mailStyles, ".mobile-mailbox-picker select")).toContain(
-      "min-width: var(--mail-touch);",
-    );
-    expect(selectorRule(mailStyles, ".mobile-mailbox-picker select")).toContain(
+    expect(selectorRule(mailStyles, ".mail-nav-drawer .identity-menu__item")).toContain(
       "min-height: var(--mail-touch);",
     );
     // .identity-card shares its interactive chrome with .command-trigger in a
@@ -194,10 +188,11 @@ describe("mobile touch target contract", () => {
     );
 
     const drawer = screen.getByRole("dialog", { name: "Mail navigation" });
-    expect(drawer.querySelector<HTMLSelectElement>(".mobile-mailbox-picker select"))
-      .toHaveAccessibleName("Switch mailbox");
-    expect(within(drawer).getByRole("button", { name: /reader@example\.test/ }))
-      .toHaveClass("identity-card");
+    const identityCard = within(drawer).getByRole("button", { name: /reader@example\.test/ });
+    fireEvent.click(identityCard);
+    expect(within(drawer).getByRole("group", { name: "Switch mailbox" })
+      .querySelector("[role='menuitemradio']")).toBeInTheDocument();
+    expect(identityCard).toHaveClass("identity-card");
     expect(document.querySelector<HTMLButtonElement>(".compose-fab"))
       .toBeInstanceOf(HTMLButtonElement);
     expect(within(drawer).getByRole("button", { name: "Open command palette" }))

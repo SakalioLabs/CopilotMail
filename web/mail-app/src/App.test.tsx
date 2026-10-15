@@ -193,6 +193,11 @@ function composerIdentity(dialog: HTMLElement) {
   });
 }
 
+function switchMailboxViaMenu(sidebar: HTMLElement, address: string) {
+  fireEvent.click(sidebar.querySelector<HTMLButtonElement>(".identity-card")!);
+  fireEvent.click(within(sidebar).getByRole("menuitemradio", { name: address }));
+}
+
 function setNarrowViewport(narrow: boolean) {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
@@ -386,9 +391,7 @@ describe("human mail application shell", () => {
     await waitFor(() => expect(api.listSentSubmissions).toHaveBeenCalledTimes(1));
     const signal = vi.mocked(api.listSentSubmissions).mock.calls[0]?.[2];
 
-    fireEvent.change(within(sidebar).getByRole("combobox", { name: "Switch mailbox" }), {
-      target: { value: secondaryMailbox.mailbox_id },
-    });
+    switchMailboxViaMenu(sidebar, secondaryMailbox.primary_address);
 
     expect(signal?.aborted).toBe(true);
     await act(async () => {
@@ -436,30 +439,31 @@ describe("human mail application shell", () => {
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
     const sidebar = container.querySelector<HTMLElement>(".sidebar")!;
-    const mailboxSelect = within(sidebar).getByRole("combobox", { name: "Switch mailbox" });
 
     fireEvent.click(screen.getByRole("button", { name: "Compose" }));
     fireEvent.change(screen.getByLabelText("Message body"), {
       target: { value: "Local content that has no recipient and cannot autosave" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Close composer" }));
-    fireEvent.change(mailboxSelect, { target: { value: secondMailbox.mailbox_id } });
+    switchMailboxViaMenu(sidebar, secondMailbox.primary_address);
 
     const warning = await screen.findByRole("alertdialog", {
       name: "Leave the current writing context?",
     });
     expect(within(warning).getByRole("button", { name: "Keep editing" })).toHaveFocus();
     fireEvent.click(within(warning).getByRole("button", { name: "Keep editing" }));
-    expect(mailboxSelect).toHaveValue(mailboxDirectory.items[0].mailbox_id);
+    expect(sidebar.querySelector(".identity-card__email"))
+      .toHaveTextContent(mailboxDirectory.items[0].primary_address);
     const reopenedComposer = await screen.findByRole("dialog", { name: "New message" });
     expect(within(reopenedComposer).getByLabelText("Message body"))
       .toHaveValue("Local content that has no recipient and cannot autosave");
     await waitFor(() => expect(within(reopenedComposer).getByLabelText("To")).toHaveFocus());
     fireEvent.click(screen.getByRole("button", { name: "Close composer" }));
 
-    fireEvent.change(mailboxSelect, { target: { value: secondMailbox.mailbox_id } });
+    switchMailboxViaMenu(sidebar, secondMailbox.primary_address);
     fireEvent.click(await screen.findByRole("button", { name: "Leave and continue" }));
-    await waitFor(() => expect(mailboxSelect).toHaveValue(secondMailbox.mailbox_id));
+    await waitFor(() => expect(sidebar.querySelector(".identity-card__email"))
+      .toHaveTextContent(secondMailbox.primary_address));
     fireEvent.click(screen.getByRole("button", { name: "Compose" }));
     expect(screen.getByLabelText("Message body")).toHaveValue("");
   });
@@ -724,9 +728,7 @@ describe("human mail application shell", () => {
     vi.mocked(api.restoreDraft).mockReset().mockReturnValueOnce(lateRestore.promise);
     fireEvent.click(await screen.findByRole("button", { name: /Resume editing/ }));
     const restoreSignal = vi.mocked(api.restoreDraft).mock.calls[0]?.[2];
-    fireEvent.change(within(sidebar).getByRole("combobox", { name: "Switch mailbox" }), {
-      target: { value: secondMailbox.mailbox_id },
-    });
+    switchMailboxViaMenu(sidebar, secondMailbox.primary_address);
     expect(restoreSignal?.aborted).toBe(true);
     await act(async () => {
       lateRestore.resolve({ ...restoredDraft, subject: "Wrong mailbox content" });
@@ -771,9 +773,6 @@ describe("human mail application shell", () => {
 
     fireEvent.click(container.querySelector<HTMLButtonElement>(".mail-topbar__menu")!);
     const drawer = await screen.findByRole("dialog", { name: "邮件导航" });
-    fireEvent.click(drawer.querySelector<HTMLElement>(".mobile-mailbox-scope summary")!);
-    expect(drawer.querySelector(".mobile-mailbox-picker select"))
-      .toHaveAccessibleName("切换邮箱");
 
     const identityCard = within(drawer).getByRole("button", { name: /reader@example\.com/ });
     expect(identityCard).toHaveClass("identity-card");
@@ -1151,11 +1150,12 @@ describe("human mail application shell", () => {
     const originalKey = vi.mocked(api.requestSubmission).mock.calls[0]?.[3];
 
     fireEvent.keyDown(document, { key: "Escape" });
-    const mailboxPicker = container.querySelector<HTMLSelectElement>(
-      ".sidebar .mailbox-picker select",
+    const identityCard = container.querySelector<HTMLButtonElement>(
+      ".sidebar .identity-card",
     )!;
-    expect(mailboxPicker).toBeDisabled();
-    fireEvent.change(mailboxPicker, { target: { value: sharedMailboxId } });
+    expect(identityCard).toBeDisabled();
+    fireEvent.click(identityCard);
+    expect(container.querySelector(".identity-menu")).not.toBeInTheDocument();
     expect(vi.mocked(api.listInbox).mock.calls.at(-1)?.[0].mailboxId).toBe(
       mailboxDirectory.items[0].mailbox_id,
     );
@@ -1204,9 +1204,7 @@ describe("human mail application shell", () => {
     expect(api.saveDraft).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
     fireEvent.keyDown(document, { key: "Escape" });
-    fireEvent.change(container.querySelector<HTMLSelectElement>(".sidebar .mailbox-picker select")!, {
-      target: { value: "019b0000-0000-7000-8000-000000000021" },
-    });
+    switchMailboxViaMenu(container.querySelector<HTMLElement>(".sidebar")!, "support@example.com");
     fireEvent.click(await screen.findByRole("button", { name: "Leave and continue" }));
     await waitFor(() => expect(vi.mocked(api.listInbox).mock.calls.at(-1)?.[0].mailboxId)
       .toBe("019b0000-0000-7000-8000-000000000021"));
@@ -1258,11 +1256,12 @@ describe("human mail application shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await waitFor(() => expect(api.requestSubmission).toHaveBeenCalledTimes(1));
 
-    const mailboxPicker = container.querySelector<HTMLSelectElement>(
-      ".sidebar .mailbox-picker select",
+    const identityCard = container.querySelector<HTMLButtonElement>(
+      ".sidebar .identity-card",
     )!;
-    expect(mailboxPicker).toBeDisabled();
-    fireEvent.change(mailboxPicker, { target: { value: sharedMailboxId } });
+    expect(identityCard).toBeDisabled();
+    fireEvent.click(identityCard);
+    expect(container.querySelector(".identity-menu")).not.toBeInTheDocument();
     fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     expect(composerIdentity(screen.getByRole("dialog"))).toHaveTextContent("reader@example.com");
     expect(screen.getByLabelText("To")).toHaveValue("old@example.com");
@@ -1719,12 +1718,13 @@ describe("human mail application shell", () => {
       .mockReturnValueOnce(oldMailboxPage.promise)
       .mockResolvedValueOnce(sharedPage);
 
-    render(<App />);
+    const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
     await waitFor(() => expect(api.listInbox).toHaveBeenCalledTimes(1));
-    fireEvent.change(screen.getAllByRole("combobox", { name: "Switch mailbox" })[0], {
-      target: { value: "019b0000-0000-7000-8000-000000000021" },
-    });
+    switchMailboxViaMenu(
+      container.querySelector<HTMLElement>(".sidebar")!,
+      "support@example.com",
+    );
 
     expect(await screen.findByText("Shared mailbox message")).toBeInTheDocument();
     expect(vi.mocked(api.listInbox).mock.calls[1]?.[0].mailboxId).toBe(
@@ -1789,8 +1789,8 @@ describe("human mail application shell", () => {
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
 
-    expect(container.querySelector<HTMLSelectElement>(".sidebar .mailbox-picker select"))
-      .toHaveValue("019b0000-0000-7000-8000-000000000020");
+    expect(container.querySelector(".sidebar .identity-card__email"))
+      .toHaveTextContent("reader@example.com");
     await waitFor(() => {
       expect(vi.mocked(api.listInbox).mock.calls[0]?.[0].mailboxId).toBe(
         "019b0000-0000-7000-8000-000000000020",
@@ -1855,9 +1855,8 @@ describe("human mail application shell", () => {
     });
 
     await screen.findByRole("heading", { name: "Inbox" });
-    expect(container.querySelector<HTMLSelectElement>(".sidebar .mailbox-picker select")).toHaveValue(
-      "019b0000-0000-7000-8000-000000000022",
-    );
+    expect(container.querySelector(".sidebar .identity-card__email"))
+      .toHaveTextContent("preferred@example.com");
     expect(api.listInbox).toHaveBeenCalledTimes(1);
     expect(vi.mocked(api.listInbox).mock.calls[0]?.[0].mailboxId).toBe(
       "019b0000-0000-7000-8000-000000000022",
@@ -1939,7 +1938,8 @@ describe("human mail application shell", () => {
     expect(vi.mocked(api.listInbox).mock.calls[0]?.[0].mailboxId).toBe(
       "019b0000-0000-7000-8000-000000000020",
     );
-    expect(container.querySelector<HTMLButtonElement>(".sidebar .mailbox-load-more"))
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .identity-card")!);
+    expect(screen.getByRole("menuitem", { name: "Load more mailboxes" }))
       .toHaveAccessibleName("Load more mailboxes");
   });
 
@@ -1962,10 +1962,11 @@ describe("human mail application shell", () => {
 
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Inbox" });
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .identity-card")!);
     expect(screen.getAllByRole("alert")[0]).toHaveTextContent(
       "Unable to load more mailboxes; try again",
     );
-    fireEvent.click(container.querySelector<HTMLButtonElement>(".sidebar .mailbox-load-more")!);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Load more mailboxes" }));
     await waitFor(() => expect(api.listMailboxes).toHaveBeenCalledTimes(3));
     fireEvent.click(container.querySelector<HTMLButtonElement>(".compose-fab")!);
     fireEvent.change(screen.getByLabelText("To"), {
@@ -1991,9 +1992,8 @@ describe("human mail application shell", () => {
 
     expect(screen.getByRole("dialog", { name: "New message" })).toBeInTheDocument();
     expect(screen.getByLabelText("Message body")).toHaveValue("Keep this unsaved draft");
-    expect(container.querySelector<HTMLSelectElement>(".sidebar .mailbox-picker select")).toHaveValue(
-      "019b0000-0000-7000-8000-000000000020",
-    );
+    expect(container.querySelector(".sidebar .identity-card__email"))
+      .toHaveTextContent("reader@example.com");
     expect(composerIdentity(screen.getByRole("dialog"))).toHaveTextContent("reader@example.com");
   });
 
@@ -2210,9 +2210,10 @@ describe("human mail application shell", () => {
     expect(within(drawer).getByRole("button", { name: "Sent" })).toBeDisabled();
     expect(api.listDrafts).not.toHaveBeenCalled();
     expect(api.listSentSubmissions).not.toHaveBeenCalled();
-    // Desktop scope, the mobile disclosure summary, and the disclosure's
-    // expanded factual context all bind the same server-provided boundary.
-    expect(screen.getAllByText("This mailbox is read-only")).toHaveLength(3);
+    // The read-only boundary stays discoverable inside the drawer's account
+    // menu instead of a permanent scope section.
+    fireEvent.click(within(drawer).getByRole("button", { name: /reader@example\.com|@/ }));
+    expect(within(drawer).getAllByText("This mailbox is read-only")).toHaveLength(1);
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(drawer).not.toBeInTheDocument());
     fireEvent.click(await screen.findByRole("button", { name: /Alice/ }));

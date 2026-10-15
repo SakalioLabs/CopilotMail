@@ -183,7 +183,7 @@ test.describe("Mail built-artifact browser contracts", () => {
     }
   });
 
-  test("keeps the mobile scope factual when closed and reveals low-frequency controls only on demand", async ({
+  test("keeps mailbox switching inside the drawer account menu on demand", async ({
     mailApp,
   }) => {
     const { page } = mailApp;
@@ -192,24 +192,20 @@ test.describe("Mail built-artifact browser contracts", () => {
 
     await page.locator(".mail-topbar__menu").click();
     const drawer = page.getByRole("dialog", { name: "Mail navigation" });
-    const scope = drawer.locator(".mobile-mailbox-scope");
-    const summary = scope.locator("summary");
-    await expect(scope).not.toHaveAttribute("open", "");
-    await expect(summary).toContainText("alex.chen@copilotmail.test");
-    await expect(summary).toContainText("Personal");
-    await expect(summary).toContainText("Can send email");
-    await expect(summary.locator("[data-icon='chevron-down']")).toBeVisible();
-    expect(mailApp.fixture.state.detailRequestCount).toBe(0);
-
-    await summary.click();
-
-    await expect(scope).toHaveAttribute("open", "");
-    await expect(scope.getByRole("combobox", { name: "Switch mailbox" })).toBeVisible();
+    await expect(drawer.locator(".mobile-mailbox-scope")).toHaveCount(0);
     const accountCard = drawer.locator(".identity-card");
     await expect(accountCard).toContainText("alex.chen@copilotmail.test");
     await expect(drawer.getByRole("menu")).toHaveCount(0);
+    expect(mailApp.fixture.state.detailRequestCount).toBe(0);
+
     await accountCard.click();
     const accountMenu = drawer.getByRole("menu", { name: "Account" });
+    const section = accountMenu.getByRole("group", { name: "Switch mailbox" });
+    await expect(section).toContainText("Personal");
+    await expect(section).toContainText("Can send email");
+    await expect(section.getByRole("menuitemradio", {
+      name: "alex.chen@copilotmail.test",
+    })).toHaveAttribute("aria-checked", "true");
     await expect(accountMenu.getByRole("menuitem", { name: "Settings" })).toBeVisible();
     await expect(accountMenu.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
     expect(mailApp.fixture.state.detailRequestCount).toBe(0);
@@ -221,7 +217,7 @@ test.describe("Mail built-artifact browser contracts", () => {
     });
   });
 
-  test("keeps the tablet mobile scope factual at its four-column summary breakpoint", async ({
+  test("keeps the tablet account menu factual at the same breakpoint", async ({
     mailApp,
   }) => {
     const { page } = mailApp;
@@ -230,18 +226,14 @@ test.describe("Mail built-artifact browser contracts", () => {
 
     await page.locator(".mail-topbar__menu").click();
     const drawer = page.getByRole("dialog", { name: "Mail navigation" });
-    const scope = drawer.locator(".mobile-mailbox-scope");
-    const summary = scope.locator("summary");
-    await expect(summary).toContainText("alex.chen@copilotmail.test");
-    await expect(summary).toContainText("Personal");
-    await expect(summary).toContainText("Can send email");
-    await summary.click();
-    await expect(scope).toHaveAttribute("open", "");
-    await expect(scope.getByRole("combobox", { name: "Switch mailbox" })).toBeVisible();
+    await expect(drawer.locator(".mobile-mailbox-scope")).toHaveCount(0);
     const accountCard = drawer.locator(".identity-card");
     await expect(accountCard).toContainText("alex.chen@copilotmail.test");
     await accountCard.click();
     const accountMenu = drawer.getByRole("menu", { name: "Account" });
+    const section = accountMenu.getByRole("group", { name: "Switch mailbox" });
+    await expect(section).toContainText("Personal");
+    await expect(section).toContainText("Can send email");
     await expect(accountMenu.getByRole("menuitem", { name: "Settings" })).toBeVisible();
     await expect(accountMenu.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
     expect(mailApp.fixture.state.detailRequestCount).toBe(0);

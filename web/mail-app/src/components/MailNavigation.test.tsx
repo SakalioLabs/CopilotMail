@@ -35,7 +35,7 @@ function commonProps(mailbox: MailboxDirectoryItem) {
 }
 
 describe("mail navigation mailbox identity", () => {
-  it("keeps the selected Human identity and server sendability visible on desktop even while compose is busy", () => {
+  it("keeps the selected Human identity and server sendability inside the account menu on desktop", () => {
     const mailbox: MailboxDirectoryItem = {
       mailbox_id: "019b0000-0000-7000-8000-000000000020",
       kind: "human",
@@ -60,17 +60,11 @@ describe("mail navigation mailbox identity", () => {
       </>,
     );
 
-    const identity = screen.getByRole("region", { name: "Current mailbox identity" });
-    expect(identity).toHaveTextContent("Personal");
-    expect(within(identity).getByText("reader@example.test")).toBeInTheDocument();
-    expect(within(identity).getByText("Server status")).toBeInTheDocument();
-    expect(within(identity).getByText("Can send email")).toBeInTheDocument();
-    expect(identity.querySelector("[data-sendable='true']")).toHaveClass(
-      "status-indicator--positive",
-    );
-    expect(screen.getByRole("combobox", { name: "Switch mailbox" })).toHaveValue(
-      mailbox.mailbox_id,
-    );
+    // The rail no longer carries a permanent mailbox section; the directory
+    // facts moved into the identity card's account menu.
+    const sidebar = document.querySelector<HTMLElement>(".sidebar")!;
+    expect(sidebar.querySelector(".mailbox-identity")).not.toBeInTheDocument();
+    expect(within(sidebar).queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Compose" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Compose" })).toHaveClass("compose-fab");
     const card = screen.getByRole("button", { name: /reader@example\.test/ });
@@ -78,6 +72,11 @@ describe("mail navigation mailbox identity", () => {
     expect(card).toHaveAttribute("aria-haspopup", "menu");
     fireEvent.click(card);
     const menu = screen.getByRole("menu", { name: "Account" });
+    const section = within(menu).getByRole("group", { name: "Switch mailbox" });
+    expect(within(section).getByText("Personal")).toBeInTheDocument();
+    expect(within(section).getByText("Can send email")).toBeInTheDocument();
+    expect(within(section).getByRole("menuitemradio", { name: "reader@example.test" }))
+      .toHaveAttribute("aria-checked", "true");
     expect(within(menu).getByRole("menuitem", { name: "Settings" })).toBeEnabled();
     expect(within(menu).getByRole("menuitem", { name: "Sign out" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Inbox" }).querySelector("[data-icon='inbox']"))
@@ -88,7 +87,7 @@ describe("mail navigation mailbox identity", () => {
       .toBeInTheDocument();
   });
 
-  it("keeps factual mobile scope visible while low-frequency controls are closed by default", () => {
+  it("keeps the drawer factual through the identity card menu without a scope disclosure", () => {
     const mailbox: MailboxDirectoryItem = {
       mailbox_id: "019b0000-0000-7000-8000-000000000021",
       kind: "agent",
@@ -106,37 +105,21 @@ describe("mail navigation mailbox identity", () => {
     );
 
     const drawer = screen.getByRole("dialog", { name: "Mail navigation" });
-    const scope = drawer.querySelector<HTMLDetailsElement>(".mobile-mailbox-scope");
-    const summary = scope?.querySelector<HTMLElement>("summary");
-    expect(scope).not.toBeNull();
-    expect(scope).not.toHaveAttribute("open");
-    expect(summary).toHaveTextContent("triage-agent@example.test");
-    expect(summary).toHaveTextContent("Agent");
-    expect(summary).toHaveTextContent("This mailbox is read-only");
-    expect(summary?.querySelector("[data-sendable='false']")).toHaveClass(
-      "status-indicator--warning",
-    );
-
-    fireEvent.click(summary!);
-    expect(scope).toHaveAttribute("open");
-
-    const identity = scope?.querySelector<HTMLElement>(".mobile-mailbox-identity");
-    expect(identity).toHaveTextContent("Current mailbox identity");
-    expect(identity).toHaveTextContent("Agent");
-    expect(identity).toHaveTextContent("triage-agent@example.test");
-    expect(identity).toHaveTextContent("Server status");
-    expect(identity?.querySelector("[data-sendable='false']")).toHaveClass(
-      "status-indicator--warning",
-    );
-    expect(within(scope!).getByRole("combobox", { name: "Switch mailbox" })).toHaveValue(
-      mailbox.mailbox_id,
-    );
-    expect(within(scope!).queryByRole("combobox", { name: "Language" })).not.toBeInTheDocument();
-    expect(within(scope!).queryByRole("button", { name: "Sign out" })).not.toBeInTheDocument();
+    expect(drawer.querySelector(".mobile-mailbox-scope")).not.toBeInTheDocument();
+    expect(within(drawer).queryByRole("combobox")).not.toBeInTheDocument();
     const card = within(drawer).getByRole("button", { name: /triage-agent@example\.test/ });
     expect(card).toHaveClass("identity-card");
     fireEvent.click(card);
-    expect(within(drawer).getByRole("menu", { name: "Account" })).toBeInTheDocument();
+    const menu = within(drawer).getByRole("menu", { name: "Account" });
+    const section = within(menu).getByRole("group", { name: "Switch mailbox" });
+    expect(within(section).getByText("Agent")).toBeInTheDocument();
+    expect(within(section).getByText("This mailbox is read-only")).toBeInTheDocument();
+    expect(section.querySelector("[data-sendable='false']")).toHaveClass(
+      "status-indicator--warning",
+    );
+    expect(within(section).getByRole("menuitemradio", { name: "triage-agent@example.test" }))
+      .toHaveAttribute("aria-checked", "true");
+    expect(within(drawer).queryByRole("combobox", { name: "Language" })).not.toBeInTheDocument();
     expect(within(drawer).queryByRole("button", { name: "Compose" })).not.toBeInTheDocument();
     expect(document.querySelector<HTMLButtonElement>(".compose-fab")).toBeDisabled();
     expect(within(drawer).getByRole("button", { name: "Inbox" }).querySelector("[data-icon='inbox']"))
@@ -147,7 +130,7 @@ describe("mail navigation mailbox identity", () => {
       .toBeInTheDocument();
   });
 
-  it("locks only the mailbox switch in an expanded mobile scope", () => {
+  it("locks mailbox switching behind the card while the session is revalidated", () => {
     const mailbox: MailboxDirectoryItem = {
       mailbox_id: "019b0000-0000-7000-8000-000000000022",
       kind: "human",
@@ -166,11 +149,7 @@ describe("mail navigation mailbox identity", () => {
     );
 
     const drawer = screen.getByRole("dialog", { name: "Mail navigation" });
-    const scope = drawer.querySelector<HTMLDetailsElement>(".mobile-mailbox-scope");
-    fireEvent.click(scope?.querySelector("summary")!);
-
-    expect(scope).toHaveAttribute("open");
-    expect(within(scope!).getByRole("combobox", { name: "Switch mailbox" })).toBeDisabled();
-    expect(within(drawer).getByRole("button", { name: /writer@example\.test/ })).toBeDisabled();
+    expect(within(drawer).getByRole("button", { name: /writer@example\.test/ }))
+      .toBeDisabled();
   });
 });

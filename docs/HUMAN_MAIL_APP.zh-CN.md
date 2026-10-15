@@ -31,8 +31,8 @@ Host-only HttpOnly Secure SameSite=Strict Session Cookie；Mail Session 只能�
 - 部署配置中的 `mailboxId` 只是初始 UI 偏好，不是授权输入，也不会绕过服务端目录；
   未配置、不可见或不存在时使用授权结果中的 Human 邮箱或首个邮箱作为安全回退。
 
-桌面与移动端均可在已加载目录中切换 Human、Agent、Shared 与 Group 可读邮箱；选择器按
-四类身份建立真实 `optgroup`，只呈现服务端返回的组和邮箱。切换到 Agent 邮箱后，可见身份、
+桌面与移动端均可在已加载目录中切换 Human、Agent、Shared 与 Group 可读邮箱；账户菜单中的邮箱切换按
+四类身份建立真实分组（`role="group"` + `menuitemradio`），只呈现服务端返回的组和邮箱。切换到 Agent 邮箱后，可见身份、
 主地址及后续收件箱请求均精确绑定所选邮箱 UUID，不从地址推断 Owner、Scope 或运行状态。
 切换时客户端会同步推进收件箱请求代次、作废并中止详情请求，清空搜索条件、列表、当前详情、
 已选邮件与写信/回复草稿状态；旧邮箱的迟到响应、自动保存或提交轮询不能污染新邮箱。可发送
@@ -43,7 +43,7 @@ Host-only HttpOnly Secure SameSite=Strict Session Cookie；Mail Session 只能�
 
 邮件端的范围栏与写信窗口均使用同一组可访问上下文原语，但只消费当前已经授权读取的字段：
 
-- 当前邮箱范围只显示目录的 `primary_address`，身份只显示目录的 `kind` 及其可见文字标签，
+- 当前邮箱身份只显示目录的 `primary_address`（身份卡片）与 `kind` 及其可见文字标签（账户菜单），
   发送可用性只显示目录的 `can_send`。浏览器不从地址、选中状态或写信按钮推断 Agent Owner、
   Scope、Actor、委托、策略决策或投递结果；
 - 写信窗口将当前本地草稿状态与服务器返回的 Submission 状态放在发送动作旁。`accepted` 仍只

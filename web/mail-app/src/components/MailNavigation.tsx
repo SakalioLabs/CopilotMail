@@ -2,15 +2,11 @@ import { useEffect } from "react";
 import type { Locale, Translator } from "../i18n";
 import type { MailboxDirectoryItem } from "../types";
 import {
-  ContextBar,
   Dialog,
   Icon,
-  IdentityBadge,
-  StatusIndicator,
   type IconName,
 } from "@copilotmail/design-system";
 import { IdentityCardMenu } from "./IdentityCardMenu";
-import { MailboxPicker } from "./MailboxPicker";
 
 export type MailView = "inbox" | "sent" | "drafts";
 
@@ -104,134 +100,6 @@ function MailViewNavigation({
   );
 }
 
-/**
- * The directory is the sole authority for mailbox identity.  Keep this
- * summary adjacent to navigation instead of deriving identity or sendability
- * from client state (for example, whether the compose button happens to be
- * enabled).
- */
-function MailboxIdentity({
-  activeMailbox,
-  className = "",
-  t,
-}: Pick<MailNavigationProps, "activeMailbox" | "t"> & { className?: string }) {
-  const mailboxKind = t(`mailbox.kind.${activeMailbox.kind}`);
-  const sendability = activeMailbox.can_send
-    ? t("mailbox.canSend")
-    : t("mailbox.readOnly");
-
-  return (
-    <ContextBar
-      className={["mailbox-identity", className].filter(Boolean).join(" ")}
-      facts={[
-        {
-          id: "scope",
-          label: t("mailbox.scopeLabel"),
-          value: (
-            <span className="mailbox-identity__address" title={activeMailbox.primary_address}>
-              {activeMailbox.primary_address}
-            </span>
-          ),
-        },
-        {
-          id: "identity",
-          label: t("mailbox.identityFactLabel"),
-          value: <IdentityBadge kind={activeMailbox.kind} label={mailboxKind} />,
-        },
-        {
-          id: "send-availability",
-          label: t("mailbox.serverStatus"),
-          value: (
-            <StatusIndicator
-              className="mailbox-identity__status-value"
-              data-sendable={activeMailbox.can_send}
-              label={sendability}
-              tone={activeMailbox.can_send ? "positive" : "warning"}
-            />
-          ),
-        },
-      ]}
-      headingLevel={3}
-      title={t("mailbox.identityLabel")}
-    />
-  );
-}
-
-/**
- * The compact mobile scope is factual even while its detailed controls remain
- * closed. Its address, identity label, and sendability all come from the
- * selected server-backed directory item; it never infers them from compose
- * availability or from the last interaction on this device.
- */
-function MobileMailboxScopeSummary({
-  activeMailbox,
-  t,
-}: Pick<MailNavigationProps, "activeMailbox" | "t">) {
-  const mailboxKind = t(`mailbox.kind.${activeMailbox.kind}`);
-  const sendability = activeMailbox.can_send
-    ? t("mailbox.canSend")
-    : t("mailbox.readOnly");
-
-  return (
-    <summary className="mobile-mailbox-scope__summary">
-      <span className="mobile-mailbox-scope__summary-address" title={activeMailbox.primary_address}>
-        {activeMailbox.primary_address}
-      </span>
-      <IdentityBadge
-        className="mobile-mailbox-scope__summary-identity"
-        kind={activeMailbox.kind}
-        label={mailboxKind}
-      />
-      <StatusIndicator
-        className="mobile-mailbox-scope__summary-status"
-        data-sendable={activeMailbox.can_send}
-        label={sendability}
-        tone={activeMailbox.can_send ? "positive" : "warning"}
-      />
-      <Icon
-        aria-hidden
-        className="mobile-mailbox-scope__summary-indicator"
-        name="chevron-down"
-        size={16}
-      />
-    </summary>
-  );
-}
-
-function MailboxScopeControls({
-  activeMailbox,
-  mailboxes,
-  mailboxHasMore,
-  mailboxLoadMoreBusy,
-  mailboxLoadMoreError,
-  sessionLocked = false,
-  onMailboxChange,
-  onMailboxLoadMore,
-  t,
-}: MailNavigationProps) {
-  return (
-    <>
-      <MailboxIdentity
-        activeMailbox={activeMailbox}
-        className="mobile-mailbox-identity"
-        t={t}
-      />
-      <MailboxPicker
-        activeMailboxId={activeMailbox.mailbox_id}
-        disabled={sessionLocked}
-        className="mobile-mailbox-picker"
-        mailboxes={mailboxes}
-        hasMore={mailboxHasMore}
-        loadMoreBusy={mailboxLoadMoreBusy}
-        loadMoreError={mailboxLoadMoreError}
-        onChange={onMailboxChange}
-        onLoadMore={onMailboxLoadMore}
-        t={t}
-      />
-    </>
-  );
-}
-
 export function DesktopNavigation(props: MailNavigationProps) {
   const {
     activeMailbox,
@@ -263,20 +131,6 @@ export function DesktopNavigation(props: MailNavigationProps) {
         onViewChange={onViewChange}
         t={t}
       />
-      <div className="sidebar__mailbox">
-        <MailboxPicker
-          activeMailboxId={activeMailbox.mailbox_id}
-          disabled={sessionLocked}
-          mailboxes={mailboxes}
-          hasMore={mailboxHasMore}
-          loadMoreBusy={mailboxLoadMoreBusy}
-          loadMoreError={mailboxLoadMoreError}
-          onChange={onMailboxChange}
-          onLoadMore={onMailboxLoadMore}
-          t={t}
-        />
-        <MailboxIdentity activeMailbox={activeMailbox} t={t} />
-      </div>
       <button
         className="command-trigger"
         aria-label={t("command.open")}
@@ -288,8 +142,14 @@ export function DesktopNavigation(props: MailNavigationProps) {
       </button>
       <IdentityCardMenu
         activeMailbox={activeMailbox}
+        mailboxes={mailboxes}
+        mailboxHasMore={mailboxHasMore}
+        mailboxLoadMoreBusy={mailboxLoadMoreBusy}
+        mailboxLoadMoreError={mailboxLoadMoreError}
         sessionLocked={sessionLocked}
         t={t}
+        onMailboxChange={onMailboxChange}
+        onMailboxLoadMore={onMailboxLoadMore}
         onOpenSettings={onOpenSettings}
         onSignOut={onSignOut}
       />
@@ -370,15 +230,6 @@ export function MobileNavigation(props: MobileNavigationProps) {
               onViewChange={selectView}
               t={t}
             />
-            <details className="mobile-mailbox-scope">
-              <MobileMailboxScopeSummary
-                activeMailbox={props.activeMailbox}
-                t={t}
-              />
-              <div className="mobile-mailbox-scope__content">
-                <MailboxScopeControls {...props} />
-              </div>
-            </details>
             <button
               className="command-trigger mobile-command-trigger"
               aria-label={t("command.open")}
@@ -393,8 +244,21 @@ export function MobileNavigation(props: MobileNavigationProps) {
             </button>
             <IdentityCardMenu
               activeMailbox={props.activeMailbox}
+              mailboxes={props.mailboxes}
+              mailboxHasMore={props.mailboxHasMore}
+              mailboxLoadMoreBusy={props.mailboxLoadMoreBusy}
+              mailboxLoadMoreError={props.mailboxLoadMoreError}
               sessionLocked={props.sessionLocked}
               t={t}
+              onMailboxChange={(mailboxId) => {
+                // Selecting a mailbox reloads the workspace; close the drawer
+                // and park focus on the top bar menu button, like the other
+                // drawer-bound account actions.
+                document.querySelector<HTMLElement>(".mail-topbar__menu")?.focus();
+                onDrawerClose();
+                props.onMailboxChange(mailboxId);
+              }}
+              onMailboxLoadMore={props.onMailboxLoadMore}
               onOpenSettings={(trigger) => {
                 // The drawer unmounts as the settings dialog opens, so focus
                 // returns to the always-mounted top bar menu button instead

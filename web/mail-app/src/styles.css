@@ -222,85 +222,13 @@ body,
   margin: 0 0 12px;
 }
 
-.sidebar__mailbox {
-  display: grid;
-  gap: 10px;
-  margin: 4px 0 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--cm-line);
-}
 
-.mailbox-identity.context-bar {
-  display: grid;
-  min-width: 0;
-  gap: 8px;
-  margin: 0;
-  padding: 10px;
-  border: 1px solid var(--cm-line);
-  border-radius: var(--cm-radius-panel);
-  background: var(--cm-surface);
-}
-
-.mailbox-identity .context-bar__header { gap: 8px; }
-.mailbox-identity .context-bar__title,
-.composer-evidence__manual-review strong { font-size: 0.82rem; }
-.mailbox-identity .context-bar__status { max-width: 100%; }
-.mailbox-identity .context-bar__facts {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 7px;
-  padding-top: 8px;
-}
-
-.mailbox-identity .entity-badge {
-  width: fit-content;
-}
-
-.mailbox-identity__address {
-  display: block;
-  color: var(--cm-muted);
-  font-size: 0.73rem;
-}
-
-.mailbox-identity__status-value {
-  min-width: 0;
-  max-width: 100%;
-  font-size: 0.7rem;
-}
-
-.mailbox-picker {
-  display: grid;
-  min-width: 0;
-  gap: 6px;
-  margin: 0;
-}
-
-.language-picker__label,
-.mailbox-picker label {
-  color: var(--cm-muted-strong);
-  font-size: var(--cm-text-micro);
-  font-weight: 730;
-}
-
-.mailbox-picker label {
-  display: grid;
-  min-width: 0;
-  gap: 5px;
-}
-
-/* Picker selects use the shared .control chrome; load-more actions use the
-   shared .button--secondary chrome. Mail keeps only the in-flight cursor. */
-.mailbox-load-more:disabled,
+/* Load-more and retry actions keep an in-flight cursor. */
 .load-more:disabled,
 .error--actionable button:disabled {
   cursor: wait;
 }
 
-.mailbox-page-error {
-  margin: 0 0 10px;
-  color: var(--cm-critical);
-  font-size: 0.75rem;
-  line-height: 1.45;
-}
 
 /* Identity card + account popover --------------------------------------- */
 
@@ -358,11 +286,10 @@ body,
 .command-trigger > span,
 .identity-card__name,
 .identity-card__email,
-.mailbox-identity__address,
 .message__sender,
 .message__subject,
 .message__preview,
-.mobile-mailbox-scope__summary-address {
+.identity-menu__mailbox-address {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -392,6 +319,9 @@ body,
   border-radius: var(--cm-radius-panel);
   background: var(--cm-surface);
   box-shadow: var(--cm-shadow-2);
+  max-height: min(70dvh, 480px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   transform-origin: 50% 100%;
   animation: identity-menu-in var(--cm-motion-spring-gentle);
 }
@@ -411,8 +341,49 @@ body,
 }
 
 @keyframes identity-menu-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  from { opacity: 0; transform: translateY(8px); }
 }
+
+.identity-menu__mailbox-status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-2);
+  padding: 4px var(--cm-space-3) 8px;
+}
+
+.identity-menu__mailbox-sendable { font-size: 0.72rem; }
+
+.identity-menu__group-label {
+  padding: 6px var(--cm-space-3) 2px;
+  color: var(--cm-muted);
+  font-size: 0.68rem;
+}
+
+.identity-menu__mailbox {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: var(--cm-space-2);
+}
+
+.identity-menu__mailbox-check { width: 14px; height: 14px; justify-self: start; }
+.identity-menu__mailbox[aria-checked="true"] { font-weight: 650; }
+
+.identity-menu__error {
+  padding: 2px var(--cm-space-3) 6px;
+  color: var(--cm-critical);
+  font-size: 0.72rem;
+}
+
+.identity-menu__separator {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--cm-line);
+}
+
+/* Drawer menus keep the 44px contract even with a fine pointer. */
+.mail-nav-drawer .identity-menu__item { min-height: var(--mail-touch); }
 
 /* Settings dialog -------------------------------------------------------- */
 
@@ -550,79 +521,6 @@ body,
 .mail-nav-drawer__body .command-trigger {
   margin: 0;
 }
-
-/* Native disclosure keeps scope facts visible without making every session
- * control permanently consume the reading viewport. Summary content is
- * intentionally factual, never a generic "more" icon. */
-.mobile-mailbox-scope {
-  min-width: 0;
-  border: 1px solid var(--cm-line);
-  border-radius: var(--cm-radius-panel);
-  background: var(--cm-surface);
-  overflow: clip;
-}
-
-.mobile-mailbox-scope__summary {
-  display: grid;
-  min-width: 0;
-  min-height: var(--mail-touch);
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 6px 9px;
-  padding: 9px 14px;
-  color: var(--cm-ink);
-  cursor: pointer;
-  list-style: none;
-}
-
-.mobile-mailbox-scope__summary::-webkit-details-marker { display: none; }
-.mobile-mailbox-scope__summary:focus-visible { border-radius: var(--cm-radius-control); outline: none; box-shadow: var(--cm-focus-ring); }
-.mobile-mailbox-scope__summary-address { color: var(--cm-muted-strong); font-size: 0.78rem; font-weight: 710; }
-.mobile-mailbox-scope__summary-identity { justify-self: end; }
-.mobile-mailbox-scope__summary-status { min-width: 0; grid-column: 1; font-size: 0.72rem; }
-.mobile-mailbox-scope__summary-indicator { grid-column: 2; grid-row: 2; justify-self: end; color: var(--cm-muted); transition: transform var(--cm-motion-spring-snappy); }
-.mobile-mailbox-scope[open] .mobile-mailbox-scope__summary-indicator { transform: rotate(180deg); }
-.mobile-mailbox-scope[open] .mobile-mailbox-scope__summary { border-bottom: 1px solid var(--cm-line); background: var(--cm-surface-subtle); }
-
-.mobile-mailbox-scope__content {
-  display: grid;
-  gap: 12px;
-  padding: 12px 14px 14px;
-}
-
-.mobile-mailbox-identity.context-bar {
-  display: grid;
-  gap: 7px;
-  margin: 0;
-  padding: 10px;
-  background: var(--cm-surface-subtle);
-}
-
-.mobile-mailbox-identity .context-bar__header { align-items: center; }
-.mobile-mailbox-identity .context-bar__title,
-.mobile-mailbox-identity .entity-badge { font-size: 0.72rem; }
-.mobile-mailbox-identity .context-bar__status { max-width: min(58%, 280px); }
-.mobile-mailbox-identity .context-bar__facts {
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px 9px;
-  padding-top: 7px;
-}
-.mobile-mailbox-identity .context-bar__label { font-size: 0.66rem; }
-.mobile-mailbox-identity .context-bar__value { font-size: 0.74rem; }
-.mobile-mailbox-identity .mailbox-identity__address {
-  min-width: 0;
-  font-size: 0.72rem;
-}
-
-.mobile-mailbox-identity .mailbox-identity__status-value {
-  font-size: 0.68rem;
-}
-
-.mobile-mailbox-picker { display: grid; margin: 0; }
-.mobile-mailbox-picker label { gap: 5px; }
-.mobile-mailbox-picker select { min-width: var(--mail-touch); min-height: var(--mail-touch); }
-.mobile-mailbox-picker .mailbox-load-more { width: fit-content; min-height: var(--mail-touch); }
-.mobile-mailbox-picker .mailbox-page-error { margin: 0; }
 
 .inbox,
 .detail {
@@ -1167,13 +1065,6 @@ body,
 
   .sidebar { padding: 0 8px 14px 10px; }
   .app-nav-item { padding: 0 var(--cm-space-3); }
-  .mailbox-identity.context-bar { gap: 7px; padding: 8px; }
-  .mailbox-identity .context-bar__title { font-size: 0.76rem; }
-  .mailbox-identity .context-bar__facts { gap: 6px; padding-top: 7px; }
-  .mailbox-identity__address { font-size: 0.68rem; }
-  .mailbox-identity__status-value { font-size: 0.65rem; }
-  .mailbox-picker label { font-size: 0.67rem; }
-  .mailbox-picker select { min-height: 36px; padding-inline: 8px 25px; font-size: 0.77rem; }
   .command-trigger { grid-template-columns: 17px minmax(0, 1fr); gap: 7px; padding-inline: 8px; font-size: 0.74rem; }
 }
 
@@ -1282,12 +1173,6 @@ body,
   }
   .session-check__actions { grid-column: 1 / -1; }
   .session-check__actions .button { flex: 1 1 0; }
-  .mobile-mailbox-scope__summary { gap: 5px 7px; padding: 8px 10px; }
-  .mobile-mailbox-scope__summary-address { font-size: 0.74rem; }
-  .mobile-mailbox-scope__summary-status { font-size: 0.69rem; }
-  .mobile-mailbox-scope__content { gap: 10px; padding: 10px; }
-  .mobile-mailbox-identity.context-bar { gap: 5px; padding: 8px 10px; }
-  .mobile-mailbox-identity .entity-badge { font-size: 0.69rem; }
   .inbox-header { min-height: 56px; padding: 8px 12px; }
   .inbox h1 { font-size: 1.16rem; }
   .message__sender { flex-basis: clamp(84px, 30%, 140px); }
@@ -1324,9 +1209,7 @@ body,
   .compose-fab,
   .command-trigger,
   .app-nav-item,
-  .mailbox-picker select,
   .language-picker select,
-  .mailbox-load-more,
   .load-more,
   .error--actionable button,
   .empty-action,
@@ -1341,8 +1224,4 @@ body,
     min-height: var(--mail-touch);
   }
 
-  .mobile-mailbox-picker .mailbox-load-more {
-    width: var(--mail-touch);
-    min-width: var(--mail-touch);
-  }
 }

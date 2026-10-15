@@ -184,11 +184,15 @@ test.describe("Mail server-authoritative read-only state", () => {
     await page.setViewportSize({ width: 1440, height: 1024 });
     await mailApp.goto();
 
-    const identity = page.locator(".sidebar .mailbox-identity");
+    const card = page.locator(".sidebar .identity-card");
+    await expect(card.locator(".identity-card__email"))
+      .toHaveText("operations-shared@copilotmail.test");
+    await card.click();
+    const identity = page.getByRole("menu", { name: "Account", exact: true })
+      .getByRole("group", { name: "Switch mailbox", exact: true });
     await expect(identity.getByText("Shared", { exact: true })).toBeVisible();
-    await expect(identity.getByText("operations-shared@copilotmail.test", { exact: true }))
-      .toBeVisible();
     await expect(identity.getByText("This mailbox is read-only", { exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
     await expect(page.locator(".compose-fab")).toBeDisabled();
     await expect(page.locator(".sidebar").getByRole("button", { name: "Drafts", exact: true }))
       .toBeDisabled();
@@ -327,7 +331,7 @@ test.describe("Mail unknown-submission freeze", () => {
       exact: true,
     }))
       .toBeEnabled();
-    await expect(page.locator(".sidebar .mailbox-picker select"))
+    await expect(page.locator(".sidebar .identity-card"))
       .toBeDisabled();
     expect(fixture.state.submissionRequestCount).toBe(1);
 
@@ -529,18 +533,18 @@ test.describe("Mail narrow-screen interaction cost", () => {
       await expectMinimumTouchTarget(locator, label);
     }
 
-    const mailboxScope = drawer.locator(".mobile-mailbox-scope");
-    const mailboxScopeSummary = mailboxScope.locator("summary");
-    await expectMinimumTouchTarget(mailboxScopeSummary, "mailbox scope disclosure");
-    await mailboxScopeSummary.click();
-    await expect(mailboxScope).toHaveAttribute("open", "");
-    for (const [label, locator] of [
-      ["mailbox selector", drawer.getByRole("combobox", { name: "Switch mailbox" })],
-      ["account card", drawer.locator(".identity-card")],
-    ] as const) {
-      await expectMinimumTouchTarget(locator, label);
-    }
+    await drawer.locator(".identity-card").click();
+    const accountMenu = drawer.getByRole("menu", { name: "Account", exact: true });
+    await expectMinimumTouchTarget(
+      accountMenu.getByRole("menuitemradio").first(),
+      "mailbox switch item",
+    );
+    await expectMinimumTouchTarget(
+      accountMenu.getByRole("menuitem", { name: "Settings", exact: true }),
+      "settings item",
+    );
 
+    // Pressing the next control also dismisses the menu via its outside press.
     await drawer.getByRole("button", { name: "Open command palette" }).click();
     const commandDialog = page.getByRole("dialog", { name: "Command palette" });
     const commandSearch = page.getByRole("combobox", { name: "Search commands" });
