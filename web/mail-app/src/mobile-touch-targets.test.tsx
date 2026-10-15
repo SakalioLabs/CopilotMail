@@ -80,7 +80,7 @@ describe("mobile touch target contract", () => {
     );
     // Drawer scope chrome keeps its 44px floor as base styles because the
     // drawer only ever opens below the mobile breakpoint.
-    expect(selectorRule(mailStyles, ".mobile-mailbox-scope__summary")).toContain(
+    expect(selectorRule(mailStyles, ".mobile-mailbox-scope__summary {")).toContain(
       "min-height: var(--mail-touch);",
     );
     expect(selectorRule(mobileMailStyles, ".mail-nav-drawer button")).toContain(
@@ -92,7 +92,9 @@ describe("mobile touch target contract", () => {
     expect(selectorRule(mailStyles, ".mobile-mailbox-picker select")).toContain(
       "min-height: var(--mail-touch);",
     );
-    expect(selectorRule(mailStyles, ".identity-card")).toContain(
+    // .identity-card shares its interactive chrome with .command-trigger in a
+    // merged rule; the 44px floor lives on its own selector.
+    expect(selectorRule(mailStyles, ".identity-card {")).toContain(
       "min-height: var(--mail-touch);",
     );
     expect(selectorRule(mailStyles, ".settings-dialog .language-picker select")).toContain(

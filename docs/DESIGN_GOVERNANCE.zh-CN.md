@@ -245,6 +245,35 @@ Gmail 风格外壳，仅表现层与布局改动，API 调用、权限、审计�
   （`--mail-touch-target-size` → `--mail-touch`，测试同步更新断言字面量、断言强度不变）
   自费；未提高任何预算或阈值。
 
+### 2026-10-14 IMail 品牌、身份菜单、全宽收件箱与悬浮写信（批次 19）
+
+用户 2026-10-14 需求：品牌改名 IMail、侧栏左下身份卡片与苹果式弹出菜单、收件箱
+全宽+独立详情页、写信按钮改为右下角悬浮按钮。除命名与布局外，权限、审计、
+业务逻辑与 i18n 目录结构不变，不新增依赖：
+
+- **品牌**：用户面 wordmark 为粗体文字「IMail」（`brand-wordmark`/`app-wordmark`
+  纯文本，无图片/外部字体），副标题与 ARIA 走 i18n（zh「智能邮箱」/ en "Smart Mail"），
+  `<title>`、`document.title`、登录/目录页、会话校验文案同步。内部 crate/包名、
+  API 开发者控制台与 Admin 平台面继续称 CopilotMail。
+- **身份卡片与菜单**：导航区左下 `identity-card` 展示目录邮箱的显示名与地址；
+  `identity-menu` 弹出层（`role="menu"`/`menuitem`、弹簧 `translateY+scale` 入场、
+  仅 transform/opacity）提供「设置」「退出登录」两个菜单项；Enter/Space 打开、
+  方向键循环、Escape 关闭并把焦点还给卡片、外部点击关闭。语言选择从顶栏/抽屉
+  迁入「设置」对话框（`settings-dialog`，焦点返回卡片）。
+- **全宽收件箱与详情路由**：`.mail-shell` 改为 rail + 单内容列；收件箱列表独占
+  内容列。打开消息 `pushState` 到 `#/message/<encoded-id>`：详情视图可直达、可
+  刷新、浏览器前进/后退与 deep link 均经 `hashchange`/`popstate` 同步；返回按钮
+  恢复列表滚动位置并把焦点还给被选行。选中行在分页/刷新后按 message_id 重绑，
+  消失时按原索引确定性地落到相邻行并关闭详情路由。
+- **悬浮写信按钮**：侧栏与抽屉的 compose 入口收敛为单一 `.compose-fab`
+  （56px、`position: fixed`、右下、`env(safe-area-inset-*)` 感知、可聚焦、
+  本地化 aria-label），按下 `scale(0.92)` 经 snappy 弹簧回弹，仅 transform；
+  列表/详情底部统一 `--mail-fab-gap` 间隙，不遮挡末行。
+- **预算腾挪**：新增样式全部自费——合并 `.inbox`/`.detail` 卡片 chrome、
+  `.identity-card`/`.command-trigger` 交互基底、跨组件省略号组与焦点环/悬停
+  规则，抽 `--mail-fab-gap` 共享间隙变量；Mail CSS 49,131 B ≤ 49,152 B 默认线
+  （余 21 B），未上调任何预算或阈值。
+
 ### D4A/D4B/D4C/D4D/D4E 当前生产构建测量（2026-10-14）
 
 最新 `npm run build` 的 Admin 工件为：首屏 JavaScript 335,232 B（gzip 102,313 B）、完整图谱

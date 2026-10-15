@@ -68,20 +68,16 @@ test.describe("Mail built-artifact browser contracts", () => {
         );
       })).toBe(true);
       await expect(page.getByText("routing-evidence-q1.pdf", { exact: true })).toBeVisible();
-      // On the explicit mobile list-detail stack the queue is correctly
-      // hidden after selection; desktop still proves the list preview.
-      if (viewport.width > 1007) {
-        await expect(page.getByText(FIXTURE_MESSAGE.preview)).toBeVisible();
-        // A snapshot can accidentally bless an unstyled native button. Keep
-        // the shared primary-control contract independently measurable.
-        const compose = page.locator(".sidebar .compose");
-        await expect(compose).toHaveClass(/\bbutton\b/);
-        expect(await compose.evaluate((button) => button.getBoundingClientRect().height))
-          .toBeGreaterThanOrEqual(40);
-        await expect(page.locator(".detail-back")).toBeHidden();
-      } else {
-        await expect(page.locator(".detail-back")).toBeVisible();
-      }
+      // The routed detail replaces the queue at every width; the back
+      // control stays reachable and the floating compose action keeps a
+      // measurable primary-control contract instead of a native button.
+      await expect(page.locator(".inbox")).toHaveCount(0);
+      await expect(page.locator(".detail-back")).toBeVisible();
+      const compose = page.locator(".compose-fab");
+      await expect(compose).toBeVisible();
+      expect(await compose.evaluate((button) => button.tagName)).toBe("BUTTON");
+      expect(await compose.evaluate((button) => button.getBoundingClientRect().height))
+        .toBeGreaterThanOrEqual(40);
       expect(await page.locator("html").evaluate((html) => html.scrollWidth <= window.innerWidth))
         .toBe(true);
       await expect(page).toHaveScreenshot(`mail-inbox-${viewport.name}.png`, {
@@ -93,7 +89,7 @@ test.describe("Mail built-artifact browser contracts", () => {
     });
   }
 
-  test("uses only readable three-column geometry and changes to the explicit stack before columns crowd", async ({
+  test("uses readable rail-plus-content geometry and collapses the rail before the content crowds", async ({
     mailApp,
   }) => {
     const { page } = mailApp;
@@ -107,25 +103,30 @@ test.describe("Mail built-artifact browser contracts", () => {
       await mailApp.goto();
       await expect(page.locator(".sidebar")).toBeVisible();
       await expect(page.locator(".mail-topbar__menu")).toBeHidden();
-      await expect(page.locator(".compose-fab")).toBeHidden();
+      await expect(page.locator(".compose-fab")).toBeVisible();
 
       const geometry = await page.locator(".mail-shell").evaluate((shell) => {
         const rail = shell.querySelector<HTMLElement>(".sidebar");
         const queue = shell.querySelector<HTMLElement>(".inbox");
         const reading = shell.querySelector<HTMLElement>(".detail");
-        if (!rail || !queue || !reading) throw new Error("mail_shell_geometry_missing");
+        if (!rail || !queue) throw new Error("mail_shell_geometry_missing");
         return {
+          columns: getComputedStyle(shell).gridTemplateColumns
+            .split(" ").length,
           documentWidth: document.documentElement.scrollWidth,
           queue: queue.getBoundingClientRect().width,
           rail: rail.getBoundingClientRect().width,
-          reading: reading.getBoundingClientRect().width,
+          reading: reading?.getBoundingClientRect().width ?? 0,
           viewportWidth: window.innerWidth,
         };
       });
 
+      expect(geometry.columns).toBe(2);
       expect(geometry.rail).toBeCloseTo(expectation.rail, 0);
-      expect(geometry.queue).toBeGreaterThanOrEqual(299.5);
-      expect(geometry.reading).toBeGreaterThanOrEqual(459.5);
+      // The full-width queue fills the content column minus its fixed
+      // margins (space-2 left + space-4 right = 24px).
+      expect(geometry.queue).toBeCloseTo(expectation.width - expectation.rail - 24, 0);
+      expect(geometry.reading).toBe(0);
       expect(geometry.documentWidth).toBe(geometry.viewportWidth);
       expect(mailApp.fixture.state.detailRequestCount).toBe(0);
     }
@@ -135,7 +136,7 @@ test.describe("Mail built-artifact browser contracts", () => {
     await expect(page.locator(".sidebar")).toBeHidden();
     await expect(page.locator(".mail-topbar__menu")).toBeVisible();
     await expect(page.locator(".compose-fab")).toBeVisible();
-    await expect(page.locator(".mail-shell > .detail")).toBeHidden();
+    await expect(page.locator(".mail-shell > .detail")).toHaveCount(0);
     await expect(page.getByText(FIXTURE_MESSAGE.preview)).toBeVisible();
     expect(mailApp.fixture.state.detailRequestCount).toBe(0);
     expect(await page.locator("html").evaluate((html) => html.scrollWidth <= window.innerWidth))

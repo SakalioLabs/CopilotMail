@@ -26,10 +26,7 @@ test("renders an opaque focus boundary and a static reduced-motion spinner", asy
   const { page } = mailApp;
   await mailApp.goto();
 
-  const compose = page.locator(".sidebar").getByRole("button", {
-    name: "Compose",
-    exact: true,
-  });
+  const compose = page.locator(".compose-fab");
   // `:focus-visible` is intentionally input-modality aware. Begin with no
   // focused control, then reach Compose through the real keyboard tab order.
   // A DevTools `focus()` call is deliberately avoided: Chromium is permitted
@@ -79,15 +76,17 @@ test.describe("Mail localized browser state", () => {
     await page.getByRole("menuitem", { name: "Settings" }).click();
     const settings = page.getByRole("dialog", { name: "Settings" });
     await settings.getByRole("combobox", { name: "Language" }).selectOption("zh-CN");
-    await settings.getByRole("button", { name: "Close settings" }).click();
-    await expect(settings).toBeHidden();
+    // Switching the locale renames the surface, so it is re-located by its
+    // localized name before the close action is used.
+    const zhSettings = page.getByRole("dialog", { name: "设置" });
+    await zhSettings.getByRole("button", { name: "关闭设置" }).click();
+    await expect(zhSettings).toBeHidden();
 
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
     await expect(page.getByRole("heading", { name: "收件箱", exact: true })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "搜索邮件", exact: true })).toBeVisible();
-    await expect(page.locator(".sidebar").getByRole("button", { name: "写信", exact: true }))
-      .toBeVisible();
-    await page.locator(".sidebar").getByRole("button", { name: "写信", exact: true }).click();
+    await expect(page.locator(".compose-fab")).toBeVisible();
+    await page.locator(".compose-fab").click();
     const composer = page.getByRole("dialog", { name: "新邮件", exact: true });
     const composerContext = composer.getByRole("region", { name: "写信上下文", exact: true });
     await expect(composerContext).toBeVisible();
@@ -130,10 +129,7 @@ test("keeps the normal Compose context strip factual and compact at D4D widths",
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     await mailApp.goto();
-    const trigger = viewport.width > 1007
-      ? page.locator(".sidebar").getByRole("button", { name: "Compose", exact: true })
-      : page.locator(".compose-fab");
-    await trigger.click();
+    await page.locator(".compose-fab").click();
 
     const composer = page.getByRole("dialog", { name: "New message", exact: true });
     const context = composer.getByRole("region", { name: "Compose context", exact: true });
@@ -193,7 +189,7 @@ test.describe("Mail server-authoritative read-only state", () => {
     await expect(identity.getByText("operations-shared@copilotmail.test", { exact: true }))
       .toBeVisible();
     await expect(identity.getByText("This mailbox is read-only", { exact: true })).toBeVisible();
-    await expect(page.locator(".sidebar .compose")).toBeDisabled();
+    await expect(page.locator(".compose-fab")).toBeDisabled();
     await expect(page.locator(".sidebar").getByRole("button", { name: "Drafts", exact: true }))
       .toBeDisabled();
     await expect(page.locator(".sidebar").getByRole("button", { name: "Sent", exact: true }))
@@ -308,7 +304,7 @@ test.describe("Mail unknown-submission freeze", () => {
     await page.setViewportSize({ width: 1440, height: 1024 });
     await mailApp.goto();
 
-    await page.locator(".sidebar .compose").click();
+    await page.locator(".compose-fab").click();
     const composer = page.getByRole("dialog", { name: "New message", exact: true });
     await composer.getByRole("textbox", { name: "To", exact: true })
       .fill("reviewer@copilotmail.test");
@@ -464,9 +460,9 @@ test.describe("Mail complete inbox keyboard path", () => {
     await reply.getByRole("button", { name: "Close composer", exact: true }).click();
 
     await page.keyboard.press("s");
-    // The queue row's own flag control proves the shortcut starred the
-    // selected message; the reading pane exposes a same-named action.
-    await expect(page.locator(".messages").getByRole("button", {
+    // The routed detail exposes the same-named flag action; starring while
+    // reading proves the shortcut still targets the selected message.
+    await expect(page.locator(".detail").getByRole("button", {
       name: "Remove star",
       exact: true,
     })).toBeVisible();
@@ -524,7 +520,7 @@ test.describe("Mail narrow-screen interaction cost", () => {
     await page.locator(".mail-topbar__menu").click();
     const drawer = page.getByRole("dialog", { name: "Mail navigation" });
     for (const [label, locator] of [
-      ["compose", drawer.getByRole("button", { name: "Compose" })],
+      ["account card", drawer.locator(".identity-card")],
       ["command palette", drawer.getByRole("button", { name: "Open command palette" })],
       ["Inbox tab", drawer.getByRole("button", { name: "Inbox" })],
       ["Sent tab", drawer.getByRole("button", { name: "Sent" })],

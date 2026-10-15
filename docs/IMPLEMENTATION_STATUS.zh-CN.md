@@ -17,6 +17,20 @@
 > SQL/PLpgSQL 离线语法检查。最新新增迁移到 0060，均未在本轮部署。详见
 > [代码质量审查](CODE_QUALITY_REVIEW.zh-CN.md)；未完成的函数级验证、会话代次屏障和最终签字
 > 不被本地通过数替代。下列 411/317 等计数保持其历史口径，不是当前汇总。
+> **批次 19 IMail 改名 + 身份卡片菜单 + 全宽收件箱/详情路由 + 悬浮写信（2026-10-14）
+> 后的当前 Web 门禁**：`npm run check`、Vitest（435 条：设计系统 21、Admin 217、
+> Mail 197）、`npm run build` 与 `npm run e2e:run -- --workers=1`（仅回环 Chromium；
+> PNG 基线按平台拆分，`-linux` 基线随本批重建，`-win32` 仍待 Windows 重生成）均通过。
+> 本批改名只面向用户：Mail 应用品牌为 IMail（zh「智能邮箱」/ en "Smart Mail"），
+> 内部 crate/包名、API 开发者控制台与 Admin 平台面仍为 CopilotMail。布局上收件箱
+> 列表独占全宽，邮件经 `#/message/<id>` 路由打开整页详情（可直达/刷新/浏览器后退），
+> 账户入口收敛为左下身份卡片弹出菜单（设置/退出登录，语言选择迁入设置对话框），
+> 写信为右下角 56px 悬浮按钮。最新 Admin 工件为首屏 JavaScript 335,232 B
+> （gzip 102,309 B）、完整图谱 491,296 B（距 491,520 B 例外线余 224 B）、
+> CSS 54,255 B（gzip 10,475 B）；Mail 为首屏/完整图谱 JavaScript 331,463 B
+> （gzip 98,332 B）、CSS 49,131 B（gzip 9,341 B，距 49,152 B 默认线余 21 B），
+> 交付位图 2 个、最大 29,720 B。该结果只覆盖本地构建工件与内存 BFF 夹具，不表示
+> Docker、NixOS、数据库、IdP、域名邮件或生产环境已经验证。
 > **批次 17 视觉元素丰富（2026-10-13）后的当前 Web 门禁**：`npm run check`、Vitest（430 条：
 > 设计系统 21、Admin 217、Mail 192）、`npm run build` 与 `npm run e2e:run -- --workers=1`
 > （122/122，仅回环 Chromium；PNG 基线按平台拆分：`-linux` 102 张 Admin 39/Mail 63，其中

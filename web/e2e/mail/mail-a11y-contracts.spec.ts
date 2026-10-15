@@ -42,7 +42,7 @@ test("the composer traps Tab in both directions and returns focus to Compose", a
   await page.setViewportSize(DESKTOP);
   await mailApp.goto();
 
-  const composeTrigger = page.locator(".sidebar .compose");
+  const composeTrigger = page.locator(".compose-fab");
   await composeTrigger.focus();
   await page.keyboard.press("Enter");
   const composer = page.getByRole("dialog", { name: "New message", exact: true });
@@ -237,8 +237,11 @@ test.describe("mail queue reachability", () => {
     await page.getByRole("menuitem", { name: "Settings" }).click();
     const settings = page.getByRole("dialog", { name: "Settings" });
     await settings.getByRole("combobox", { name: "Language" }).selectOption("zh-CN");
-    await settings.getByRole("button", { name: "Close settings" }).click();
-    await expect(settings).toBeHidden();
+    // Switching the locale renames the surface, so it is re-located by its
+    // localized name before the close action is used.
+    const zhSettings = page.getByRole("dialog", { name: "设置" });
+    await zhSettings.getByRole("button", { name: "关闭设置" }).click();
+    await expect(zhSettings).toBeHidden();
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
 
     const inboxStatus = page.locator(".inbox").getByRole("status");

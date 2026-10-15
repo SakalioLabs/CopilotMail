@@ -98,6 +98,19 @@ implementation evidence remains in
 - `EmptyState` accepts a decorative `art` element alongside the existing
   registered-bitmap channel, and `IconButton` takes an icon element rather
   than a name so each consumer bundles only the glyphs it renders.
+- Human Mail product surface is renamed to IMail (zh「智能邮箱」/ en
+  "Smart Mail") with a bold text wordmark; internal crate/package names,
+  the API developer console, and the Admin platform keep the CopilotMail
+  name. The mailbox account surface moved into a lower-left identity card
+  with an Apple-style spring popover (Settings/Sign out; locale selection
+  now lives in the settings dialog), the inbox list occupies the full
+  content width, and opening a message routes to `#/message/<id>` — a
+  directly reachable, refreshable detail view with a back action, browser
+  history integration, list scroll restoration, and focus return. Compose
+  moved from the rail into a single safe-area-aware bottom-right floating
+  action button; all animations remain transform/opacity-only and the
+  `prefers-reduced-motion` contract is preserved. No API, permission,
+  audit, or information-architecture change.
 
 ### Security
 

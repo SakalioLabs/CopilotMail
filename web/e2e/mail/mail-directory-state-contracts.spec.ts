@@ -152,7 +152,7 @@ function expectDirectoryToStayMetadataOnly(
 }
 
 async function openComposerAndSend(page: Page, subject: string) {
-  await page.locator(".sidebar .compose").click();
+  await page.locator(".compose-fab").click();
   const composer = page.getByRole("dialog", { name: "New message", exact: true });
   await composer.getByRole("textbox", { name: "To", exact: true })
     .fill("one@recipient.example; two@recipient.example");

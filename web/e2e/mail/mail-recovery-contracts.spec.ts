@@ -92,7 +92,7 @@ test.describe("Mail grouped mailbox directory", () => {
     await expect.poll(() => fixture.state.inboxMailboxIds.at(-1))
       .toBe(agentMailbox.mailbox_id);
 
-    await page.locator(".sidebar .compose").click();
+    await page.locator(".compose-fab").click();
     const composer = page.getByRole("dialog", { name: "New message", exact: true });
     const composerContext = composer.getByRole("region", { name: "Compose context", exact: true });
     const contextFacts = composerContext.locator(".context-bar__fact");
@@ -212,7 +212,9 @@ test.describe("Mail detail recovery boundary", () => {
     await message.focus();
     await page.keyboard.press("Enter");
 
-    await expect(message).toHaveAttribute("aria-current", "true");
+    // The routed detail replaces the list; the URL is the selection record.
+    await expect(page).toHaveURL(new RegExp(`#/message/${MAIL_FIXTURE_IDS.message}$`));
+    await expect(message).toHaveCount(0);
     await expect(page.getByRole("heading", { name: LONG_SUBJECT, level: 2 })).toBeVisible();
     await expect(page.locator(".detail-load-error").getByRole("alert"))
       .toHaveText("This message is temporarily unavailable");
