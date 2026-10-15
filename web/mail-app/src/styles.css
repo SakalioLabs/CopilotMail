@@ -1294,7 +1294,10 @@ body,
   .message { gap: var(--cm-space-2); padding-right: var(--cm-space-3); }
   .detail { padding: 18px 16px var(--mail-fab-gap); }
   .dialog-layer { align-items: stretch; justify-items: stretch; padding: 0; }
-  .composer, .dialog-layer > .composer { position: fixed; width: 100%; height: 100dvh; max-height: none; inset: 0; border: 0; border-radius: 0; }
+  /* auto sizes + inset:0 pin all four edges to the viewport so the sheet can
+   * never outgrow it, even if a width/height length resolved against a stale
+   * layout during a viewport transition. */
+  .composer, .dialog-layer > .composer { position: fixed; width: auto; height: auto; max-height: none; inset: 0; border: 0; border-radius: 0; }
   .composer label { grid-template-columns: 62px minmax(0, 1fr); }
   .composer footer {
     align-items: stretch;
